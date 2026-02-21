@@ -154,6 +154,20 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
     return () => clearInterval(interval);
   }, []);
 
+  // Debug: Log order data when it changes
+  useEffect(() => {
+    if (order) {
+      console.log('[Receipt Viewer] Order received:', {
+        orderNumber: order.orderNumber,
+        items: order.items.map(item => ({
+          name: item.itemName,
+          specialInstructions: item.specialInstructions,
+          hasNote: !!item.specialInstructions,
+        })),
+      });
+    }
+  }, [order]);
+
   const handleThermalPrint = async () => {
     if (!order) return;
 
