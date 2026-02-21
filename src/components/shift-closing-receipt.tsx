@@ -76,6 +76,7 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ShiftClosingReportData | null>(null);
+  const [fullReportData, setFullReportData] = useState<ApiResponse['report'] | null>(null);
 
   // Fetch shift closing data when dialog opens
   useEffect(() => {
@@ -121,6 +122,9 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
 
       const report = result.data;
 
+      // Save full report data for printing
+      setFullReportData(report);
+
       // Transform API response to ShiftClosingReportData format
       const transformedData: ShiftClosingReportData = {
         storeName: 'Emperor Coffee',
@@ -159,22 +163,36 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
   };
 
   const printStandardPaper1 = () => {
-    if (!data) return;
+    if (!data || !fullReportData) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
     const cashierName = data.shift.cashier.name || data.shift.cashier.username;
-    const visaTotal = (data.paymentSummary.card + data.paymentSummary.other).toFixed(2);
-    const cashTotal = data.paymentSummary.cash.toFixed(2);
     const dateStr = new Date(data.shift.startTime).toLocaleDateString();
     const timeStr = `${new Date(data.shift.startTime).toLocaleTimeString()} - ${new Date(data.shift.endTime).toLocaleTimeString()}`;
 
-    const content = `
-<!DOCTYPE html>
+    // Order type breakdown data
+    const takeAway = fullReportData.orderTypeBreakdown?.['take-away'] || { value: 0, discounts: 0, total: 0 };
+    const dineIn = fullReportData.orderTypeBreakdown?.['dine-in'] || { value: 0, discounts: 0, total: 0 };
+    const delivery = fullReportData.orderTypeBreakdown?.['delivery'] || { value: 0, discounts: 0, total: 0 };
+
+    // Financial summary data
+    const totalSales = fullReportData.totals.sales || 0;
+    const totalDiscounts = fullReportData.totals.discounts || 0;
+    const totalDeliveryFees = fullReportData.totals.deliveryFees || 0;
+    const totalRefunds = fullReportData.totals.refunds || 0;
+    const totalCard = fullReportData.totals.card || 0;
+    const totalCash = fullReportData.totals.cash || 0;
+    const openingBalance = fullReportData.totals.openingCashBalance || 0;
+    const expectedCash = fullReportData.totals.expectedCash || 0;
+    const closingBalance = fullReportData.totals.closingCashBalance || 0;
+    const overShort = fullReportData.totals.overShort || 0;
+
+    const content = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Shift Closing - Payment Summary</title>
+  <title>Shift Closing - Shift ${data.shift.shiftNumber}</title>
   <style>
     @page {
       size: 80mm auto;
@@ -248,6 +266,13 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       color: #000;
     }
 
+    .section-title {
+      font-weight: bold;
+      margin: 10px 0 5px 0;
+      padding: 0;
+      text-decoration: underline;
+    }
+
     .info {
       margin-bottom: 10px;
       font-size: 12px;
@@ -258,6 +283,27 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       margin: 2px 0;
       padding: 0;
       color: #000;
+    }
+
+    .order-type {
+      margin-bottom: 10px;
+      padding: 5px;
+      border: 1px solid #000;
+    }
+
+    .order-type-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .order-type-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 2px 0;
+    }
+
+    .order-type-row span {
+      color: #000 !important;
     }
 
     .totals {
@@ -308,18 +354,98 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     <div>Cashier: ${cashierName}</div>
   </div>
 
+  <div class="section-title">Order Type Breakdown</div>
+
+  <div class="order-type">
+    <div class="order-type-title">Take Away</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(takeAway.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(takeAway.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(takeAway.total)}</span>
+    </div>
+  </div>
+
+  <div class="order-type">
+    <div class="order-type-title">Dine In</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(dineIn.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(dineIn.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(dineIn.total)}</span>
+    </div>
+  </div>
+
+  <div class="order-type">
+    <div class="order-type-title">Delivery</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(delivery.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(delivery.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(delivery.total)}</span>
+    </div>
+  </div>
+
+  <div class="section-title">Financial Summary</div>
+
   <div class="totals">
     <div class="total-row">
-      <span>TOTAL Visa:</span>
-      <span>${visaTotal}</span>
+      <span>Total Sales:</span>
+      <span>${formatCurrency(totalSales)}</span>
     </div>
     <div class="total-row">
-      <span>TOTAL Cash:</span>
-      <span>${cashTotal}</span>
+      <span>Total Discounts:</span>
+      <span>${formatCurrency(totalDiscounts)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Delivery Fees:</span>
+      <span>${formatCurrency(totalDeliveryFees)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Refunds:</span>
+      <span>${formatCurrency(totalRefunds)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Card:</span>
+      <span>${formatCurrency(totalCard)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Cash:</span>
+      <span>${formatCurrency(totalCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Opening Cash Balance:</span>
+      <span>${formatCurrency(openingBalance)}</span>
+    </div>
+    <div class="total-row">
+      <span>Expected Cash:</span>
+      <span>${formatCurrency(expectedCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Closing Cash Balance:</span>
+      <span>${formatCurrency(closingBalance)}</span>
     </div>
     <div class="total-row grand-total">
-      <span>TOTAL:</span>
-      <span>${(data.paymentSummary.total).toFixed(2)}</span>
+      <span>Over/Short:</span>
+      <span>${formatCurrency(overShort)}</span>
     </div>
   </div>
 
