@@ -87,20 +87,24 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
   // Auto-print both papers when data is loaded
   useEffect(() => {
     if (data && open) {
+      console.log('[Shift Closing] Auto-printing shift closing receipt...');
+      
       // Small delay to ensure the dialog is rendered
-      const timer = setTimeout(() => {
-        // Print Paper 1 (Payment Summary)
+      const timer1 = setTimeout(() => {
+        console.log('[Shift Closing] Printing Paper 1 (Payment Summary)...');
         printThermalPaper1();
-
-        // Print Paper 2 (Item Breakdown) after a short delay
-        const timer2 = setTimeout(() => {
-          printThermalPaper2();
-        }, 2500); // 2.5 second delay between prints
-
-        return () => clearTimeout(timer2);
       }, 1000); // 1 second delay to allow dialog to render
 
-      return () => clearTimeout(timer);
+      // Print Paper 2 (Item Breakdown) after a delay
+      const timer2 = setTimeout(() => {
+        console.log('[Shift Closing] Printing Paper 2 (Item Breakdown)...');
+        printThermalPaper2();
+      }, 4000); // 4 second delay between prints
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
   }, [data, open]);
 

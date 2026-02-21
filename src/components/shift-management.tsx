@@ -1099,6 +1099,11 @@ export default function ShiftManagement() {
         console.log('[handleCloseShift] Response data:', data);
 
         if (response.ok && data.success) {
+          // Set the shift for receipt and open the receipt dialog to auto-print
+          const closedShift = { ...selectedShift, isClosed: true };
+          setShiftForReceipt(closedShift);
+          setShiftClosingReceiptOpen(true);
+
           alert('Shift closed successfully!');
           setCloseDialogOpen(false);
           setClosingCash('');
@@ -1133,6 +1138,11 @@ export default function ShiftManagement() {
                 shiftNotes,
                 paymentBreakdown
               );
+              // Set the shift for receipt and open the receipt dialog to auto-print
+              const closedShift = { ...selectedShift, isClosed: true };
+              setShiftForReceipt(closedShift);
+              setShiftClosingReceiptOpen(true);
+
               alert('Shift closed (offline mode - will sync when online)');
               setCloseDialogOpen(false);
               setClosingCash('');
@@ -1162,6 +1172,11 @@ export default function ShiftManagement() {
             shiftNotes,
             paymentBreakdown
           );
+          // Set the shift for receipt and open the receipt dialog to auto-print
+          const closedShift = { ...selectedShift, isClosed: true };
+          setShiftForReceipt(closedShift);
+          setShiftClosingReceiptOpen(true);
+
           alert('Shift closed (offline mode - will sync when online)');
           setCloseDialogOpen(false);
           setClosingCash('');
@@ -1205,6 +1220,11 @@ export default function ShiftManagement() {
             shiftNotes,
             paymentBreakdown
           );
+          // Set the shift for receipt and open the receipt dialog to auto-print
+          const closedShift = { ...selectedShift, isClosed: true };
+          setShiftForReceipt(closedShift);
+          setShiftClosingReceiptOpen(true);
+
           alert('Shift closed (offline mode - will sync when online)');
           setCloseDialogOpen(false);
           setClosingCash('');

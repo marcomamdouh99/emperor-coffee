@@ -31,24 +31,35 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
   // Auto-print all papers when data is loaded
   useEffect(() => {
     if (data && open && data.shifts && data.shifts.length > 0) {
+      console.log('[Day Closing] Auto-printing day closing receipt...');
+      
       // Small delay to ensure the dialog is rendered
-      let delay = 1000; // Initial delay
-
-      // Print Paper 1 for each shift
+      const initialDelay = 1000;
+      
+      // Create print queue
+      const printQueue: Array<() => void> = [];
+      
+      // Add Paper 1 for each shift
       data.shifts.forEach((shift, index) => {
-        const timer = setTimeout(() => {
+        printQueue.push(() => {
+          console.log(`[Day Closing] Printing Paper 1 for Shift ${shift.shiftNumber}...`);
           printShiftPaper(shift);
-        }, delay);
-        delay += 3000; // 3 second delay between each shift's Paper 1
-        return () => clearTimeout(timer);
+        });
       });
-
-      // Print Paper 2 (Item Summary) after all shift papers
-      const timer2 = setTimeout(() => {
+      
+      // Add Paper 2 (Item Summary) after all shift papers
+      printQueue.push(() => {
+        console.log('[Day Closing] Printing Paper 2 (Item Summary)...');
         printItemSummary();
-      }, delay);
-
-      return () => clearTimeout(timer2);
+      });
+      
+      // Execute print queue with delays
+      printQueue.forEach((printFn, index) => {
+        const delay = initialDelay + (index * 3500); // 3.5 second delay between each print
+        setTimeout(() => {
+          printFn();
+        }, delay);
+      });
     }
   }, [data, open]);
 
