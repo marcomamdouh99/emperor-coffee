@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Filter, Download, Clock, User, FileText, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { useI18n } from '@/lib/i18n-context';
 import { format } from 'date-fns';
 
 interface AuditLogEntry {
