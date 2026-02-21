@@ -87,3 +87,47 @@ Stage Summary:
 - The isVoided tracking fields are now available in the database
 - Orders can now be created successfully
 - All changes pushed to GitHub
+
+---
+Task ID: 5-6
+Agent: zai-web-dev
+Task: Add auto-print functionality to Shift and Day closing
+
+Work Log:
+- Shift Closing Auto-Print Implementation:
+  - Modified `handleCloseShift` in `/home/z/my-project/src/components/shift-management.tsx`:
+    - Added code to automatically set shift for receipt after successful close (line 1103-1105)
+    - Added `setShiftForReceipt(closedShift)` and `setShiftClosingReceiptOpen(true)` after successful API close
+    - Added same auto-print logic for all offline shift closing scenarios (lines 1141-1144, 1175-1178, 1223-1226)
+    - Receipt dialog now opens automatically after closing shift (both online and offline)
+
+- Improved Shift Closing Receipt Auto-Print in `/home/z/my-project/src/components/shift-closing-receipt.tsx`:
+  - Fixed timer cleanup logic in useEffect (lines 88-109)
+  - Added detailed console logging for debugging print flow
+  - Paper 1 (Payment Summary) prints after 1 second delay
+  - Paper 2 (Item Breakdown) prints after 4 second delay (3 seconds after Paper 1)
+  - Both papers use standard print (window.open) like order receipts
+
+- Improved Day Closing Receipt Auto-Print in `/home/z/my-project/src/components/day-closing-receipt.tsx`:
+  - Rewrote auto-print logic to use print queue system (lines 32-64)
+  - Fixed timer cleanup issues that could prevent printing
+  - Added detailed console logging for debugging
+  - Print sequence:
+    - Paper 1 for each shift (3.5 seconds between each shift's paper)
+    - Paper 2 (Item Summary) after all shift papers
+  - All papers use standard print (window.open) like order receipts
+
+- Both receipts now print automatically:
+  - Shift Closing: Prints 2 papers (Payment Summary + Item Breakdown) automatically after closing
+  - Day Closing: Prints all shift papers + item summary automatically after closing
+  - Uses same standard print format as order receipts
+  - Proper delays between prints to allow browser print dialog processing
+
+- Committed and pushed all changes to GitHub (commit: fa4b2c6)
+
+Stage Summary:
+- Shift Closing now automatically prints receipt (2 papers) after closing
+- Day Closing now automatically prints all receipts (shift papers + item summary) after closing
+- Both use standard print format matching order receipts
+- Improved print reliability with better timing and cleanup
+- All changes pushed to GitHub main branch successfully
