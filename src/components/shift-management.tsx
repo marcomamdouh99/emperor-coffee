@@ -269,6 +269,8 @@ export default function ShiftManagement() {
   // Shift Closing Receipt state
   const [shiftClosingReceiptOpen, setShiftClosingReceiptOpen] = useState(false);
   const [shiftForReceipt, setShiftForReceipt] = useState<Shift | null>(null);
+  // Cash-only revenue for expected cash calculation
+  const [shiftCashRevenue, setShiftCashRevenue] = useState(0);
 
 
   // Offline-capable data fetching for branches
@@ -1290,11 +1292,29 @@ export default function ShiftManagement() {
     };
   };
 
+  // Fetch cash-only revenue for a shift (used for expected cash calculation)
+  const fetchShiftCashRevenue = async (shiftId: string) => {
+    try {
+      const response = await fetch(`/api/shifts/${shiftId}/closing-report`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data?.totals) {
+          setShiftCashRevenue(data.data.totals.cash || 0);
+          console.log('[Shift Management] Cash revenue fetched:', data.data.totals.cash);
+        }
+      }
+    } catch (error) {
+      console.error('[Shift Management] Failed to fetch cash revenue:', error);
+    }
+  };
+
   const calculateDiscrepancy = () => {
     if (!selectedShift) return { hasDiscrepancy: false, amount: 0 };
 
-    const stats = getShiftStats(selectedShift);
-    const expectedCash = selectedShift.openingCash + stats.revenueDuringShift;
+    // For open shifts, use shiftCashRevenue (cash-only)
+    // For closed shifts, we can't calculate it accurately without payment breakdown
+    const cashRevenueDuringShift = selectedShift.isClosed ? 0 : shiftCashRevenue;
+    const expectedCash = selectedShift.openingCash + cashRevenueDuringShift;
     const actualCash = parseFloat(closingCash) || 0;
     const discrepancy = actualCash - expectedCash;
 
@@ -1852,6 +1872,7 @@ export default function ShiftManagement() {
                                   onClick={() => {
                                     setSelectedShift(shift);
                                     setCloseDialogOpen(true);
+                                    fetchShiftCashRevenue(shift.id);
                                   }}
                                   className="h-9 min-h-[36px]"
                                 >
