@@ -68,6 +68,7 @@ interface VariantType {
   name: string;
   description?: string | null;
   isActive: boolean;
+  isCustomInput: boolean;
   options: VariantOption[];
 }
 
@@ -101,6 +102,7 @@ interface VariantTypeFormData {
   name: string;
   description: string;
   isActive: boolean;
+  isCustomInput: boolean;
 }
 
 interface VariantOptionFormData {
@@ -159,6 +161,7 @@ export default function MenuManagement() {
     name: '',
     description: '',
     isActive: true,
+    isCustomInput: false,
   });
   const [variantOptionFormData, setVariantOptionFormData] = useState<VariantOptionFormData>({
     name: '',
@@ -417,6 +420,7 @@ export default function MenuManagement() {
         name: variantTypeFormData.name,
         description: variantTypeFormData.description,
         isActive: variantTypeFormData.isActive,
+        isCustomInput: variantTypeFormData.isCustomInput,
       };
 
       const response = await fetch(url, {
@@ -451,6 +455,7 @@ export default function MenuManagement() {
       name: variantType.name,
       description: variantType.description || '',
       isActive: variantType.isActive,
+      isCustomInput: variantType.isCustomInput,
     });
     setVariantTypeDialogOpen(true);
     setMessage(null);
@@ -486,6 +491,7 @@ export default function MenuManagement() {
       name: '',
       description: '',
       isActive: true,
+      isCustomInput: false,
     });
     setMessage(null);
   };
@@ -1473,6 +1479,26 @@ export default function MenuManagement() {
                               <span className="text-sm text-slate-600">Active</span>
                             </div>
                           </div>
+                          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor="variantTypeCustomInput" className="flex items-center gap-2">
+                                  <Package className="h-4 w-4 text-blue-600" />
+                                  Enable Custom Input
+                                </Label>
+                                <Switch
+                                  id="variantTypeCustomInput"
+                                  checked={variantTypeFormData.isCustomInput}
+                                  onCheckedChange={(checked) => setVariantTypeFormData({ ...variantTypeFormData, isCustomInput: checked })}
+                                />
+                              </div>
+                              <p className="text-xs text-slate-600">
+                                {variantTypeFormData.isCustomInput
+                                  ? 'Users will enter a custom value (e.g., weight multiplier like 0.125 for 1/8 of the base amount). Price and cost will be calculated automatically.'
+                                  : 'Users will select from predefined options (e.g., Small, Medium, Large).'}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                         <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
                           <Button type="button" variant="outline" onClick={() => setVariantTypeDialogOpen(false)} className="h-11 min-h-[44px] w-full sm:w-auto">
@@ -1503,12 +1529,20 @@ export default function MenuManagement() {
                         {variantType.description && (
                           <CardDescription className="text-xs">{variantType.description}</CardDescription>
                         )}
-                        {variantType.options && variantType.options.length > 0 && (
-                          <Badge variant="outline" className="mt-2 text-xs">
-                            <Package className="h-3 w-3 mr-1" />
-                            {variantType.options.length} option{variantType.options.length !== 1 ? 's' : ''}
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-2 mt-2">
+                          {variantType.options && variantType.options.length > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              <Package className="h-3 w-3 mr-1" />
+                              {variantType.options.length} option{variantType.options.length !== 1 ? 's' : ''}
+                            </Badge>
+                          )}
+                          {variantType.isCustomInput && (
+                            <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 text-xs">
+                              <Package className="h-3 w-3 mr-1" />
+                              Custom Input
+                            </Badge>
+                          )}
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center justify-between text-sm">

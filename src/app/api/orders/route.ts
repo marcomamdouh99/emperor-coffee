@@ -351,6 +351,7 @@ export async function POST(request: NextRequest) {
       let finalPrice = menuItem.price;
       let variantName = null;
       let variantId = null;
+      let customVariantValue = null;
 
       if (item.menuItemVariantId) {
         const variant = await db.menuItemVariant.findUnique({
@@ -362,9 +363,18 @@ export async function POST(request: NextRequest) {
         });
 
         if (variant) {
-          finalPrice = menuItem.price + variant.priceModifier;
-          variantName = `${variant.variantType.name}: ${variant.variantOption.name}`;
           variantId = variant.id;
+          
+          // Check if this is a custom input variant
+          if (variant.variantType.isCustomInput && item.customVariantValue) {
+            customVariantValue = item.customVariantValue;
+            finalPrice = menuItem.price * customVariantValue;
+            variantName = `${variant.variantType.name}: ${customVariantValue}x`;
+          } else {
+            // Regular variant with fixed price modifier
+            finalPrice = menuItem.price + variant.priceModifier;
+            variantName = `${variant.variantType.name}: ${variant.variantOption.name}`;
+          }
         }
       }
 
@@ -380,6 +390,7 @@ export async function POST(request: NextRequest) {
         recipeVersion: menuItem.version,
         menuItemVariantId: variantId,
         variantName,
+        customVariantValue,
         specialInstructions: item.specialInstructions || null,
       });
 
@@ -390,7 +401,11 @@ export async function POST(request: NextRequest) {
       );
 
       for (const recipe of relevantRecipes) {
-        const totalDeduction = recipe.quantityRequired * item.quantity;
+        // Scale inventory deduction by customVariantValue if provided
+        const scaledQuantity = customVariantValue 
+          ? recipe.quantityRequired * customVariantValue 
+          : recipe.quantityRequired;
+        const totalDeduction = scaledQuantity * item.quantity;
         inventoryDeductions.push({
           ingredientId: recipe.ingredient.id,
           ingredientName: recipe.ingredient.name,

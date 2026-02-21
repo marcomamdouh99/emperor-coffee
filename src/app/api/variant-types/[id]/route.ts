@@ -3,18 +3,20 @@ import { db } from '@/lib/db';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const { name, description, isActive } = body;
+    const { name, description, isActive, isCustomInput } = body;
 
     const variantType = await db.variantType.update({
-      where: { id: params.id },
+      where: { id },
       data: {
-        ...(name !== undefined ? { name } : {}),
-        ...(description !== undefined ? { description: description || null } : {}),
-        ...(isActive !== undefined ? { isActive } : {}),
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description: description || null }),
+        ...(isActive !== undefined && { isActive }),
+        ...(isCustomInput !== undefined && { isCustomInput }),
       },
       include: {
         options: true,
@@ -36,11 +38,12 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await db.variantType.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({

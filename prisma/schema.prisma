@@ -255,6 +255,7 @@ model VariantType {
   name        String   @unique // 'Size', 'Weight', 'Color'
   description String?
   isActive    Boolean  @default(true)
+  isCustomInput Boolean @default(false) // If true, allows custom input (e.g., weight multiplier)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -263,6 +264,7 @@ model VariantType {
   options          VariantOption[]
 
   @@index([isActive])
+  @@index([isCustomInput])
 }
 
 model VariantOption {
@@ -524,6 +526,7 @@ model OrderItem {
   recipeVersion     Int
   menuItemVariantId String? // Selected variant
   variantName       String? // Display name of variant (e.g., "Large", "500g")
+  customVariantValue Float? // Custom variant value (e.g., 0.125 for weight multiplier)
   specialInstructions String? // Item notes/special requests
   createdAt         DateTime @default(now())
   // Void tracking

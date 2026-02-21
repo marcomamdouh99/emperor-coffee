@@ -62,6 +62,7 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
         menuItemId: cartItem.menuItemId,
         quantity: cartItem.quantity,
         menuItemVariantId: cartItem.variantId || null,
+        customVariantValue: cartItem.customVariantValue || null,
         unitPrice,
         totalPrice,
         specialInstructions: cartItem.note || null,
@@ -193,6 +194,7 @@ interface CartItem {
   image?: string;
   variantName?: string;
   variantId?: string;
+  customVariantValue?: number;
   note?: string;
 }
 
@@ -207,6 +209,7 @@ interface MenuItemVariant {
   variantType: {
     id: string;
     name: string;
+    isCustomInput: boolean;
   };
   variantOption: {
     id: string;
@@ -277,6 +280,7 @@ export default function POSInterface() {
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
   const [selectedItemForVariant, setSelectedItemForVariant] = useState<MenuItem | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<MenuItemVariant | null>(null);
+  const [customVariantValue, setCustomVariantValue] = useState<string>('');
 
   // Add New Address dialog state
   const [showAddAddressDialog, setShowAddAddressDialog] = useState(false);
@@ -700,6 +704,7 @@ export default function POSInterface() {
     if (item.hasVariants && item.variants && item.variants.length > 0) {
       setSelectedItemForVariant(item);
       setSelectedVariant(null);
+      setCustomVariantValue('');
       setVariantDialogOpen(true);
     } else {
       addToCart(item, null);
@@ -757,11 +762,45 @@ export default function POSInterface() {
   };
 
   const handleVariantConfirm = () => {
-    if (selectedItemForVariant && selectedVariant) {
-      addToCart(selectedItemForVariant, selectedVariant);
+    if (selectedItemForVariant) {
+      if (selectedVariant?.variantType.isCustomInput) {
+        // For custom input variants, calculate price dynamically
+        const multiplier = parseFloat(customVariantValue);
+        if (isNaN(multiplier) || multiplier <= 0) {
+          alert('Please enter a valid multiplier (e.g., 0.125 for 1/8)');
+          return;
+        }
+
+        const finalPrice = selectedItemForVariant.price * multiplier;
+        const variantName = `${selectedVariant.variantType.name}: ${multiplier}x`;
+
+        const uniqueId = `${selectedItemForVariant.id}-${selectedVariant.id}-${multiplier}`;
+        const cartItem = {
+          id: uniqueId,
+          menuItemId: selectedItemForVariant.id,
+          name: selectedItemForVariant.name,
+          price: finalPrice,
+          quantity: 1,
+          variantName,
+          variantId: selectedVariant.id,
+          customVariantValue: multiplier,
+        };
+
+        if (orderType === 'dine-in' && selectedTable) {
+          setTableCart((prevCart) => [...prevCart, cartItem]);
+          localStorage.setItem(`table-cart-${selectedTable.id}`, JSON.stringify([...tableCart, cartItem]));
+        } else {
+          setCart((prevCart) => [...prevCart, cartItem]);
+        }
+      } else if (selectedVariant) {
+        // For regular variants
+        addToCart(selectedItemForVariant, selectedVariant);
+      }
+
       setVariantDialogOpen(false);
       setSelectedItemForVariant(null);
       setSelectedVariant(null);
+      setCustomVariantValue('');
     }
   };
 
@@ -1020,6 +1059,7 @@ export default function POSInterface() {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         menuItemVariantId: item.variantId || null,
+        customVariantValue: item.customVariantValue || null,
         specialInstructions: item.note || null,
       }));
 
@@ -1339,6 +1379,7 @@ export default function POSInterface() {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         menuItemVariantId: item.variantId || null,
+        customVariantValue: item.customVariantValue || null,
         specialInstructions: item.note || null,
       }));
 
@@ -2836,62 +2877,151 @@ export default function POSInterface() {
             </p>
           </DialogHeader>
           <div className="space-y-3 py-4">
-            {selectedItemForVariant?.variants?.map((variant) => {
-              const finalPrice = selectedItemForVariant.price + variant.priceModifier;
-              return (
+            {/* Check if any variant has custom input enabled */}
+            {selectedItemForVariant?.variants?.some(v => v.variantType.isCustomInput) ? (
+              // Show custom input for custom input variants
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <span className="font-semibold text-blue-900 dark:text-blue-100">
+                      {selectedItemForVariant.variants[0].variantType.name}
+                    </span>
+                    <Badge variant="default" className="bg-purple-600 hover:bg-purple-700 ml-auto text-xs">
+                      Custom Input
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="customVariantValue">Enter Multiplier</Label>
+                      <Input
+                        id="customVariantValue"
+                        type="number"
+                        step="0.001"
+                        min="0.001"
+                        max="999"
+                        value={customVariantValue}
+                        onChange={(e) => setCustomVariantValue(e.target.value)}
+                        placeholder="e.g., 0.125 for 1/8, 0.5 for half"
+                        className="h-11 text-lg font-semibold"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Enter a multiplier to calculate the price proportionally. For example, if the base is 500g and you want 62.5g (1/8), enter 0.125.
+                    </p>
+                    {customVariantValue && !isNaN(parseFloat(customVariantValue)) && parseFloat(customVariantValue) > 0 && (
+                      <div className="mt-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Base Price:</span>
+                          <span className="font-semibold">{formatCurrency(selectedItemForVariant.price, currency)}</span>
+                        </div>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-sm text-slate-600 dark:text-slate-400">Multiplier:</span>
+                          <span className="font-semibold">{customVariantValue}x</span>
+                        </div>
+                        <Separator className="my-2" />
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-slate-900 dark:text-white">Final Price:</span>
+                          <span className="font-black text-lg text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(selectedItemForVariant.price * parseFloat(customVariantValue), currency)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Select the custom input variant */}
                 <button
-                  key={variant.id}
                   type="button"
-                  onClick={() => setSelectedVariant(variant)}
+                  onClick={() => setSelectedVariant(selectedItemForVariant.variants[0])}
                   className={`w-full p-4 border-2 rounded-2xl text-left transition-all duration-300 group hover:shadow-lg ${
-                    selectedVariant?.id === variant.id
+                    selectedVariant?.id === selectedItemForVariant.variants[0].id
                       ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 shadow-lg shadow-emerald-500/10'
                       : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="font-bold text-slate-900 dark:text-white mb-1.5 text-base">
-                        {variant.variantType.name}: {variant.variantOption.name}
-                      </div>
-                      {variant.priceModifier !== 0 && (
-                        <div className={`inline-flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-lg ${
-                          variant.priceModifier > 0 
-                            ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' 
-                            : 'bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400'
-                        }`}>
-                          {variant.priceModifier > 0 ? <Plus className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-                          {formatCurrency(Math.abs(variant.priceModifier), currency)}
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        Use Custom Input
+                      </span>
                     </div>
-                    <div className="flex flex-col items-end ml-4">
-                      <div className="font-black text-xl text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(finalPrice, currency)}
+                    {selectedVariant?.id === selectedItemForVariant.variants[0].id && (
+                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle className="h-5 w-5" />
                       </div>
-                      {selectedVariant?.id === variant.id && (
-                        <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-1">
-                          <CheckCircle className="h-3 w-3" />
-                          Selected
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </button>
-              );
-            })}
+              </div>
+            ) : (
+              // Show regular variant list
+              selectedItemForVariant?.variants?.map((variant) => {
+                const finalPrice = selectedItemForVariant.price + variant.priceModifier;
+                return (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    onClick={() => setSelectedVariant(variant)}
+                    className={`w-full p-4 border-2 rounded-2xl text-left transition-all duration-300 group hover:shadow-lg ${
+                      selectedVariant?.id === variant.id
+                        ? 'border-emerald-500 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 shadow-lg shadow-emerald-500/10'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-bold text-slate-900 dark:text-white mb-1.5 text-base">
+                          {variant.variantType.name}: {variant.variantOption.name}
+                        </div>
+                        {variant.priceModifier !== 0 && (
+                          <div className={`inline-flex items-center gap-1.5 text-sm font-semibold px-2.5 py-1 rounded-lg ${
+                            variant.priceModifier > 0 
+                              ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' 
+                              : 'bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400'
+                          }`}>
+                            {variant.priceModifier > 0 ? <Plus className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                            {formatCurrency(Math.abs(variant.priceModifier), currency)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end ml-4">
+                        <div className="font-black text-xl text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(finalPrice, currency)}
+                        </div>
+                        {selectedVariant?.id === variant.id && (
+                          <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Selected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
           <DialogFooter className="gap-3">
             <Button 
               variant="outline" 
-              onClick={() => setVariantDialogOpen(false)}
+              onClick={() => {
+                setVariantDialogOpen(false);
+                setSelectedItemForVariant(null);
+                setSelectedVariant(null);
+                setCustomVariantValue('');
+              }}
               className="rounded-xl h-11 px-6 font-semibold"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleVariantConfirm}
-              disabled={!selectedVariant}
+              disabled={
+                !selectedVariant || 
+                (selectedVariant?.variantType.isCustomInput && !customVariantValue)
+              }
               className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl h-11 px-6 font-semibold shadow-lg shadow-emerald-500/30"
             >
               <Plus className="h-4 w-4 mr-2" />

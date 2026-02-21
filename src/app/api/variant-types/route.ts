@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, isActive } = body;
+    const { name, description, isActive, isCustomInput } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
         name,
         description: description || null,
         isActive: isActive !== undefined ? isActive : true,
+        isCustomInput: isCustomInput !== undefined ? isCustomInput : false,
       },
       include: {
         options: true,
