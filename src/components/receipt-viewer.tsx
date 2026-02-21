@@ -20,6 +20,13 @@ interface OrderItem {
   subtotal: number;
   recipeVersion: number;
   createdAt: string;
+  specialInstructions?: string | null;
+  menuItemVariant?: {
+    id: string;
+    variantOption?: {
+      name: string;
+    };
+  } | null;
 }
 
 interface Order {
@@ -164,10 +171,13 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
         customerName: order.customerName,
         deliveryAddress: order.deliveryAddress,
         items: order.items.map(item => ({
-          itemName: item.itemName,
+          itemName: item.menuItemVariant?.variantOption?.name
+            ? `${item.itemName} (${item.menuItemVariant.variantOption.name})`
+            : item.itemName,
           quantity: item.quantity,
           subtotal: item.subtotal,
           price: item.unitPrice,
+          note: item.specialInstructions || undefined,
         })),
         subtotal: order.subtotal || 0,
         deliveryFee: order.deliveryFee || 0,
@@ -677,11 +687,25 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
                   <div className="item-table-divider"></div>
                   {/* Items */}
                   {order?.items && order.items.map((item) => (
-                    <div key={item.id} className="item-row">
-                      <span className="col-name">{item.itemName}</span>
-                      <span className="col-qty">{item.quantity}</span>
-                      <span className="col-price">{formatCurrency(item.unitPrice, currency)}</span>
-                      <span className="col-total">{formatCurrency(item.subtotal, currency)}</span>
+                    <div key={item.id}>
+                      <div className="item-row">
+                        <span className="col-name">
+                          {item.itemName}
+                          {item.menuItemVariant?.variantOption?.name && (
+                            <span className="text-xs font-normal text-slate-600 dark:text-slate-400 ml-1">
+                              ({item.menuItemVariant.variantOption.name})
+                            </span>
+                          )}
+                        </span>
+                        <span className="col-qty">{item.quantity}</span>
+                        <span className="col-price">{formatCurrency(item.unitPrice, currency)}</span>
+                        <span className="col-total">{formatCurrency(item.subtotal, currency)}</span>
+                      </div>
+                      {item.specialInstructions && (
+                        <div className="text-xs text-slate-600 dark:text-slate-400 pl-1 mt-0.5 italic">
+                          {item.specialInstructions}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

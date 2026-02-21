@@ -18,7 +18,7 @@ import {
   TrendingUp, AlertTriangle, Grid, Filter, Menu as MenuIcon,
   Sparkles, Bell, Layers, Wallet, Calendar, Barcode, Receipt, Utensils,
   ChevronRight, Tag, Gift, ShoppingBag, RefreshCw, Check,
-  PanelLeftClose, PanelLeftOpen, Users
+  PanelLeftClose, PanelLeftOpen, Users, MessageSquare, Edit3
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
 import { formatCurrency } from '@/lib/utils';
@@ -64,7 +64,7 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
         menuItemVariantId: cartItem.variantId || null,
         unitPrice,
         totalPrice,
-        specialInstructions: null,
+        specialInstructions: cartItem.note || null,
       };
     });
 
@@ -193,6 +193,7 @@ interface CartItem {
   image?: string;
   variantName?: string;
   variantId?: string;
+  note?: string;
 }
 
 interface MenuItemVariant {
@@ -296,6 +297,12 @@ export default function POSInterface() {
   const [showTableGrid, setShowTableGrid] = useState(false);
   const [tableCart, setTableCart] = useState<CartItem[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+
+  // Item note dialog state
+  const [showNoteDialog, setShowNoteDialog] = useState(false);
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null);
+  const [editingNote, setEditingNote] = useState('');
+  const [editingQuantity, setEditingQuantity] = useState(1);
 
   const { currency, t } = useI18n();
 
@@ -695,8 +702,10 @@ export default function POSInterface() {
     }
   };
 
-  const addToCart = (item: MenuItem, variant: MenuItemVariant | null) => {
-    const uniqueId = variant ? `${item.id}-${variant.id}` : item.id;
+  const addToCart = (item: MenuItem, variant: MenuItemVariant | null, note?: string) => {
+    const uniqueId = note
+      ? `${variant ? `${item.id}-${variant.id}` : item.id}-note-${btoa(note).slice(0, 8)}`
+      : (variant ? `${item.id}-${variant.id}` : item.id);
     const finalPrice = variant ? item.price + variant.priceModifier : item.price;
     const variantName = variant ? `${variant.variantType.name}: ${variant.variantOption.name}` : undefined;
 
@@ -708,6 +717,7 @@ export default function POSInterface() {
       quantity: 1,
       variantName,
       variantId: variant?.id,
+      note: note || undefined,
     };
 
     // If dine-in with table selected, add to table cart
@@ -751,12 +761,14 @@ export default function POSInterface() {
     }
   };
 
-  const updateQuantity = (itemId: string, delta: number) => {
+  const updateQuantity = (itemId: string, newQuantity: number) => {
+    if (newQuantity < 1) return;
+
     if (orderType === 'dine-in' && selectedTable) {
       setTableCart((prevCart) => {
         const updated = prevCart
           .map((item) =>
-            item.id === itemId ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+            item.id === itemId ? { ...item, quantity: newQuantity } : item
           )
           .filter((item) => item.quantity > 0);
 
@@ -768,12 +780,105 @@ export default function POSInterface() {
       setCart((prevCart) =>
         prevCart
           .map((item) =>
-            item.id === itemId ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
+            item.id === itemId ? { ...item, quantity: newQuantity } : item
           )
           .filter((item) => item.quantity > 0)
       );
     }
   };
+
+  const handleIncrementQuantity = (itemId: string) => {
+    const currentCart = (orderType === 'dine-in' && selectedTable) ? tableCart : cart;
+    const item = currentCart.find(i => i.id === itemId);
+    if (item) {
+      updateQuantity(itemId, item.quantity + 1);
+    }
+  };
+
+  const handleDecrementQuantity = (itemId: string) => {
+    const currentCart = (orderType === 'dine-in' && selectedTable) ? tableCart : cart;
+    const item = currentCart.find(i => i.id === itemId);
+    if (item && item.quantity > 1) {
+      updateQuantity(itemId, item.quantity - 1);
+    }
+  };
+
+  const handleQuantityChange = (itemId: string, value: string) => {
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue >= 1) {
+      updateQuantity(itemId, numValue);
+    }
+  };
+
+  const openNoteDialog = (item: CartItem) => {
+    setEditingItem(item);
+    setEditingNote(item.note || '');
+    setEditingQuantity(item.quantity);
+    setShowNoteDialog(true);
+  };
+
+  const handleSaveNote = () => {
+    if (!editingItem) return;
+
+    const menuItem = menuItems.find(m => m.id === editingItem.menuItemId);
+    const variant = menuItem?.variants?.find(v => v.id === editingItem.variantId);
+
+    if (orderType === 'dine-in' && selectedTable) {
+      setTableCart((prevCart) => {
+        // Remove the old item
+        const filtered = prevCart.filter((i) => i.id !== editingItem.id);
+        
+        // If quantity is 0 or note was cleared and no variant, don't add back
+        if (editingQuantity === 0 || (!editingNote.trim() && !editingItem.variantId)) {
+          localStorage.setItem(`table-cart-${selectedTable.id}`, JSON.stringify(filtered));
+          return filtered;
+        }
+
+        // Create new unique ID based on note
+        const newUniqueId = editingNote.trim()
+          ? `${editingItem.menuItemId}-${editingItem.variantId || 'no-variant'}-note-${btoa(editingNote.trim()).slice(0, 8)}`
+          : (editingItem.variantId ? `${editingItem.menuItemId}-${editingItem.variantId}` : editingItem.menuItemId);
+
+        const updatedItem = {
+          ...editingItem,
+          id: newUniqueId,
+          quantity: editingQuantity,
+          note: editingNote.trim() || undefined,
+        };
+
+        const updated = [...filtered, updatedItem];
+        localStorage.setItem(`table-cart-${selectedTable.id}`, JSON.stringify(updated));
+        return updated;
+      });
+    } else {
+      setCart((prevCart) => {
+        const filtered = prevCart.filter((i) => i.id !== editingItem.id);
+        
+        if (editingQuantity === 0 || (!editingNote.trim() && !editingItem.variantId)) {
+          return filtered;
+        }
+
+        const newUniqueId = editingNote.trim()
+          ? `${editingItem.menuItemId}-${editingItem.variantId || 'no-variant'}-note-${btoa(editingNote.trim()).slice(0, 8)}`
+          : (editingItem.variantId ? `${editingItem.menuItemId}-${editingItem.variantId}` : editingItem.menuItemId);
+
+        const updatedItem = {
+          ...editingItem,
+          id: newUniqueId,
+          quantity: editingQuantity,
+          note: editingNote.trim() || undefined,
+        };
+
+        return [...filtered, updatedItem];
+      });
+    }
+
+    setShowNoteDialog(false);
+    setEditingItem(null);
+    setEditingNote('');
+    setEditingQuantity(1);
+  };
+
 
   const removeFromCart = (itemId: string) => {
     if (orderType === 'dine-in' && selectedTable) {
@@ -911,6 +1016,7 @@ export default function POSInterface() {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         menuItemVariantId: item.variantId || null,
+        specialInstructions: item.note || null,
       }));
 
       const orderData: any = {
@@ -1208,6 +1314,7 @@ export default function POSInterface() {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         menuItemVariantId: item.variantId || null,
+        specialInstructions: item.note || null,
       }));
 
       // Validate delivery fields
@@ -1781,24 +1888,47 @@ export default function POSInterface() {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1 min-w-0 pr-3">
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white mb-1.5 line-clamp-2 leading-snug">
-                        {item.name}
-                      </h4>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                          {item.name}
+                        </h4>
+                        {item.note && (
+                          <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400" title={item.note}>
+                            <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                          </div>
+                        )}
+                      </div>
                       {item.variantName && (
-                        <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold px-2 py-1 rounded-lg">
+                        <div className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold px-2 py-1 rounded-lg mb-1.5">
                           <Layers className="h-3 w-3" />
                           {item.variantName}
                         </div>
                       )}
+                      {item.note && (
+                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 italic">
+                          "{item.note}"
+                        </div>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 flex-shrink-0 rounded-xl transition-all"
-                      onClick={() => removeFromCart(item.id)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex-shrink-0 rounded-xl transition-all"
+                        onClick={() => openNoteDialog(item)}
+                        title="Edit note or quantity"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 flex-shrink-0 rounded-xl transition-all"
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="flex items-center justify-between">
@@ -1807,18 +1937,22 @@ export default function POSInterface() {
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 transition-all"
-                        onClick={() => updateQuantity(item.id, -1)}
+                        onClick={() => handleDecrementQuantity(item.id)}
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </Button>
-                      <span className="w-11 text-center font-bold text-lg text-slate-900 dark:text-white">
-                        {item.quantity}
-                      </span>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                        className="w-16 h-9 text-center font-bold text-lg text-slate-900 dark:text-white border-slate-200 dark:border-slate-700"
+                      />
                       <Button
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 transition-all"
-                        onClick={() => updateQuantity(item.id, 1)}
+                        onClick={() => handleIncrementQuantity(item.id)}
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
@@ -2291,24 +2425,47 @@ export default function POSInterface() {
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1 min-w-0 pr-2">
-                            <h4 className="font-bold text-sm text-slate-900 dark:text-white mb-1 line-clamp-2 leading-snug">
-                              {item.name}
-                            </h4>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                                {item.name}
+                              </h4>
+                              {item.note && (
+                                <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400" title={item.note}>
+                                  <MessageSquare className="h-3 w-3 flex-shrink-0" />
+                                </div>
+                              )}
+                            </div>
                             {item.variantName && (
-                              <div className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded-lg">
+                              <div className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded-lg mb-1">
                                 <Layers className="h-2.5 w-2.5" />
                                 {item.variantName}
                               </div>
                             )}
+                            {item.note && (
+                              <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 italic">
+                                "{item.note}"
+                              </div>
+                            )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 flex-shrink-0 rounded-lg"
-                            onClick={() => removeFromCart(item.id)}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex-shrink-0 rounded-lg"
+                              onClick={() => openNoteDialog(item)}
+                              title="Edit note or quantity"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 flex-shrink-0 rounded-lg"
+                              onClick={() => removeFromCart(item.id)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="flex items-center justify-between">
@@ -2317,18 +2474,22 @@ export default function POSInterface() {
                               variant="outline"
                               size="icon"
                               className="h-9 w-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700"
-                              onClick={() => updateQuantity(item.id, -1)}
+                              onClick={() => handleDecrementQuantity(item.id)}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
-                            <span className="w-10 text-center font-bold text-base text-slate-900 dark:text-white">
-                              {item.quantity}
-                            </span>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                              className="w-14 h-9 text-center font-bold text-base text-slate-900 dark:text-white border-slate-200 dark:border-slate-700"
+                            />
                             <Button
                               variant="outline"
                               size="icon"
                               className="h-9 w-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700"
-                              onClick={() => updateQuantity(item.id, 1)}
+                              onClick={() => handleIncrementQuantity(item.id)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -2838,6 +2999,77 @@ export default function POSInterface() {
         order={receiptData}
         autoPrint={true}
       />
+
+      {/* Item Note Dialog */}
+      <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                <MessageSquare className="h-5 w-5 text-white" />
+              </div>
+              <DialogTitle className="text-xl font-bold">Edit Item</DialogTitle>
+            </div>
+            <DialogDescription>
+              {editingItem?.name} {editingItem?.variantName && `(${editingItem.variantName})`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="quantity" className="text-sm font-semibold">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                value={editingQuantity}
+                onChange={(e) => setEditingQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="note" className="text-sm font-semibold">Note (Optional)</Label>
+              <Textarea
+                id="note"
+                value={editingNote}
+                onChange={(e) => setEditingNote(e.target.value)}
+                placeholder="e.g., Very hot please, Extra sugar, No ice..."
+                rows={3}
+                className="mt-1.5 resize-none"
+                maxLength={200}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {editingNote.length}/200 characters
+              </p>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                <strong>Tip:</strong> Items with different notes will appear on separate lines in the cart.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowNoteDialog(false);
+                setEditingItem(null);
+                setEditingNote('');
+                setEditingQuantity(1);
+              }}
+              className="rounded-xl h-11 px-6 font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveNote}
+              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl h-11 px-6 font-semibold shadow-lg shadow-emerald-500/30"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
