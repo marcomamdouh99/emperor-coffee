@@ -131,3 +131,52 @@ Stage Summary:
 - Both use standard print format matching order receipts
 - Improved print reliability with better timing and cleanup
 - All changes pushed to GitHub main branch successfully
+
+---
+Task ID: 7-8
+Agent: zai-web-dev
+Task: Fix receipt print format and Day Closing dialog issues
+
+Work Log:
+- Fixed Shift Closing Receipt Print Format in `/home/z/my-project/src/components/shift-closing-receipt.tsx`:
+  - Updated printStandardPaper1 function (lines 161-336)
+  - Updated printStandardPaper2 function (lines 343-502)
+  - Added @page CSS rules to remove browser margins and padding
+  - Added global margin/padding resets: `* { margin: 0; padding: 0; box-sizing: border-box; }`
+  - Added @media print rules to hide browser headers/footers
+  - Reduced padding throughout: header (15px→10px), info (15px→10px), footer (20px->10px)
+  - This removes blank spaces at top and bottom of printed receipts
+
+- Fixed Day Closing Receipt Print Format in `/home/z/my-project/src/components/day-closing-receipt.tsx`:
+  - Updated printShiftPaper function (lines 98-272)
+  - Updated printItemSummary function (lines 274-431)
+  - Added same @page CSS rules and margin resets as shift closing receipts
+  - Reduced padding to match order receipt format
+  - This ensures consistency across all receipt types
+
+- Improved Day Closing Dialog Logging in `/home/z/my-project/src/components/day-closing-receipt.tsx`:
+  - Added console.log to fetchClosingReport function with businessDayId
+  - Added console.log to auto-print useEffect showing number of shifts
+  - Added console.log to fetchClosingReport error handling
+  - Added console.log for when data loads but no shifts exist
+
+- Improved Day Closing Dialog Logging in `/home/z/my-project/src/components/shift-management.tsx`:
+  - Added detailed console.log to handleCloseBusinessDay function
+  - Added console.log for successful day closure, businessDayId, and report fetching
+  - Added console.log for report response status and data
+  - Added console.error for report fetch failures
+  - This will help debug why the dialog doesn't appear after closing
+
+- All print receipts now use the same compact format as order receipts:
+  - Shift Closing: Paper 1 (Payment Summary) + Paper 2 (Item Breakdown)
+  - Day Closing: Paper 1 for each shift + Paper 2 (Item Summary)
+  - All have minimal padding, no browser margins, and clean formatting
+
+- Committed and pushed all changes to GitHub (commit: ee45747)
+
+Stage Summary:
+- Fixed blank spaces in Shift Closing receipt prints by matching order receipt format
+- Fixed blank spaces in Day Closing receipt prints by matching order receipt format
+- Added extensive logging to debug Day Closing dialog visibility issue
+- All receipts now print in the same compact, professional format
+- All changes pushed to GitHub main branch successfully
