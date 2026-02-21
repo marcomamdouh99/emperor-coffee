@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { rateLimit, rateLimits } from '@/lib/rate-limit';
 import { createSession } from '@/lib/session-manager';
 import { validateRequest, formatZodErrors, loginSchema } from '@/lib/validators';
+import { logLogin } from '@/lib/audit-logger';
 
 export async function POST(request: NextRequest) {
   // Apply rate limiting (5 login attempts per minute)
@@ -70,6 +71,9 @@ export async function POST(request: NextRequest) {
       role: user.role,
       branchId: user.branchId
     })
+
+    // Log login to audit logs (fire and forget, don't await)
+    logLogin(user.id).catch(err => console.error('Failed to log login:', err));
 
     // Return success with session info
     return NextResponse.json({
