@@ -103,7 +103,30 @@ export default function StaffPerformanceReport() {
       const now = new Date();
       const endDate = new Date(now);
       let startDate = new Date(now);
-      startDate.setDate(now.getDate() - range.days);
+
+      // Set proper date ranges to match main dashboard
+      if (timeRange === 'today') {
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'week') {
+        const dayOfWeek = startDate.getDay(); // 0 = Sunday, 6 = Saturday
+        startDate.setDate(startDate.getDate() - dayOfWeek);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'month') {
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'quarter') {
+        startDate.setMonth(startDate.getMonth() - 3);
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'year') {
+        startDate.setMonth(0, 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      }
 
       const params = new URLSearchParams();
       if (selectedBranch && selectedBranch !== 'all') {
@@ -115,8 +138,12 @@ export default function StaffPerformanceReport() {
       const response = await fetch(`/api/reports/staff?${params.toString()}`);
       const data = await response.json();
 
+      console.log('[Staff Report] API Response:', data);
+
       if (data.success) {
         setStaffData(data.data);
+      } else {
+        console.error('[Staff Report] API Error:', data.error);
       }
     } catch (error) {
       console.error('Failed to fetch staff data:', error);

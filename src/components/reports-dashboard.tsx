@@ -120,7 +120,7 @@ export default function ReportsDashboard() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState('week');
+  const [timeRange, setTimeRange] = useState('month');
   const [comparePeriod, setComparePeriod] = useState(true);
   const [kpiData, setKPIData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -267,8 +267,12 @@ export default function ReportsDashboard() {
       const response = await fetch(`/api/reports/kpi?${params.toString()}`);
       const data = await response.json();
 
+      console.log('[Overview Report] API Response:', data);
+
       if (data.success) {
         setKPIData(data.data);
+      } else {
+        console.error('[Overview Report] API Error:', data.error);
       }
     } catch (error) {
       console.error('Failed to fetch KPIs:', error);
@@ -350,9 +354,13 @@ export default function ReportsDashboard() {
       const response = await fetch(`/api/orders?${params.toString()}`);
       const data = await response.json();
 
+      console.log('[Sales Orders] API Response:', data);
+
       if (data.orders) {
         setOrders(data.orders);
         setTotalOrders(data.pagination?.total || 0);
+      } else {
+        console.error('[Sales Orders] API Error: No orders in response');
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error);

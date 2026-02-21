@@ -98,7 +98,27 @@ export default function CustomerAnalyticsReport() {
       const now = new Date();
       const endDate = new Date(now);
       let startDate = new Date(now);
-      startDate.setDate(now.getDate() - range.days);
+
+      // Set proper date ranges to match main dashboard
+      if (timeRange === 'month') {
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'quarter') {
+        startDate.setMonth(startDate.getMonth() - 3);
+        startDate.setDate(1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (timeRange === 'year') {
+        startDate.setMonth(0, 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        // For custom or other ranges, use the days calculation
+        startDate.setDate(now.getDate() - range.days);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      }
 
       const params = new URLSearchParams();
       if (selectedBranch && selectedBranch !== 'all') {
@@ -110,8 +130,12 @@ export default function CustomerAnalyticsReport() {
       const response = await fetch(`/api/reports/customers?${params.toString()}`);
       const data = await response.json();
 
+      console.log('[Customers Report] API Response:', data);
+
       if (data.success) {
         setCustomerData(data.data);
+      } else {
+        console.error('[Customers Report] API Error:', data.error);
       }
     } catch (error) {
       console.error('Failed to fetch customer data:', error);
