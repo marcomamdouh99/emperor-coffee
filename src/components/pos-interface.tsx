@@ -1626,9 +1626,9 @@ export default function POSInterface() {
 
       {/* Left Sidebar - Modern Categories (Desktop) */}
       {categoriesExpanded && (
-        <div className="hidden md:flex flex-col w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 shadow-2xl flex-shrink-0">
+        <div className="hidden md:flex flex-col w-72 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-800/50 shadow-2xl flex-shrink-0 h-full overflow-hidden">
           {/* Logo/Brand Section */}
-          <div className="p-6 border-b border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
+          <div className="flex-shrink-0 p-6 border-b border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-500/20">
                 <Store className="h-6 w-6 text-white" />
@@ -1641,68 +1641,70 @@ export default function POSInterface() {
           </div>
 
           {/* Categories Section */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-800/30">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-800/30">
               <h2 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <Filter className="h-3 w-3" />
                 Categories
               </h2>
             </div>
 
-            <ScrollArea className="flex-1 px-4 py-4">
-              <div className="space-y-2">
-                {allCategories.map((category) => {
-                  const isActive = selectedCategory === category.id;
-                  return (
-                    <button
-                      key={category.id}
-                      onClick={() => {
-                        setSelectedCategory(category.id);
-                        setSearchQuery('');
-                      }}
-                      className={`w-full group relative overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${
-                        isActive
-                          ? 'bg-gradient-to-r shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-500/30'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700'
-                      }`}
-                      style={isActive ? { background: `linear-gradient(to right, var(--tw-gradient-stops))`, '--tw-gradient-from': `var(--color-${category.color.split('-')[0]}-500)`, '--tw-gradient-to': `var(--color-${category.color.split('-')[2]}-600)` } as React.CSSProperties : {}}
-                    >
-                      <div className={`bg-gradient-to-r ${category.color} absolute inset-0 opacity-0 ${isActive ? 'opacity-100' : ''} transition-opacity duration-300`} />
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full px-4 py-4">
+                <div className="space-y-2">
+                  {allCategories.map((category) => {
+                    const isActive = selectedCategory === category.id;
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => {
+                          setSelectedCategory(category.id);
+                          setSearchQuery('');
+                        }}
+                        className={`w-full group relative overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${
+                          isActive
+                            ? 'bg-gradient-to-r shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-500/30'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700'
+                        }`}
+                        style={isActive ? { background: `linear-gradient(to right, var(--tw-gradient-stops))`, '--tw-gradient-from': `var(--color-${category.color.split('-')[0]}-500)`, '--tw-gradient-to': `var(--color-${category.color.split('-')[2]}-600)` } as React.CSSProperties : {}}
+                      >
+                        <div className={`bg-gradient-to-r ${category.color} absolute inset-0 opacity-0 ${isActive ? 'opacity-100' : ''} transition-opacity duration-300`} />
 
-                      <div className="relative flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <span className={`font-semibold text-sm block truncate transition-colors ${
-                            isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                          }`}>
-                            {category.name}
-                          </span>
-                          {category.id !== 'all' && (
-                            <span className={`text-xs mt-1 block font-medium transition-colors ${
-                              isActive ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
+                        <div className="relative flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <span className={`font-semibold text-sm block truncate transition-colors ${
+                              isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
                             }`}>
-                              {menuItems.filter(m => m.categoryId === category.id || m.category === categories.find(c => c.id === category.id)?.name).length} items
+                              {category.name}
                             </span>
+                            {category.id !== 'all' && (
+                              <span className={`text-xs mt-1 block font-medium transition-colors ${
+                                isActive ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
+                              }`}>
+                                {menuItems.filter(m => m.categoryId === category.id || m.category === categories.find(c => c.id === category.id)?.name).length} items
+                              </span>
+                            )}
+                          </div>
+
+                          {isActive ? (
+                            <div className="w-6 h-6 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0 ml-2">
+                              <CheckCircle className="h-3.5 w-3.5 text-white" />
+                            </div>
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors flex-shrink-0 ml-2" />
                           )}
                         </div>
-
-                        {isActive ? (
-                          <div className="w-6 h-6 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0 ml-2">
-                            <CheckCircle className="h-3.5 w-3.5 text-white" />
-                          </div>
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors flex-shrink-0 ml-2" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+                      </button>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
 
           {/* Low Stock Alert */}
           {lowStockAlerts.length > 0 && (
-            <div className="p-4 border-t border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+            <div className="flex-shrink-0 p-4 border-t border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30">
                   <AlertTriangle className="h-4 w-4 text-white" />
