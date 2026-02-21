@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
     const comparePeriod = searchParams.get('comparePeriod') === 'true';
 
+    console.log('[KPI API] Request params:', { branchId, startDate, endDate, comparePeriod });
+
     // Build date filter
     const dateFilter: any = {};
     if (startDate && endDate) {
@@ -17,10 +19,12 @@ export async function GET(request: NextRequest) {
         gte: new Date(startDate),
         lte: new Date(endDate),
       };
+      console.log('[KPI API] Date range:', { start: new Date(startDate), end: new Date(endDate) });
     } else if (startDate) {
       dateFilter.orderTimestamp = {
         gte: new Date(startDate),
       };
+      console.log('[KPI API] Start date only:', new Date(startDate));
     }
 
     // Build branch filter
@@ -147,6 +151,10 @@ export async function GET(request: NextRequest) {
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     const totalDeliveryFees = mainOrders.reduce((sum, order) => sum + (order.deliveryFee || 0), 0);
     const netRevenue = totalRevenue - totalProductCost; // Net = Revenue - Product Cost
+
+    console.log('[KPI API] Main orders count:', totalOrders);
+    console.log('[KPI API] Main orders total revenue:', totalRevenue);
+    console.log('[KPI API] Branch filter:', branchFilter);
 
     // Calculate previous period metrics
     const previousRevenue = previousOrders.reduce((sum, order) => sum + order.subtotal, 0);

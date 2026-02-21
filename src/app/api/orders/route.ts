@@ -260,27 +260,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ALL users (CASHIER, BRANCH_MANAGER, ADMIN) must have an open shift to process orders
-    const openShift = await db.shift.findFirst({
-      where: {
-        cashierId,
-        isClosed: false,
-      },
-    });
+    // CASHIER must have their own open shift to process orders
+    // ADMIN and BRANCH_MANAGER can use ANY open shift from the branch
+    let openShift = null;
 
-    if (!openShift) {
-      return NextResponse.json(
-        { error: 'No active shift found. Please open a shift before processing orders.' },
-        { status: 400 }
-      );
-    }
+    if (cashier.role === 'CASHIER') {
+      // Cashiers must have their own open shift
+      openShift = await db.shift.findFirst({
+        where: {
+          cashierId,
+          isClosed: false,
+        },
+      });
 
-    // Verify that open shift is for the same branch
-    if (openShift.branchId !== branchId) {
-      return NextResponse.json(
-        { error: 'Active shift is for a different branch' },
-        { status: 400 }
-      );
+      if (!openShift) {
+        return NextResponse.json(
+          { error: 'No active shift found. Please open a shift before processing orders.' },
+          { status: 400 }
+        );
+      }
+
+      // Verify that open shift is for the same branch
+      if (openShift.branchId !== branchId) {
+        return NextResponse.json(
+          { error: 'Active shift is for a different branch' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // ADMIN and BRANCH_MANAGER can use any open shift from the branch
+      openShift = await db.shift.findFirst({
+        where: {
+          branchId,
+          isClosed: false,
+        },
+      });
+
+      if (!openShift) {
+        return NextResponse.json(
+          { error: `No active shift found for branch. Please have a cashier open a shift before processing orders.` },
+          { status: 400 }
+        );
+      }
     }
     // Calculate order totals and validate menu items
     let subtotal = 0;
@@ -378,19 +399,9 @@ export async function POST(request: NextRequest) {
 
     const totalAmount = subtotal + (deliveryFee || 0) - (loyaltyDiscount || 0) - (promoDiscount || 0);
 
-    // Get current shift for cashiers
-    let currentShiftId = null;
-    if (cashier.role === 'CASHIER') {
-      const openShift = await db.shift.findFirst({
-        where: {
-          cashierId,
-          isClosed: false,
-        },
-      });
-      if (openShift) {
-        currentShiftId = openShift.id;
-      }
-    }
+    // Use the shift ID for tracking (if a shift was found)
+    // For CASHIER, it's their own shift; for ADMIN/BRANCH_MANAGER, it's any open shift from the branch
+    const currentShiftId = openShift?.id || null;
 
     // Generate transaction hash for tamper detection
     const transactionHash = Buffer.from(

@@ -51,7 +51,7 @@ export default function ProductPerformanceReport() {
   const { currency } = useI18n();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState('month');
+  const [timeRange, setTimeRange] = useState('year'); // Changed from 'month' to 'year'
   const [productData, setProductData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 

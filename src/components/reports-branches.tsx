@@ -60,7 +60,7 @@ const timeRanges = [
 export default function BranchComparisonReport() {
   const { user } = useAuth();
   const { currency } = useI18n();
-  const [timeRange, setTimeRange] = useState('month');
+  const [timeRange, setTimeRange] = useState('year'); // Changed from 'month' to 'year'
   const [branchData, setBranchData] = useState<BranchData | null>(null);
   const [loading, setLoading] = useState(false);
 

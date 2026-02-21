@@ -120,7 +120,7 @@ export default function ReportsDashboard() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [timeRange, setTimeRange] = useState('month');
+  const [timeRange, setTimeRange] = useState('year'); // Changed from 'month' to 'year' to show more data
   const [comparePeriod, setComparePeriod] = useState(true);
   const [kpiData, setKPIData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(false);
