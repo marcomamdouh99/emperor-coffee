@@ -137,15 +137,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        totalCustomers,
-        repeatCustomers,
-        newCustomers,
-        activeCustomers,
-        customerRetentionRate,
-        avgOrderValue,
+        summary: {
+          totalCustomers,
+          activeCustomers,
+          retentionRate: customerRetentionRate,
+          avgOrdersPerCustomer: totalCustomers > 0 ? orders.length / totalCustomers : 0,
+          avgLifetimeValue: totalCustomers > 0 
+            ? customers.reduce((sum, c) => sum + c.totalSpent, 0) / totalCustomers 
+            : 0,
+        },
         topCustomers,
         frequentCustomers,
-        acquisitionTrend,
+        acquisitionTrends: acquisitionTrend,
         totalOrders: orders.length,
         totalRevenue: orders.reduce((sum, o) => sum + o.subtotal, 0),
       },
