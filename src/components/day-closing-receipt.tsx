@@ -110,13 +110,27 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
     if (!printWindow) return;
 
     const cashierName = shift.cashier?.name || shift.cashier?.username || 'Unknown';
-    const totalCard = shift.totals?.card || 0;
-    const totalCash = shift.totals?.cash || 0;
     const dateStr = new Date(shift.startTime).toLocaleDateString();
     const timeStr = `${new Date(shift.startTime).toLocaleTimeString()} - ${new Date(shift.endTime).toLocaleTimeString()}`;
 
-    const content = `
-<!DOCTYPE html>
+    // Order type breakdown data
+    const takeAway = shift.orderTypeBreakdown?.['take-away'] || { value: 0, discounts: 0, total: 0 };
+    const dineIn = shift.orderTypeBreakdown?.['dine-in'] || { value: 0, discounts: 0, total: 0 };
+    const delivery = shift.orderTypeBreakdown?.['delivery'] || { value: 0, discounts: 0, total: 0 };
+
+    // Financial summary data
+    const totalSales = shift.totals?.sales || 0;
+    const totalDiscounts = shift.totals?.discounts || 0;
+    const totalDeliveryFees = shift.totals?.deliveryFees || 0;
+    const totalRefunds = shift.totals?.refunds || 0;
+    const totalCard = shift.totals?.card || 0;
+    const totalCash = shift.totals?.cash || 0;
+    const openingBalance = shift.totals?.openingCashBalance || 0;
+    const expectedCash = shift.totals?.expectedCash || 0;
+    const closingBalance = shift.totals?.closingCashBalance || 0;
+    const overShort = shift.totals?.overShort || 0;
+
+    const content = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -194,6 +208,13 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
       color: #000;
     }
 
+    .section-title {
+      font-weight: bold;
+      margin: 10px 0 5px 0;
+      padding: 0;
+      text-decoration: underline;
+    }
+
     .info {
       margin-bottom: 10px;
       font-size: 12px;
@@ -204,6 +225,27 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
       margin: 2px 0;
       padding: 0;
       color: #000;
+    }
+
+    .order-type {
+      margin-bottom: 10px;
+      padding: 5px;
+      border: 1px solid #000;
+    }
+
+    .order-type-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .order-type-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 2px 0;
+    }
+
+    .order-type-row span {
+      color: #000 !important;
     }
 
     .totals {
@@ -254,18 +296,98 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
     <div>Cashier: ${cashierName}</div>
   </div>
 
+  <div class="section-title">Order Type Breakdown</div>
+
+  <div class="order-type">
+    <div class="order-type-title">Take Away</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(takeAway.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(takeAway.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(takeAway.total)}</span>
+    </div>
+  </div>
+
+  <div class="order-type">
+    <div class="order-type-title">Dine In</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(dineIn.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(dineIn.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(dineIn.total)}</span>
+    </div>
+  </div>
+
+  <div class="order-type">
+    <div class="order-type-title">Delivery</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(delivery.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(delivery.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(delivery.total)}</span>
+    </div>
+  </div>
+
+  <div class="section-title">Financial Summary</div>
+
   <div class="totals">
     <div class="total-row">
-      <span>TOTAL Visa:</span>
-      <span>${totalCard.toFixed(2)}</span>
+      <span>Total Sales:</span>
+      <span>${formatCurrency(totalSales)}</span>
     </div>
     <div class="total-row">
-      <span>TOTAL Cash:</span>
-      <span>${totalCash.toFixed(2)}</span>
+      <span>Total Discounts:</span>
+      <span>${formatCurrency(totalDiscounts)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Delivery Fees:</span>
+      <span>${formatCurrency(totalDeliveryFees)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Refunds:</span>
+      <span>${formatCurrency(totalRefunds)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Card:</span>
+      <span>${formatCurrency(totalCard)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Cash:</span>
+      <span>${formatCurrency(totalCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Opening Cash Balance:</span>
+      <span>${formatCurrency(openingBalance)}</span>
+    </div>
+    <div class="total-row">
+      <span>Expected Cash:</span>
+      <span>${formatCurrency(expectedCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Closing Cash Balance:</span>
+      <span>${formatCurrency(closingBalance)}</span>
     </div>
     <div class="total-row grand-total">
-      <span>TOTAL:</span>
-      <span>${(totalCard + totalCash).toFixed(2)}</span>
+      <span>Over/Short:</span>
+      <span>${formatCurrency(overShort)}</span>
     </div>
   </div>
 
