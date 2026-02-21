@@ -5,7 +5,8 @@ import { cuidSchema } from '@/lib/cuid-schema'
 export const orderItemSchema = z.object({
   menuItemId: z.string().min(1).max(50),  // Accept any valid ID format
   quantity: z.number().int().positive().min(1).max(99),
-  menuItemVariantId: z.string().min(1).max(50).nullable().optional()  // Accept string, null, or undefined
+  menuItemVariantId: z.string().min(1).max(50).nullable().optional(),  // Accept string, null, or undefined
+  specialInstructions: z.string().max(500).nullable().optional()  // Item notes/special requests
 })
 
 // Order validation
@@ -28,7 +29,8 @@ export const orderCreateSchema = z.object({
   loyaltyDiscount: z.number().min(0).optional(), // Discount amount (same as points redeemed, 1pt = 1EGP)
   promoCodeId: z.string().min(1).optional(), // Applied promo code ID
   promoDiscount: z.number().min(0).optional(), // Promo discount amount
-  orderNumber: z.number().int().positive().optional()
+  orderNumber: z.number().int().positive().optional(),
+  cardReferenceNumber: z.string().max(100).nullable().optional() // Card transaction reference number
 }).passthrough() // Allow extra fields like subtotal, total, taxRate
 
 // User validation
