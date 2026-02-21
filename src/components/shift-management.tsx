@@ -758,7 +758,9 @@ export default function ShiftManagement() {
         alert('Business day closed successfully!');
         setCloseDayDialogOpen(false);
         setDayClosingNotes('');
-        setBusinessDayStatus({ isOpen: false });
+        // Preserve businessDayId for the closing receipt dialog
+        setBusinessDayStatus(prev => ({ ...prev, isOpen: false }));
+        refetchShifts();
       } else {
         console.error('[Day Closing] Close API failed:', data);
         alert(data.error || 'Failed to close business day');
