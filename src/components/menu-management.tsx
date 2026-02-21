@@ -134,7 +134,7 @@ export default function MenuManagement() {
   // Variant Management State
   const [variantTypes, setVariantTypes] = useState<VariantType[]>([]);
   const [selectedVariantType, setSelectedVariantType] = useState<string>('');
-  const [itemVariants, setItemVariants] = useState<Array<{ variantOptionId: string; priceModifier: string }>>([]);
+  const [itemVariants, setItemVariants] = useState<Array<{ id?: string; variantOptionId: string; priceModifier: string }>>([]);
 
   // Categories State
   const [categories, setCategories] = useState<Category[]>([]);
@@ -389,12 +389,13 @@ export default function MenuManagement() {
       const data = await response.json();
       if (response.ok && data.variants) {
         const variants = data.variants.map((v: MenuItemVariant) => ({
+          id: v.id,
           variantOptionId: v.variantOptionId,
           priceModifier: v.priceModifier.toString(),
         }));
         setItemVariants(variants);
-        if (variants.length > 0) {
-          setSelectedVariantType(variants[0].variantTypeId || '');
+        if (data.variants.length > 0) {
+          setSelectedVariantType(data.variants[0].variantTypeId || '');
         }
       }
     } catch (error) {
@@ -624,22 +625,63 @@ export default function MenuManagement() {
 
       // Save variants if enabled
       if (itemFormData.hasVariants && menuItemId) {
+        // First, get existing variants for this menu item
+        const existingVariantsResponse = await fetch(`/api/menu-item-variants?menuItemId=${menuItemId}`);
+        const existingVariantsData = await existingVariantsResponse.json();
+        const existingVariants = existingVariantsData.variants || [];
+
+        // Track which variants we've processed
+        const processedVariantIds = new Set<string>();
+
         for (const variant of itemVariants) {
           if (variant.variantOptionId) {
-            const response = await fetch('/api/menu-item-variants', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                menuItemId,
-                variantTypeId: selectedVariantType,
-                variantOptionId: variant.variantOptionId,
-                priceModifier: parseFloat(variant.priceModifier),
-              }),
-            });
+            // Check if this variant already exists
+            const existingVariant = existingVariants.find((v: MenuItemVariant) => 
+              v.variantOptionId === variant.variantOptionId
+            );
+
+            let response;
+            if (existingVariant && variant.id) {
+              // Update existing variant
+              response = await fetch(`/api/menu-item-variants/${variant.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  priceModifier: parseFloat(variant.priceModifier),
+                  variantTypeId: selectedVariantType,
+                }),
+              });
+              processedVariantIds.add(existingVariant.id);
+            } else {
+              // Create new variant
+              response = await fetch('/api/menu-item-variants', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  menuItemId,
+                  variantTypeId: selectedVariantType,
+                  variantOptionId: variant.variantOptionId,
+                  priceModifier: parseFloat(variant.priceModifier),
+                }),
+              });
+            }
 
             const data = await response.json();
             if (!response.ok || !data.success) {
-              throw new Error(data.error || 'Failed to create variant');
+              throw new Error(data.error || 'Failed to save variant');
+            }
+          }
+        }
+
+        // Delete variants that are no longer in the list
+        for (const existingVariant of existingVariants) {
+          if (!processedVariantIds.has(existingVariant.id)) {
+            const deleteResponse = await fetch(`/api/menu-item-variants/${existingVariant.id}`, {
+              method: 'DELETE',
+            });
+            const deleteData = await deleteResponse.json();
+            if (!deleteResponse.ok || !deleteData.success) {
+              console.error('Failed to delete variant:', deleteData.error);
             }
           }
         }

@@ -8,12 +8,13 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { priceModifier, sortOrder, isActive } = body;
+    const { priceModifier, variantTypeId, sortOrder, isActive } = body;
 
     const variant = await db.menuItemVariant.update({
       where: { id },
       data: {
         ...(priceModifier !== undefined && { priceModifier: parseFloat(priceModifier) }),
+        ...(variantTypeId !== undefined && { variantTypeId }),
         ...(sortOrder !== undefined && { sortOrder }),
         ...(isActive !== undefined && { isActive }),
       },
