@@ -285,13 +285,6 @@ function mapFontSize(size?: 'small' | 'medium' | 'large'): 'normal' | 'double' |
 export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
   const encoder = new ESCPOSEncoder();
 
-  // Debug: Log items with notes
-  console.log('Thermal printer received items:', data.items.map(item => ({
-    name: item.itemName,
-    note: item.note,
-    hasNote: !!item.note,
-  })));
-
   // Map font size
   const baseFontSize = mapFontSize(data.fontSize);
 

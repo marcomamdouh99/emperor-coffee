@@ -1335,22 +1335,12 @@ export default function POSInterface() {
       }
 
       // Prepare order items with variant info
-      console.log('[Cart Debug] Cart items before creating order:', cart.map(item => ({
-        name: item.name,
-        menuItemId: item.menuItemId,
-        variantId: item.variantId,
-        note: item.note,
-        hasNote: !!item.note,
-      })));
-
       const orderItems = cart.map(item => ({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         menuItemVariantId: item.variantId || null,
         specialInstructions: item.note || null,
       }));
-
-      console.log('[Cart Debug] Order items prepared:', orderItems);
 
       // Validate delivery fields
       if (orderType === 'delivery') {

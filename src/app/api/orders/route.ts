@@ -443,10 +443,6 @@ export async function POST(request: NextRequest) {
       // Create order items and capture created records
       const createdOrderItems = [];
       for (const item of orderItemsToCreate) {
-        console.log('[Order API] Creating order item with:', {
-          menuItemId: item.menuItemId,
-          specialInstructions: item.specialInstructions,
-        });
         const createdItem = await tx.orderItem.create({
           data: {
             ...item,
@@ -455,13 +451,6 @@ export async function POST(request: NextRequest) {
         });
         createdOrderItems.push(createdItem);
       }
-
-      console.log('[Order API] Created order items with notes:', createdOrderItems.map(item => ({
-        id: item.id,
-        menuItemId: item.menuItemId,
-        itemName: item.itemName,
-        specialInstructions: item.specialInstructions,
-      })));
 
       // Deduct inventory with atomic operations to prevent race conditions
       for (const deduction of inventoryDeductions) {
