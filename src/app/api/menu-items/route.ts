@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
         price: parseFloat(price),
         taxRate: taxRate !== undefined ? parseFloat(taxRate) : 0.14,
         isActive: isActive !== undefined ? isActive : true,
-        sortOrder: sortOrder !== undefined ? sortOrder : null,
+        sortOrder: sortOrder !== undefined && sortOrder !== '' ? parseInt(sortOrder) : null,
         hasVariants: hasVariants !== undefined ? hasVariants : false,
       },
     });
