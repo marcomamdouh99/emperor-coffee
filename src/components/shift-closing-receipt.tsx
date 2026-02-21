@@ -176,52 +176,122 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
   <meta charset="UTF-8">
   <title>Shift Closing - Payment Summary</title>
   <style>
+    @page {
+      size: 80mm auto;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      color: #000 !important;
+    }
+
+    @media print {
+      @page {
+        margin: 0;
+        padding: 0;
+        size: 80mm auto;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      html, body {
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: auto;
+      width: 80mm;
+    }
+
     body {
       font-family: 'Courier New', monospace;
       max-width: 80mm;
-      margin: 0;
-      padding: 5mm;
+      margin: 0 auto;
+      padding: 0;
       font-size: 12px;
       line-height: 1.4;
+      background: white;
+      color: #000;
     }
+
     .header {
       text-align: center;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 2px dashed #000;
-      padding-bottom: 10px;
     }
+
     .header h1 {
       margin: 0;
       font-size: 18px;
       font-weight: bold;
+      padding: 0;
+      color: #000;
     }
+
+    .header div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
     .info {
-      margin-bottom: 15px;
-      font-size: 11px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      padding: 0;
     }
+
     .info div {
-      margin: 3px 0;
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
     }
+
     .totals {
       border-top: 2px dashed #000;
-      padding-top: 10px;
+      padding-top: 8px;
+      margin-top: 5px;
     }
+
     .total-row {
       display: flex;
       justify-content: space-between;
-      margin: 5px 0;
+      margin: 3px 0;
+      padding: 0;
     }
+
+    .total-row span {
+      color: #000 !important;
+    }
+
     .total-row.grand-total {
       font-weight: bold;
       font-size: 14px;
-      margin-top: 10px;
+      margin-top: 8px;
+      padding-top: 5px;
     }
+
     .footer {
       text-align: center;
-      margin-top: 20px;
-      padding-top: 10px;
+      margin-top: 10px;
+      padding-top: 8px;
       border-top: 2px dashed #000;
       font-size: 10px;
+      padding-bottom: 0;
+      color: #000;
     }
   </style>
 </head>
@@ -281,13 +351,13 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     let itemsHtml = '';
     data.categoryBreakdown.forEach(category => {
       itemsHtml += `
-        <div style="margin-bottom: 15px;">
-          <div style="font-weight: bold; margin-bottom: 5px;">${category.categoryName}</div>
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: bold; margin-bottom: 3px;">${category.categoryName}</div>
       `;
 
       category.items.forEach(item => {
         itemsHtml += `
-          <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+          <div style="display: flex; justify-content: space-between; margin: 2px 0;">
             <span style="flex: 0 0 30px; text-align: left; font-weight: bold;">${item.quantity}x</span>
             <span style="flex: 1; text-align: left;">${item.itemName}</span>
             <span style="flex: 0 0 80px; text-align: right;">${item.totalPrice.toFixed(2)}</span>
@@ -296,7 +366,7 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       });
 
       itemsHtml += `
-        <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+        <div style="border-top: 2px dashed #000; margin: 8px 0;"></div>
         </div>
       `;
     });
@@ -308,38 +378,98 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
   <meta charset="UTF-8">
   <title>Shift Closing - Item Breakdown</title>
   <style>
+    @page {
+      size: 80mm auto;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      color: #000 !important;
+    }
+
+    @media print {
+      @page {
+        margin: 0;
+        padding: 0;
+        size: 80mm auto;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      html, body {
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: auto;
+      width: 80mm;
+    }
+
     body {
       font-family: 'Courier New', monospace;
       max-width: 80mm;
-      margin: 0;
-      padding: 5mm;
+      margin: 0 auto;
+      padding: 0;
       font-size: 12px;
       line-height: 1.4;
+      background: white;
+      color: #000;
     }
+
     .header {
       text-align: center;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 2px dashed #000;
-      padding-bottom: 10px;
     }
+
     .header h1 {
       margin: 0;
       font-size: 18px;
       font-weight: bold;
+      padding: 0;
+      color: #000;
     }
+
+    .header div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
     .info {
-      margin-bottom: 15px;
-      font-size: 11px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      padding: 0;
     }
+
     .info div {
-      margin: 3px 0;
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
     }
+
     .footer {
       text-align: center;
-      margin-top: 20px;
-      padding-top: 10px;
+      margin-top: 10px;
+      padding-top: 8px;
       border-top: 2px dashed #000;
       font-size: 10px;
+      padding-bottom: 0;
+      color: #000;
     }
   </style>
 </head>
@@ -355,7 +485,7 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     <div>Time: ${timeStr}</div>
   </div>
 
-  <div style="border-top: 2px dashed #000; margin: 15px 0;"></div>
+  <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
 
   ${itemsHtml}
 

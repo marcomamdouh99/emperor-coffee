@@ -731,17 +731,28 @@ export default function ShiftManagement() {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        console.log('[Day Closing] Business day closed successfully');
+        console.log('[Day Closing] Fetching closing report for businessDayId:', businessDayStatus.businessDayId);
+        
         // Fetch closing report
         try {
           const reportResponse = await fetch(`/api/business-days/closing-report?businessDayId=${businessDayStatus.businessDayId}`);
           const reportData = await reportResponse.json();
 
+          console.log('[Day Closing] Report response status:', reportResponse.status);
+          console.log('[Day Closing] Report data:', reportData);
+
           if (reportResponse.ok && reportData.success) {
+            console.log('[Day Closing] Setting closing report and opening dialog');
             setClosingReport(reportData.report);
             setClosingReportOpen(true);
+          } else {
+            console.error('[Day Closing] Report fetch failed:', reportData.error);
+            alert('Business day closed but failed to fetch closing report');
           }
         } catch (reportError) {
           console.error('[Shift Management] Failed to fetch closing report:', reportError);
+          alert('Business day closed but failed to fetch closing report');
         }
 
         alert('Business day closed successfully!');
@@ -749,6 +760,7 @@ export default function ShiftManagement() {
         setDayClosingNotes('');
         setBusinessDayStatus({ isOpen: false });
       } else {
+        console.error('[Day Closing] Close API failed:', data);
         alert(data.error || 'Failed to close business day');
       }
     } catch (error) {
