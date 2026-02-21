@@ -235,7 +235,8 @@ export async function POST(request: NextRequest) {
       loyaltyDiscount,
       promoCodeId,
       promoDiscount,
-      orderNumber
+      orderNumber,
+      cardReferenceNumber,
     } = validationResult.data;
 
     // Get next order number if not provided
@@ -435,6 +436,7 @@ export async function POST(request: NextRequest) {
           tableId: tableId || null,
           promoCodeId: promoCodeId || null,
           promoDiscount: promoDiscount || 0,
+          cardReferenceNumber: cardReferenceNumber || null,
         },
       });
 
@@ -726,6 +728,7 @@ export async function POST(request: NextRequest) {
         loyaltyDiscount: loyaltyDiscount || null,
         promoCodeId: promoCodeId || null,
         promoDiscount: promoDiscount || null,
+        cardReferenceNumber: cardReferenceNumber || null,
         items: order.items.map(item => ({
           id: item.id,
           menuItemId: item.menuItemId,

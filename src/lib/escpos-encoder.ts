@@ -31,6 +31,7 @@ export interface ReceiptData {
   promoCode?: string;
   total: number;
   paymentMethod: 'cash' | 'card';
+  cardReferenceNumber?: string;
   isRefunded: boolean;
   refundReason?: string;
   // Receipt settings
@@ -459,6 +460,12 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
     .newLine()
     .text(`Payment: ${data.paymentMethod === 'card' ? 'Card' : 'Cash'}`)
     .newLines(2);
+
+  // Card Reference Number - if card payment
+  if (data.paymentMethod === 'card' && data.cardReferenceNumber) {
+    encoder.text(`Ref. No: ${data.cardReferenceNumber}`)
+      .newLines(2);
+  }
 
   // Footer
   encoder.hr('=')

@@ -17,7 +17,7 @@ import {
   Search, User, Clock, MapPin, Phone, Star, Flame, Zap,
   TrendingUp, AlertTriangle, Grid, Filter, Menu as MenuIcon,
   Sparkles, Bell, Layers, Wallet, Calendar, Barcode, Receipt, Utensils,
-  ChevronRight, Tag, Gift, ShoppingBag, RefreshCw, Check,
+  ChevronRight, Tag, Gift, ShoppingBag, RefreshCw, Check, Info,
   PanelLeftClose, PanelLeftOpen, Users, MessageSquare, Edit3
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
@@ -297,6 +297,10 @@ export default function POSInterface() {
   const [showTableGrid, setShowTableGrid] = useState(false);
   const [tableCart, setTableCart] = useState<CartItem[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+
+  // Card payment confirmation dialog state
+  const [showCardPaymentDialog, setShowCardPaymentDialog] = useState(false);
+  const [cardReferenceNumber, setCardReferenceNumber] = useState('');
 
   // Item note dialog state
   const [showNoteDialog, setShowNoteDialog] = useState(false);
@@ -1285,7 +1289,28 @@ export default function POSInterface() {
     }
   };
 
-  const handleCheckout = async (paymentMethod: 'cash' | 'card') => {
+  // Card payment handlers
+  const handleCardPaymentClick = () => {
+    if (cart.length === 0) return;
+    setShowCardPaymentDialog(true);
+    setCardReferenceNumber('');
+  };
+
+  const handleCardPaymentSubmit = async () => {
+    if (!cardReferenceNumber.trim()) {
+      alert('Please enter the card reference number');
+      return;
+    }
+    setShowCardPaymentDialog(false);
+    await handleCheckout('card', cardReferenceNumber.trim());
+  };
+
+  const handleCardPaymentCancel = () => {
+    setShowCardPaymentDialog(false);
+    setCardReferenceNumber('');
+  };
+
+  const handleCheckout = async (paymentMethod: 'cash' | 'card', cardRefNumber?: string) => {
     if (cart.length === 0) return;
 
     // For cashiers, check if they have an active shift
@@ -1341,6 +1366,11 @@ export default function POSInterface() {
         paymentMethod,
         cashierId: user?.id,
       };
+
+      // Add card reference number if provided
+      if (paymentMethod === 'card' && cardRefNumber) {
+        orderData.cardReferenceNumber = cardRefNumber;
+      }
 
       // Add shiftId to order data
       orderData.shiftId = currentShift?.id;
@@ -2315,7 +2345,7 @@ export default function POSInterface() {
                 Cash
               </Button>
               <Button
-                onClick={() => handleCheckout('card')}
+                onClick={handleCardPaymentClick}
                 disabled={processing || currentCart.length === 0}
                 variant="outline"
                 className="border-2 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 font-bold h-12 text-base rounded-xl transition-all"
@@ -2775,7 +2805,7 @@ export default function POSInterface() {
                   <Button
                     onClick={() => {
                       setMobileCartOpen(false);
-                      handleCheckout('card');
+                      handleCardPaymentClick();
                     }}
                     disabled={processing || cart.length === 0}
                     variant="outline"
@@ -2952,6 +2982,92 @@ export default function POSInterface() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Card Payment Confirmation Dialog */}
+      <Dialog open={showCardPaymentDialog} onOpenChange={setShowCardPaymentDialog}>
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <CreditCard className="h-5 w-5 text-white" />
+              </div>
+              <DialogTitle className="text-xl font-bold">Card Payment</DialogTitle>
+            </div>
+            <DialogDescription>
+              Enter the card transaction reference number after successful payment
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
+                    Process payment on terminal first
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-400">
+                    Complete the card transaction on your payment terminal, then enter the reference number below to finalize the order.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="cardRefNumber" className="text-sm font-semibold">
+                Reference Number *
+              </Label>
+              <Input
+                id="cardRefNumber"
+                value={cardReferenceNumber}
+                onChange={(e) => setCardReferenceNumber(e.target.value)}
+                placeholder="Enter transaction reference number..."
+                className="mt-2 text-sm h-11 rounded-xl"
+                autoFocus
+                onKeyPress={(e) => e.key === 'Enter' && handleCardPaymentSubmit()}
+              />
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5">
+                This reference will be saved with the order for tracking purposes
+              </p>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  If the card transaction fails, click Cancel and pay with Cash instead
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-3">
+            <Button
+              variant="outline"
+              onClick={handleCardPaymentCancel}
+              disabled={processing}
+              className="flex-1 rounded-xl h-11 font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCardPaymentSubmit}
+              disabled={processing || !cardReferenceNumber.trim()}
+              className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-xl h-11 font-semibold shadow-lg shadow-blue-500/30"
+            >
+              {processing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Submit & Process Order
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

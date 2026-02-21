@@ -66,6 +66,7 @@ interface Order {
   promoCodeId?: string | null;
   promoCode?: string;
   promoDiscount?: number | null;
+  cardReferenceNumber?: string | null;
 }
 
 interface ReceiptViewerProps {
@@ -187,6 +188,7 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
         promoCode: order.promoCode,
         total: order.totalAmount,
         paymentMethod: order.paymentMethod as 'cash' | 'card',
+        cardReferenceNumber: order.cardReferenceNumber || undefined,
         isRefunded: order.isRefunded,
         refundReason: order.refundReason,
         headerText: receiptSettings?.headerText,
@@ -401,6 +403,14 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
                 text-align: right;
               }
 
+              .item-note {
+                font-size: 10px;
+                color: #000 !important;
+                padding-left: 2px;
+                margin-top: 2px;
+                font-style: italic;
+              }
+
               .totals {
                 border-top: 2px dashed #000;
                 padding-top: 8px;
@@ -608,6 +618,13 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
                     flex: 0 0 55px;
                     text-align: right;
                   }
+                  .item-note {
+                    font-size: 11px;
+                    color: #64748b;
+                    padding-left: 4px;
+                    margin-top: 2px;
+                    font-style: italic;
+                  }
                   .refunded {
                     color: #000 !important;
                   }
@@ -702,7 +719,7 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
                         <span className="col-total">{formatCurrency(item.subtotal, currency)}</span>
                       </div>
                       {item.specialInstructions && (
-                        <div className="text-xs text-slate-600 dark:text-slate-400 pl-1 mt-0.5 italic">
+                        <div className="item-note">
                           {item.specialInstructions}
                         </div>
                       )}
@@ -743,6 +760,12 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
                     <span>Payment:</span>
                     <span>{order.paymentMethod === 'card' ? 'Card' : 'Cash'}</span>
                   </div>
+                  {order.paymentMethod === 'card' && order.cardReferenceNumber && (
+                    <div className="total-row">
+                      <span>Ref. No:</span>
+                      <span className="text-xs">{order.cardReferenceNumber}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="footer">

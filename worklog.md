@@ -211,3 +211,25 @@ Stage Summary:
 - Notes are printed under each item in the receipt
 - All features work for regular cart and table cart (dine-in)
 - Committed changes to main branch (commit 83eee9c)
+
+---
+Task ID: 2
+Agent: z-ai-web-dev (zai)
+Task: Fix receipt to show variant names and item notes
+
+Work Log:
+- Identified that OrderItem schema was missing specialInstructions field
+- Added specialInstructions String? field to OrderItem model in schema.prisma
+- Updated order API to save specialInstructions from cart items
+- Modified order API response to include specialInstructions
+- Updated order API to return full variant info (menuItemVariant with variantOption)
+- Modified receipt-viewer to map specialInstructions to receipt note field
+- Ran database migration with bunx prisma db push
+
+Stage Summary:
+- Database schema updated to include specialInstructions
+- Order API now saves and returns item notes
+- Receipts will now show variant names: "Coffee (Small)" instead of "Coffee"
+- Receipts will now display item notes under each item
+- All changes committed (a27ca14) and pushed to GitHub
+

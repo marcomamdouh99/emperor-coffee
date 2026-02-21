@@ -453,6 +453,7 @@ model Order {
   courierId         String? // Delivery courier
   promoCodeId       String? // Applied promo code
   promoDiscount     Float    @default(0) // Promo discount amount
+  cardReferenceNumber String? // Card transaction reference number
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
