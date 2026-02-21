@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { logDayOpened } from '@/lib/audit-logger';
 
 // POST /api/business-days/open
 // Open a new business day
@@ -57,20 +58,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId,
-        actionType: 'OPEN_BUSINESS_DAY',
-        entityType: 'BusinessDay',
-        entityId: businessDay.id,
-        newValue: JSON.stringify({
-          branchId,
-          openedAt: businessDay.openedAt
-        }),
-        currentHash: `BD-${businessDay.id}-${Date.now()}`
-      }
-    });
+    // Log business day opening to audit logs
+    await logDayOpened(userId, businessDay.id, 0);
 
     return NextResponse.json({
       success: true,

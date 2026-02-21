@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { logDayClosed } from '@/lib/audit-logger';
 
 // POST /api/business-days/close
 // Close the current business day and calculate aggregates
@@ -153,23 +154,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId,
-        actionType: 'CLOSE_BUSINESS_DAY',
-        entityType: 'BusinessDay',
-        entityId: businessDayId,
-        newValue: JSON.stringify({
-          closingCash: updatedDay.closingCash,
-          expectedCash: updatedDay.expectedCash,
-          cashDifference: updatedDay.cashDifference,
-          totalSales: updatedDay.totalSales,
-          totalOrders: updatedDay.totalOrders
-        }),
-        currentHash: `BD-${businessDayId}-${Date.now()}-${updatedDay.closingCash}`
-      }
-    });
+    // Log business day closing to audit logs
+    await logDayClosed(userId, businessDayId, updatedDay.totalSales);
 
     return NextResponse.json({
       success: true,
