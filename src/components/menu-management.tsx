@@ -1194,51 +1194,53 @@ export default function MenuManagement() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                       {item.variants?.map((variant) => (
                                         <div key={variant.id} className="bg-white p-4 rounded border shadow-sm">
-                                          <div className="space-y-3">
-                                            <div>
-                                              <div className="font-semibold text-sm mb-1">
-                                                {variant.variantType.name}: {variant.variantOption.name}
+                                          <div className="flex justify-between items-start gap-2">
+                                            <div className="flex-1 space-y-3">
+                                              <div>
+                                                <div className="font-semibold text-sm mb-1">
+                                                  {variant.variantType.name}: {variant.variantOption.name}
+                                                </div>
+                                                <div className="text-xs text-slate-500 mb-2">
+                                                  Price: {formatCurrency(getVariantPrice(item.price, variant.priceModifier), currency)}
+                                                  {variant.priceModifier !== 0 && (
+                                                    <span className={`ml-2 ${variant.priceModifier > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                      ({variant.priceModifier > 0 ? '+' : ''}{formatCurrency(variant.priceModifier, currency)})
+                                                    </span>
+                                                  )}
+                                                </div>
                                               </div>
-                                              <div className="text-xs text-slate-500 mb-2">
-                                                Price: {formatCurrency(getVariantPrice(item.price, variant.priceModifier), currency)}
-                                                {variant.priceModifier !== 0 && (
-                                                  <span className={`ml-2 ${variant.priceModifier > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                    ({variant.priceModifier > 0 ? '+' : ''}{formatCurrency(variant.priceModifier, currency)})
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </div>
 
-                                            {/* Cost Information */}
-                                            <div className="space-y-1.5 text-xs pt-2 border-t border-slate-100">
-                                              <div className="flex justify-between">
-                                                <span className="text-slate-500">Product Cost:</span>
-                                                <span className="text-red-600 font-medium">
-                                                  {variant.productCost !== undefined ? formatCurrency(variant.productCost, currency) : '-'}
-                                                </span>
-                                              </div>
-                                              <div className="flex justify-between">
-                                                <span className="text-slate-500">Profit:</span>
-                                                <span className="text-blue-600 font-medium">
-                                                  {variant.profit !== undefined ? formatCurrency(variant.profit, currency) : '-'}
-                                                </span>
-                                              </div>
-                                              <div className="flex justify-between">
-                                                <span className="text-slate-500">Margin:</span>
-                                                <span className={`font-medium ${getProfitMarginColor(variant.profitMargin)}`}>
-                                                  {variant.profitMargin !== undefined ? `${variant.profitMargin.toFixed(1)}%` : '-'}
-                                                </span>
+                                              {/* Cost Information */}
+                                              <div className="space-y-1.5 text-xs pt-2 border-t border-slate-100">
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-500">Product Cost:</span>
+                                                  <span className="text-red-600 font-medium">
+                                                    {variant.productCost !== undefined ? formatCurrency(variant.productCost, currency) : '-'}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-500">Profit:</span>
+                                                  <span className="text-blue-600 font-medium">
+                                                    {variant.profit !== undefined ? formatCurrency(variant.profit, currency) : '-'}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-slate-500">Margin:</span>
+                                                  <span className={`font-medium ${getProfitMarginColor(variant.profitMargin)}`}>
+                                                    {variant.profitMargin !== undefined ? `${variant.profitMargin.toFixed(1)}%` : '-'}
+                                                  </span>
+                                                </div>
                                               </div>
                                             </div>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-9 w-9 sm:h-7 sm:w-7 text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
+                                              onClick={() => handleDeleteVariant(variant.id)}
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </Button>
                                           </div>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-9 w-9 sm:h-7 sm:w-7 text-red-600"
-                                            onClick={() => handleDeleteVariant(variant.id)}
-                                          >
-                                            <X className="h-3 w-3" />
-                                          </Button>
                                         </div>
                                       ))}
                                     </div>
@@ -1563,7 +1565,6 @@ export default function MenuManagement() {
                               size="icon"
                               className="h-9 w-9 sm:h-8 sm:w-8 text-red-600 hover:text-red-700"
                               onClick={() => handleDeleteVariantType(variantType.id)}
-                              disabled={variantType.options && variantType.options.length > 0}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
