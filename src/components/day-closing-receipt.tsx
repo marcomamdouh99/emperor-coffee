@@ -281,6 +281,23 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
       padding-bottom: 0;
       color: #000;
     }
+
+    .notes-section {
+      margin-top: 10px;
+      padding: 5px;
+      border: 1px solid #000;
+    }
+
+    .notes-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .notes-content {
+      font-size: 11px;
+      line-height: 1.3;
+      word-wrap: break-word;
+    }
   </style>
 </head>
 <body>
@@ -390,6 +407,13 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
       <span>${formatCurrency(overShort)}</span>
     </div>
   </div>
+
+  ${data.notes ? `
+  <div class="notes-section">
+    <div class="notes-title">Day Notes:</div>
+    <div class="notes-content">${data.notes}</div>
+  </div>
+  ` : ''}
 
   <div class="footer">
     <div>Emperor Coffee Franchise</div>

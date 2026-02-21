@@ -723,6 +723,7 @@ export interface DayClosingReportData {
       totalPrice: number;
     }>;
   }>;
+  notes?: string | null;
   fontSize?: 'small' | 'medium' | 'large';
 }
 

@@ -281,6 +281,7 @@ export async function GET(request: NextRequest) {
       date: businessDay.openedAt,
       shifts: shiftsData,
       categoryBreakdown: categories,
+      notes: businessDay.notes,
       fontSize: 'medium' as const
     };
 

@@ -207,7 +207,8 @@ export async function GET(
         openingOrders: shift.openingOrders,
         closingOrders: shift.closingOrders,
         openingRevenue: shift.openingRevenue,
-        closingRevenue: shift.closingRevenue
+        closingRevenue: shift.closingRevenue,
+        notes: shift.notes
       },
       paymentSummary: {
         cash: cashTotal,

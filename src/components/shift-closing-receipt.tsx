@@ -33,6 +33,7 @@ interface ApiResponse {
       closingOrders: number | null;
       openingRevenue: number;
       closingRevenue: number | null;
+      notes?: string | null;
     };
     paymentSummary: {
       cash: number;
@@ -339,6 +340,23 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       padding-bottom: 0;
       color: #000;
     }
+
+    .notes-section {
+      margin-top: 10px;
+      padding: 5px;
+      border: 1px solid #000;
+    }
+
+    .notes-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .notes-content {
+      font-size: 11px;
+      line-height: 1.3;
+      word-wrap: break-word;
+    }
   </style>
 </head>
 <body>
@@ -448,6 +466,13 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       <span>${formatCurrency(overShort)}</span>
     </div>
   </div>
+
+  ${fullReportData.shift.notes ? `
+  <div class="notes-section">
+    <div class="notes-title">Notes:</div>
+    <div class="notes-content">${fullReportData.shift.notes}</div>
+  </div>
+  ` : ''}
 
   <div class="footer">
     <div>Emperor Coffee Franchise</div>
