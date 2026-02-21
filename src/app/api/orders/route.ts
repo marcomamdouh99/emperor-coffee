@@ -378,6 +378,7 @@ export async function POST(request: NextRequest) {
         recipeVersion: menuItem.version,
         menuItemVariantId: variantId,
         variantName,
+        specialInstructions: item.specialInstructions || null,
       });
 
       // Calculate inventory deductions based on recipes
@@ -735,7 +736,17 @@ export async function POST(request: NextRequest) {
           recipeVersion: item.recipeVersion,
           menuItemVariantId: item.menuItemVariantId,
           variantName: item.variantName,
+          specialInstructions: item.specialInstructions,
           createdAt: item.createdAt.toISOString(),
+          // Include full variant info for receipt printing
+          ...(item.menuItemVariantId ? {
+            menuItemVariant: {
+              id: item.menuItemVariantId,
+              variantOption: {
+                name: item.variantName?.split(': ')[1] || item.variantName || null,
+              },
+            },
+          } : {}),
         })),
         branch: branch ? {
           id: branch.id,

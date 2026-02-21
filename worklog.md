@@ -180,3 +180,34 @@ Stage Summary:
 - Added extensive logging to debug Day Closing dialog visibility issue
 - All receipts now print in the same compact, professional format
 - All changes pushed to GitHub main branch successfully
+
+---
+Task ID: 1
+Agent: full-stack-developer (agent-43b4d83d-2302-43c6-ab6d-aa2049dae6c2)
+Task: Enhance POS cart and receipt printing
+
+Work Log:
+- Analyzed POS interface requirements for variant names, quantity input, and item notes
+- Updated CartItem interface to include `note?: string` field
+- Added MessageSquare and Edit3 icons for note features
+- Created note dialog with quantity input and textarea (200 char limit)
+- Implemented handleQuantityChange, handleIncrementQuantity, handleDecrementQuantity functions
+- Updated addToCart to handle items with notes using base64 encoding for unique IDs
+- Smart item grouping: items with different notes create separate cart entries
+- Updated cart rendering (desktop and mobile) to show quantity input and note indicators
+- Modified receipt-viewer.tsx to display variant names (e.g., "Coffee (Small)")
+- Added specialInstructions to OrderItem interface
+- Updated receipt display to show item notes indented and in smaller font
+- Updated escpos-encoder.ts to include notes in thermal printer output
+- Modified handleCheckout to include specialInstructions from cart notes
+- Updated createTableOrder for dine-in orders with notes
+- Updated createOrderOffline to preserve notes in offline orders
+
+Stage Summary:
+- Receipts now show variant names: "Coffee (Small)" instead of "Coffee"
+- Cart items have quantity input field for direct entry
+- Users can add notes to individual items (e.g., "Very Hot Please")
+- Items with different notes appear on separate lines
+- Notes are printed under each item in the receipt
+- All features work for regular cart and table cart (dine-in)
+- Committed changes to main branch (commit 83eee9c)

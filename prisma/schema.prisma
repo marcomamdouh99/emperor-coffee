@@ -523,6 +523,7 @@ model OrderItem {
   recipeVersion     Int
   menuItemVariantId String? // Selected variant
   variantName       String? // Display name of variant (e.g., "Large", "500g")
+  specialInstructions String? // Item notes/special requests
   createdAt         DateTime @default(now())
   // Void tracking
   isVoided         Boolean @default(false)
