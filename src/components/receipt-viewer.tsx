@@ -206,6 +206,13 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
         logoData: receiptSettings?.logoData,
       };
 
+      // Debug: Log items with notes
+      console.log('Receipt items with notes:', order.items.map(item => ({
+        name: item.itemName,
+        specialInstructions: item.specialInstructions,
+        hasNote: !!item.specialInstructions,
+      })));
+
       // Generate ESC/POS data
       const escposData = generateReceiptESCPOS(receiptData);
 

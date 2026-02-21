@@ -285,6 +285,13 @@ function mapFontSize(size?: 'small' | 'medium' | 'large'): 'normal' | 'double' |
 export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
   const encoder = new ESCPOSEncoder();
 
+  // Debug: Log items with notes
+  console.log('Thermal printer received items:', data.items.map(item => ({
+    name: item.itemName,
+    note: item.note,
+    hasNote: !!item.note,
+  })));
+
   // Map font size
   const baseFontSize = mapFontSize(data.fontSize);
 
@@ -402,12 +409,12 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
 
     encoder.text(line1).newLine();
     encoder.align('right').text(line2).align('left').newLine();
-    
+
     // Print note if exists
     if (item.note) {
       encoder.text(`  Note: ${item.note}`).newLine();
     }
-    
+
     encoder.newLine();
   });
 
