@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { validateRequest, orderCreateSchema, formatZodErrors } from '@/lib/validators';
 import { parsePaginationParams, buildPaginatedResponse, defaultPagination } from '@/lib/pagination';
+import { logOrderCreated, logPromoCodeApplied } from '@/lib/audit-logger';
 
 /**
  * Get or create "Loyalty Discounts" cost category for a branch
@@ -470,6 +471,15 @@ export async function POST(request: NextRequest) {
       console.error('Transaction failed:', transactionError);
       throw transactionError;
     });
+
+    // Log order creation to audit logs
+    const orderDetails = `Order #${order.order.orderNumber}, Total: ${totalAmount}, Payment: ${paymentMethod}`;
+    await logOrderCreated(cashierId, order.order.id, orderDetails);
+
+    // Log promo code usage if applicable
+    if (promoCodeId && promoDiscount > 0) {
+      await logPromoCodeApplied(cashierId, promoCodeId, promoCode || '', promoDiscount);
+    }
 
     // Update table status to OCCUPIED when a dine-in order is created with a tableId
     if (tableId && orderType === 'dine-in') {

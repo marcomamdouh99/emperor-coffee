@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { ShoppingCart, LayoutDashboard, Utensils, Package, Store, BarChart3, Settings, Users, LogOut, Lock, Globe, Coffee, Clock, TrendingUp, MapPin, UserRound, DollarSign, AlertTriangle, ArrowRight, Trash2, Gift, RefreshCw, Menu, Receipt as ReceiptIcon, Building, Tag, LayoutGrid } from 'lucide-react';
+import { ShoppingCart, LayoutDashboard, Utensils, Package, Store, BarChart3, Settings, Users, LogOut, Lock, Globe, Coffee, Clock, TrendingUp, MapPin, UserRound, DollarSign, AlertTriangle, ArrowRight, Trash2, Gift, RefreshCw, Menu, Receipt as ReceiptIcon, Building, Tag, LayoutGrid, FileText } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { useI18n, Language } from '@/lib/i18n-context';
 import MenuManagement from '@/components/menu-management';
@@ -31,6 +31,7 @@ import ReceiptSettings from '@/components/receipt-settings';
 import SuppliersManagement from '@/components/suppliers-management';
 import PurchaseOrdersManagement from '@/components/purchase-orders-management';
 import TableManagement from '@/components/table-management';
+import AuditLogs from '@/components/audit-logs';
 import { OfflineStatusIndicator } from '@/components/offline-status-indicator';
 import { PWAInstallPrompt } from '@/components/pwa-install-prompt';
 import { offlineManager } from '@/lib/offline/offline-manager';
@@ -213,6 +214,7 @@ export default function POSDashboard() {
   const canAccessSuppliers = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
   const canAccessPurchaseOrders = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
   const canAccessTables = user.role === 'ADMIN';
+  const canAccessAuditLogs = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
 
   const handleLogout = async () => {
     await logout();
@@ -235,6 +237,7 @@ export default function POSDashboard() {
     { id: 'branches', label: t('dashboard.branches'), icon: LayoutDashboard, show: canAccessHQFeatures },
     { id: 'tables', label: 'Tables', icon: LayoutGrid, show: canAccessTables },
     { id: 'reports', label: t('dashboard.reports'), icon: BarChart3, show: canAccessBranchFeatures },
+    { id: 'audit-logs', label: 'Audit Logs', icon: FileText, show: canAccessAuditLogs },
     { id: 'users', label: t('dashboard.users'), icon: Users, show: canAccessUsers },
     { id: 'shifts', label: 'Shifts', icon: Clock, show: canAccessShifts },
     { id: 'delivery', label: 'Delivery', icon: MapPin, show: canAccessDelivery },
@@ -557,6 +560,16 @@ export default function POSDashboard() {
                 {t('dashboard.reports')}
               </TabsTrigger>
             )}
+            {/* Audit Logs - Branch Manager and above */}
+            {canAccessAuditLogs && (
+              <TabsTrigger
+                value="audit-logs"
+                className="data-[state=active]:bg-white text-emerald-700 hover:bg-emerald-50"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Audit Logs
+              </TabsTrigger>
+            )}
             {/* Users - Branch Manager and above */}
             {canAccessUsers && (
               <TabsTrigger
@@ -739,6 +752,14 @@ export default function POSDashboard() {
             <TabsContent value="reports" className="space-y-4">
               {canAccessBranchFeatures ? (
                 <ReportsDashboard />
+              ) : (
+                <AccessDenied user={user} />
+              )}
+            </TabsContent>
+
+            <TabsContent value="audit-logs" className="space-y-4">
+              {canAccessAuditLogs ? (
+                <AuditLogs />
               ) : (
                 <AccessDenied user={user} />
               )}

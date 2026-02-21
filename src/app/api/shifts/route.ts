@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { logShiftOpened, logShiftClosed } from '@/lib/audit-logger';
 
 /**
  * GET /api/shifts
@@ -269,6 +270,9 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Log shift opening to audit logs
+    await logShiftOpened(cashierId, shift.id, openingCash || 0);
 
     return NextResponse.json({
       success: true,

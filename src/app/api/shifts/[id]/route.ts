@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { logShiftClosed } from '@/lib/audit-logger';
 
 // Shared update logic to avoid double-reading of body
 async function closeShift(id: string, body: any) {
@@ -115,6 +116,9 @@ async function closeShift(id: string, body: any) {
       cashier: true,
     },
   });
+
+  // Log shift closing to audit logs
+  await logShiftClosed(shift.cashierId, id, parseFloat(closingCash));
 
   console.log('[closeShift] Shift updated successfully');
 
