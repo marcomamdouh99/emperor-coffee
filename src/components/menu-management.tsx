@@ -88,6 +88,7 @@ interface MenuItemFormData {
   taxRate: string;
   isActive: boolean;
   hasVariants: boolean;
+  sortOrder: string;
 }
 
 interface CategoryFormData {
@@ -131,6 +132,7 @@ export default function MenuManagement() {
     taxRate: '0.14',
     isActive: true,
     hasVariants: false,
+    sortOrder: '0',
   });
 
   // Variant Management State
@@ -715,6 +717,7 @@ export default function MenuManagement() {
       taxRate: item.taxRate.toString(),
       isActive: item.isActive,
       hasVariants: item.hasVariants,
+      sortOrder: (item.sortOrder ?? 0).toString(),
     });
 
     // Fetch variants if the item has them
@@ -763,6 +766,7 @@ export default function MenuManagement() {
       taxRate: '0',
       isActive: true,
       hasVariants: false,
+      sortOrder: '0',
     });
     setItemVariants([]);
     setSelectedVariantType('');
@@ -920,7 +924,7 @@ export default function MenuManagement() {
                             </div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="taxRate">Tax Rate</Label>
                             <Input
@@ -950,6 +954,19 @@ export default function MenuManagement() {
                                 <SelectItem value="false">Inactive</SelectItem>
                               </SelectContent>
                             </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="sortOrder">Sort Order</Label>
+                            <Input
+                              id="sortOrder"
+                              type="number"
+                              step="1"
+                              min="0"
+                              value={itemFormData.sortOrder}
+                              onChange={(e) => setItemFormData({ ...itemFormData, sortOrder: e.target.value })}
+                              placeholder="0"
+                              className="h-11"
+                            />
                           </div>
                         </div>
 
@@ -1099,6 +1116,7 @@ export default function MenuManagement() {
                         <TableHead className="w-[40px]"></TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Category</TableHead>
+                        <TableHead className="text-center">Sort</TableHead>
                         <TableHead>Base Price</TableHead>
                         <TableHead>Product Cost</TableHead>
                         <TableHead>Profit</TableHead>
@@ -1110,11 +1128,11 @@ export default function MenuManagement() {
                     <TableBody>
                       {loading ? (
                         <TableRow key="loading">
-                          <TableCell colSpan={9} className="text-center py-8">Loading...</TableCell>
+                          <TableCell colSpan={10} className="text-center py-8">Loading...</TableCell>
                         </TableRow>
                       ) : filteredItems.length === 0 ? (
                         <TableRow key="empty">
-                          <TableCell colSpan={9} className="text-center py-8 text-slate-500">
+                          <TableCell colSpan={10} className="text-center py-8 text-slate-500">
                             No menu items found
                           </TableCell>
                         </TableRow>
@@ -1150,6 +1168,11 @@ export default function MenuManagement() {
                                 </div>
                               </TableCell>
                               <TableCell>{item.category}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline" className="text-xs font-mono">
+                                  {item.sortOrder ?? 0}
+                                </Badge>
+                              </TableCell>
                               <TableCell className="font-bold text-emerald-700">
                                 {formatCurrency(item.price, currency)}
                               </TableCell>
@@ -1185,7 +1208,7 @@ export default function MenuManagement() {
                             </TableRow>
                             {item.hasVariants && expandedRows.has(item.id) && (
                               <TableRow>
-                                <TableCell colSpan={9} className="p-0">
+                                <TableCell colSpan={10} className="p-0">
                                   <div className="bg-slate-50 p-4 border-l-4 border-emerald-500">
                                     <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
                                       <Layers className="h-4 w-4" />
