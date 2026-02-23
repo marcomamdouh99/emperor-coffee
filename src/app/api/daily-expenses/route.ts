@@ -30,9 +30,10 @@ async function getDailyExpensesCostCategory(branchId: string) {
 }
 
 /**
- * Create a daily expense cost record for a branch
+ * Create or update a daily expense cost record for a branch
+ * Accumulates amounts and appends notes with timestamps
  */
-async function createDailyExpenseCost(
+async function createOrUpdateDailyExpenseCost(
   branchId: string,
   amount: number,
   reason: string,
@@ -43,18 +44,92 @@ async function createDailyExpenseCost(
 
   const costCategory = await getDailyExpensesCostCategory(branchId);
 
-  const branchCost = await db.branchCost.create({
-    data: {
+  // Check if there's already a Daily Expenses cost for this shift and period
+  const existingCost = await db.branchCost.findFirst({
+    where: {
       branchId,
       costCategoryId: costCategory.id,
-      shiftId, // Link to shift for accurate reporting
-      amount: amount,
+      shiftId,
       period: currentPeriod,
-      notes: `Daily expense: ${reason}`,
+    },
+    include: {
+      branch: {
+        select: { id: true, branchName: true },
+      },
+      costCategory: {
+        select: { id: true, name: true, icon: true },
+      },
     },
   });
 
-  console.log('[Daily Expenses] Branch cost created:', branchCost.id);
+  let branchCost;
+
+  if (existingCost) {
+    // Update existing cost: add amount and append notes
+    const newAmount = existingCost.amount + amount;
+
+    // Append new notes with timestamp
+    const timestamp = new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const updatedNotes = existingCost.notes
+      ? `${existingCost.notes}\n\n---\n${timestamp}: Added ${amount.toFixed(2)} - ${reason}`
+      : `Daily expense: ${reason}\n\n---\n${timestamp}: Added ${amount.toFixed(2)} - ${reason}`;
+
+    branchCost = await db.branchCost.update({
+      where: { id: existingCost.id },
+      data: {
+        amount: newAmount,
+        notes: updatedNotes,
+      },
+      include: {
+        branch: {
+          select: { id: true, branchName: true },
+        },
+        costCategory: {
+          select: { id: true, name: true, icon: true },
+        },
+      },
+    });
+
+    console.log('[Daily Expenses] Updated existing cost:', branchCost.id, 'New total:', newAmount);
+  } else {
+    // Create new cost entry
+    const timestamp = new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    branchCost = await db.branchCost.create({
+      data: {
+        branchId,
+        costCategoryId: costCategory.id,
+        shiftId,
+        amount: amount,
+        period: currentPeriod,
+        notes: `Daily expense: ${reason}\n\n---\n${timestamp}: Added ${amount.toFixed(2)} - ${reason}`,
+      },
+      include: {
+        branch: {
+          select: { id: true, branchName: true },
+        },
+        costCategory: {
+          select: { id: true, name: true, icon: true },
+        },
+      },
+    });
+
+    console.log('[Daily Expenses] Created new cost:', branchCost.id);
+  }
+
   return branchCost;
 }
 
@@ -208,17 +283,17 @@ export async function POST(request: NextRequest) {
     // Create corresponding BranchCost record for reporting in Branch Operation
     let branchCost = null;
     try {
-      branchCost = await createDailyExpenseCost(branchId, parseFloat(amount), reason.trim(), shiftId, recordedBy);
-      
+      branchCost = await createOrUpdateDailyExpenseCost(branchId, parseFloat(amount), reason.trim(), shiftId, recordedBy);
+
       // Update the expense with the costId
       await db.dailyExpense.update({
         where: { id: expense.id },
         data: { costId: branchCost.id },
       });
-      
+
       expense.costId = branchCost.id;
     } catch (costError) {
-      console.error('[Daily Expenses] Failed to create cost record:', costError);
+      console.error('[Daily Expenses] Failed to create/update cost record:', costError);
       // Don't fail the expense creation if cost creation fails
     }
 
