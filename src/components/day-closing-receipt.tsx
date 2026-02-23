@@ -106,6 +106,7 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
   };
 
   const printShiftPaper = (shift: DayClosingShiftData) => {
+    if (!data) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -306,7 +307,7 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
 <body>
   <div class="header">
     <h1>Emperor Coffee</h1>
-    <div>${data.branchName}</div>
+    <div>${data?.branchName || 'Emperor Coffee'}</div>
     <div>Shift Closing #${shift.shiftNumber}</div>
   </div>
 
@@ -423,7 +424,7 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
     </div>
   </div>
 
-  ${data.notes ? `
+  ${data?.notes ? `
   <div class="notes-section">
     <div class="notes-title">Day Notes:</div>
     <div class="notes-content">${data.notes}</div>
@@ -577,7 +578,7 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
 <body>
   <div class="header">
     <h1>Emperor Coffee</h1>
-    <div>${data.branchName}</div>
+    <div>${data?.branchName || 'Emperor Coffee'}</div>
     <div>Day Closing - Item Summary</div>
   </div>
 

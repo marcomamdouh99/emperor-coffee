@@ -714,7 +714,10 @@ export interface DayClosingShiftData {
     deliveryFees: number;
     refunds: number;
     card: number;
+    instapay: number;
+    wallet: number;
     cash: number;
+    dailyExpenses: number;
     openingCashBalance: number;
     expectedCash: number;
     closingCashBalance: number;
