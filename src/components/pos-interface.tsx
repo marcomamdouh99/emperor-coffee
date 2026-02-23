@@ -3403,7 +3403,7 @@ export default function POSInterface() {
                           className="h-11 w-11 shrink-0"
                           onClick={() => openNumberPad(
                             (value) => setCustomVariantValue(value),
-                            item.customVariantValue?.toString() || ''
+                            customVariantValue || ''
                           )}
                           title="Open Number Pad"
                         >
