@@ -1,6 +1,45 @@
 # Project Worklog
 
 ---
+Task ID: Numpad-Fractional-Entries-Z-Index-Fix
+Agent: zai-web-dev
+Task: Add fractional entries to numpad and fix z-index issue
+
+Work Log:
+- Added 3 fractional entries to numpad for weight-based custom inputs:
+  - 1/8 = 0.125 button
+  - 1/4 = 0.250 button
+  - 1/2 = 0.500 button
+- Each button shows the fraction and adds the decimal value when pressed
+- Positioned buttons after 00 button in the numpad grid
+- Text size: text-sm for fractional entries (smaller than numbers)
+- Added title attribute showing decimal value for clarity
+- Changed submit button to span 2 columns instead of 1 to accommodate new buttons
+
+- Fixed z-index issue to make numpad accessible everywhere:
+  - Increased z-index from 9999 to 99999
+  - Added React Portal to render numpad at document.body level
+  - This ensures numpad is always on top of all dialogs and modals
+  - Numpad now accessible even when variant custom input dialog is open
+- Added createPortal import from 'react-dom'
+- Wrapped numpadContent variable to prepare for Portal rendering
+- Added conditional Portal rendering:
+  - If window is available, renders to document.body
+  - Falls back to normal rendering if not available
+
+- Committed and pushed all changes to GitHub (commit: 594a748)
+
+Stage Summary:
+- Cashiers can now easily enter fractional quantities for weight-based items
+- Numpad is now accessible from all dialogs including variant custom input
+- No more need to use keyboard for entering 0.125, 0.250, 0.500
+- Portal rendering ensures numpad is always on top layer
+
+---
+
+Task ID: POS-Features-Implementation
+
+---
 Task ID: 7-a
 Agent: full-stack-developer
 Task: Create shift receipt UI component
