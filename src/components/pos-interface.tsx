@@ -1684,17 +1684,19 @@ export default function POSInterface() {
   const openNumberPad = (callback: (value: string) => void, initialValue: string = '') => {
     console.log('[openNumberPad] Opening numpad with initialValue:', initialValue);
     setNumberPadValue(initialValue);
-    setNumberPadCallback(callback);
+    setNumberPadCallback(() => callback);
     setShowNumberPad(true);
   };
 
   const handleNumberPadValueChange = (value: string) => {
-    console.log('[handleNumberPadValueChange] Value changed:', value);
+    console.log('[handleNumberPadValueChange] Value changed:', value, 'type:', typeof value, 'isNull:', value === null);
     setNumberPadValue(value);
     // Immediately call the callback to update the input field
     if (numberPadCallback) {
-      console.log('[handleNumberPadValueChange] Calling callback with value:', value);
+      console.log('[handleNumberPadValueChange] Calling callback with value:', value, 'type:', typeof value);
       numberPadCallback(value);
+    } else {
+      console.log('[handleNumberPadValueChange] No callback, skipping');
     }
   };
 

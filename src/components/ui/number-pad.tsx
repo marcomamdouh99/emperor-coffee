@@ -32,22 +32,34 @@ export function NumberPad({
   const [value, setValue] = useState(initialValue);
   const previousIsOpen = useRef(isOpen);
   const hasUserInteracted = useRef(false);
+  const onValueChangeRef = useRef(onValueChange);
+
+  // Keep ref in sync with prop
+  useEffect(() => {
+    onValueChangeRef.current = onValueChange;
+  }, [onValueChange]);
 
   // Update value when dialog opens and notify parent of initial value
   useEffect(() => {
+    console.log('[NumberPad useEffect] isOpen:', isOpen, 'previousIsOpen:', previousIsOpen.current, 'initialValue:', initialValue);
     if (isOpen && !previousIsOpen.current) {
       // Opening the dialog - set initial value and notify parent
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(initialValue);
       hasUserInteracted.current = false;
-      // Notify parent of the initial value
-      onValueChange(initialValue);
+      // Notify parent of the initial value using the ref
+      console.log('[NumberPad useEffect] Calling onValueChange with initialValue:', initialValue, 'type:', typeof initialValue);
+      if (onValueChangeRef.current && typeof onValueChangeRef.current === 'function') {
+        onValueChangeRef.current(initialValue);
+      } else {
+        console.log('[NumberPad useEffect] onValueChangeRef.current is not a function:', onValueChangeRef.current);
+      }
     } else if (!isOpen) {
       // Dialog closed - reset for next open
       hasUserInteracted.current = false;
     }
     previousIsOpen.current = isOpen;
-  }, [isOpen, initialValue, onValueChange]);
+  }, [isOpen, initialValue]);
 
   const handleKeyPress = (key: string) => {
     hasUserInteracted.current = true;
