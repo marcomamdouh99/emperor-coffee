@@ -672,191 +672,193 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Shift Closing Receipt</DialogTitle>
         </DialogHeader>
 
-        {loading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">Loading shift data...</span>
-          </div>
-        )}
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-3 text-muted-foreground">Loading shift data...</span>
+            </div>
+          )}
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        {!loading && !error && data && (
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-6">
-              {/* Paper 1: Payment Summary */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <FileText className="h-5 w-5" />
-                        Paper 1: Payment Summary
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        Shift #{data.shift.shiftNumber} •{' '}
-                        {new Date(data.shift.startTime).toLocaleDateString()}
-                      </CardDescription>
-                    </div>
-                    <Button
-                      onClick={printThermalPaper1}
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <Printer className="h-4 w-4" />
-                      Print
-                    </Button>
-                  </div>
-                </CardHeader>
-                <Separator />
-                <CardContent className="pt-4">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                      <span className="font-semibold text-sm">Time Period</span>
-                      <span className="text-sm">
-                        {new Date(data.shift.startTime).toLocaleTimeString()} -{' '}
-                        {new Date(data.shift.endTime).toLocaleTimeString()}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      {/* Card Payment Breakdown */}
-                      <div className="space-y-2">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment Methods</div>
-                        <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
-                          <span className="font-semibold text-sm">Total Card:</span>
-                          <span className="font-bold text-blue-600 dark:text-blue-400">
-                            {formatCurrency(data.paymentSummary.card)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-900">
-                          <span className="font-semibold text-sm">Total InstaPay:</span>
-                          <span className="font-bold text-purple-600 dark:text-purple-400">
-                            {formatCurrency(data.paymentSummary.instapay)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-900">
-                          <span className="font-semibold text-sm">Total Wallet:</span>
-                          <span className="font-bold text-orange-600 dark:text-orange-400">
-                            {formatCurrency(data.paymentSummary.wallet)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            <span className="font-semibold text-sm">Total Cash:</span>
-                          </div>
-                          <span className="font-bold text-green-600 dark:text-green-400">
-                            {formatCurrency(data.paymentSummary.cash)}
-                          </span>
-                        </div>
+          {!loading && !error && data && (
+            <ScrollArea className="flex-1 pr-4">
+              <div className="space-y-6 pb-4">
+                {/* Paper 1: Payment Summary */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <FileText className="h-5 w-5" />
+                          Paper 1: Payment Summary
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          Shift #{data.shift.shiftNumber} •{' '}
+                          {new Date(data.shift.startTime).toLocaleDateString()}
+                        </CardDescription>
                       </div>
-
-                      {/* Daily Expenses */}
-                      {fullReportData && fullReportData.totals.dailyExpenses > 0 && (
-                        <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-red-600 dark:text-red-400" />
-                            <span className="font-semibold text-sm">Total Daily Expenses:</span>
-                          </div>
-                          <span className="font-bold text-red-600 dark:text-red-400">
-                            -{formatCurrency(fullReportData.totals.dailyExpenses)}
-                          </span>
-                        </div>
-                      )}
-
+                      <Button
+                        onClick={printThermalPaper1}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="pt-4">
+                    <div className="space-y-4">
                       <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-semibold text-sm">User:</span>
-                        </div>
-                        <span className="font-medium">
-                          {data.shift.cashier.name || data.shift.cashier.username}
+                        <span className="font-semibold text-sm">Time Period</span>
+                        <span className="text-sm">
+                          {new Date(data.shift.startTime).toLocaleTimeString()} -{' '}
+                          {new Date(data.shift.endTime).toLocaleTimeString()}
                         </span>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Paper 2: Item Breakdown */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Package className="h-5 w-5" />
-                        Paper 2: Item Breakdown
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        Items sold by category during shift #{data.shift.shiftNumber}
-                      </CardDescription>
-                    </div>
-                    <Button
-                      onClick={printThermalPaper2}
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                    >
-                      <Printer className="h-4 w-4" />
-                      Print
-                    </Button>
-                  </div>
-                </CardHeader>
-                <Separator />
-                <CardContent className="pt-4">
-                  <div className="space-y-4">
-                    {data.categoryBreakdown.map((category, idx) => (
-                      <div key={idx} className="border rounded-lg overflow-hidden">
-                        <div className="flex justify-between items-center p-3 bg-muted/50 border-b">
-                          <span className="font-semibold text-sm">{category.categoryName}</span>
-                          <span className="font-bold text-sm">
-                            {formatCurrency(category.totalSales)}
+                      <div className="space-y-3">
+                        {/* Card Payment Breakdown */}
+                        <div className="space-y-2">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment Methods</div>
+                          <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
+                            <span className="font-semibold text-sm">Total Card:</span>
+                            <span className="font-bold text-blue-600 dark:text-blue-400">
+                              {formatCurrency(data.paymentSummary.card)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-900">
+                            <span className="font-semibold text-sm">Total InstaPay:</span>
+                            <span className="font-bold text-purple-600 dark:text-purple-400">
+                              {formatCurrency(data.paymentSummary.instapay)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-900">
+                            <span className="font-semibold text-sm">Total Wallet:</span>
+                            <span className="font-bold text-orange-600 dark:text-orange-400">
+                              {formatCurrency(data.paymentSummary.wallet)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                              <span className="font-semibold text-sm">Total Cash:</span>
+                            </div>
+                            <span className="font-bold text-green-600 dark:text-green-400">
+                              {formatCurrency(data.paymentSummary.cash)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Daily Expenses */}
+                        {fullReportData && fullReportData.totals.dailyExpenses > 0 && (
+                          <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="h-4 w-4 text-red-600 dark:text-red-400" />
+                              <span className="font-semibold text-sm">Total Daily Expenses:</span>
+                            </div>
+                            <span className="font-bold text-red-600 dark:text-red-400">
+                              -{formatCurrency(fullReportData.totals.dailyExpenses)}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-semibold text-sm">User:</span>
+                          </div>
+                          <span className="font-medium">
+                            {data.shift.cashier.name || data.shift.cashier.username}
                           </span>
                         </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {category.items.map((item, itemIdx) => (
-                            <div
-                              key={itemIdx}
-                              className="flex justify-between items-center p-3 text-sm border-b last:border-b-0 hover:bg-muted/30"
-                            >
-                              <span className="flex-1 mr-4 truncate">{item.itemName}</span>
-                              <div className="flex items-center gap-4 flex-shrink-0">
-                                <span className="text-muted-foreground text-xs w-12 text-right">
-                                  x{item.quantity}
-                                </span>
-                                <span className="font-medium w-20 text-right">
-                                  {formatCurrency(item.totalPrice)}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
                       </div>
-                    ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                    {data.categoryBreakdown.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
-                        No items sold during this shift
+                {/* Paper 2: Item Breakdown */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Package className="h-5 w-5" />
+                          Paper 2: Item Breakdown
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          Items sold by category during shift #{data.shift.shiftNumber}
+                        </CardDescription>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </ScrollArea>
-        )}
+                      <Button
+                        onClick={printThermalPaper2}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <Separator />
+                  <CardContent className="pt-4">
+                    <div className="space-y-4">
+                      {data.categoryBreakdown.map((category, idx) => (
+                        <div key={idx} className="border rounded-lg overflow-hidden">
+                          <div className="flex justify-between items-center p-3 bg-muted/50 border-b">
+                            <span className="font-semibold text-sm">{category.categoryName}</span>
+                            <span className="font-bold text-sm">
+                              {formatCurrency(category.totalSales)}
+                            </span>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto">
+                            {category.items.map((item, itemIdx) => (
+                              <div
+                                key={itemIdx}
+                                className="flex justify-between items-center p-3 text-sm border-b last:border-b-0 hover:bg-muted/30"
+                              >
+                                <span className="flex-1 mr-4 truncate">{item.itemName}</span>
+                                <div className="flex items-center gap-4 flex-shrink-0">
+                                  <span className="text-muted-foreground text-xs w-12 text-right">
+                                    x{item.quantity}
+                                  </span>
+                                  <span className="font-medium w-20 text-right">
+                                    {formatCurrency(item.totalPrice)}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {data.categoryBreakdown.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                          No items sold during this shift
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </ScrollArea>
+          )}
+        </div>
 
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={onClose}>

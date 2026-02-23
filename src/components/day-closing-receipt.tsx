@@ -655,7 +655,7 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -666,78 +666,80 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="shifts" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="shifts" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Shifts ({data.shifts?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="items" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Item Summary
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <Tabs defaultValue="shifts" className="w-full flex flex-col min-h-0">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="shifts" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Shifts ({data.shifts?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="items" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Item Summary
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Shift Summaries Tab */}
-          <TabsContent value="shifts" className="space-y-4">
-            {data.shifts?.map((shift, index) => (
-              <ShiftSummaryCard
-                key={shift.shiftNumber}
-                shift={shift}
-                index={index}
-                totalShifts={data.shifts?.length || 1}
-                onPrint={() => handlePrintShiftPaper1(shift, index)}
-              />
-            ))}
-          </TabsContent>
+            {/* Shift Summaries Tab */}
+            <TabsContent value="shifts" className="space-y-4 flex-1 overflow-y-auto pr-2">
+              {data.shifts?.map((shift, index) => (
+                <ShiftSummaryCard
+                  key={shift.shiftNumber}
+                  shift={shift}
+                  index={index}
+                  totalShifts={data.shifts?.length || 1}
+                  onPrint={() => handlePrintShiftPaper1(shift, index)}
+                />
+              ))}
+            </TabsContent>
 
-          {/* Item Summary Tab */}
-          <TabsContent value="items">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Item Breakdown
-                </CardTitle>
-                <CardDescription>
-                  All items sold on {new Date(data.date).toLocaleDateString()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {data.categoryBreakdown?.map((category) => (
-                    <div key={category.categoryName}>
-                      <div className="mb-3 flex items-center justify-between">
-                        <h4 className="font-semibold">{category.categoryName}</h4>
-                        <Badge variant="secondary">{formatCurrency(category.totalSales)}</Badge>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left py-2 px-2">Item</th>
-                              <th className="text-right py-2 px-2">Qty</th>
-                              <th className="text-right py-2 px-2">Value</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {category.items?.map((item, idx) => (
-                              <tr key={idx} className="border-b border-border/50">
-                                <td className="py-2 px-2">{item.itemName}</td>
-                                <td className="text-right py-2 px-2">{item.quantity}</td>
-                                <td className="text-right py-2 px-2">{formatCurrency(item.totalPrice)}</td>
+            {/* Item Summary Tab */}
+            <TabsContent value="items" className="flex-1 overflow-y-auto pr-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Item Breakdown
+                  </CardTitle>
+                  <CardDescription>
+                    All items sold on {new Date(data.date).toLocaleDateString()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {data.categoryBreakdown?.map((category) => (
+                      <div key={category.categoryName}>
+                        <div className="mb-3 flex items-center justify-between">
+                          <h4 className="font-semibold">{category.categoryName}</h4>
+                          <Badge variant="secondary">{formatCurrency(category.totalSales)}</Badge>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2 px-2">Item</th>
+                                <th className="text-right py-2 px-2">Qty</th>
+                                <th className="text-right py-2 px-2">Value</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {category.items?.map((item, idx) => (
+                                <tr key={idx} className="border-b border-border/50">
+                                  <td className="py-2 px-2">{item.itemName}</td>
+                                  <td className="text-right py-2 px-2">{item.quantity}</td>
+                                  <td className="text-right py-2 px-2">{formatCurrency(item.totalPrice)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
 
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
           <Button
