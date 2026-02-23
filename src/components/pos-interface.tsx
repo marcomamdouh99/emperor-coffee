@@ -1689,9 +1689,9 @@ export default function POSInterface() {
     setNumberPadValue(value);
   };
 
-  const handleNumberPadSubmit = () => {
+  const handleNumberPadSubmit = (value: string) => {
     if (numberPadCallback) {
-      numberPadCallback(numberPadValue);
+      numberPadCallback(value);
     }
     setShowNumberPad(false);
     setNumberPadValue('');
@@ -2370,25 +2370,6 @@ export default function POSInterface() {
                   {heldOrders.length}
                 </Badge>
               )}
-            </Button>
-          </div>
-          {/* Number Pad Toggle Button */}
-          <div className="mt-2">
-            <Button
-              onClick={() => {
-                // Simply toggle the show state
-                setShowNumberPad(!showNumberPad);
-              }}
-              size="sm"
-              variant={showNumberPad ? "default" : "outline"}
-              className={`w-full h-9 text-xs ${
-                showNumberPad
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/50'
-              }`}
-            >
-              <Calculator className="h-3.5 w-3.5 mr-2" />
-              {showNumberPad ? 'Hide Numbers' : 'Show Numbers'}
             </Button>
           </div>
         </div>

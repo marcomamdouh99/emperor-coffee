@@ -14,7 +14,7 @@ interface NumberPadProps {
   isOpen: boolean;
   onClose: () => void;
   onValue: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (value: string) => void;
   title?: string;
   decimal?: boolean;
   maxLength?: number;
@@ -75,7 +75,7 @@ export function NumberPad({
 
   const handleSubmit = () => {
     onValue(value);
-    onSubmit();
+    onSubmit(value);
     setValue('');
     onClose();
   };
