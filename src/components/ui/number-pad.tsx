@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { X, Check, Backspace } from 'lucide-react';
+import { X, Check, Delete } from 'lucide-react';
 
 interface NumberPadProps {
   isOpen: boolean;
@@ -134,7 +134,7 @@ export function NumberPad({
                       'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
                     } ${key === 'C' ? 'text-white' : 'text-slate-900 dark:text-white'}`}
                   >
-                    {key === '⌫' ? <Backspace className="h-5 w-5" /> : key}
+                    {key === '⌫' ? <Delete className="h-5 w-5" /> : key}
                   </Button>
                 ))}
               </div>
