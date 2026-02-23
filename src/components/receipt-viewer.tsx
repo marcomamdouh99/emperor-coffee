@@ -43,6 +43,7 @@ interface Order {
   totalAmount: number;
   subtotal?: number;
   paymentMethod: string;
+  paymentMethodDetail?: 'CARD' | 'INSTAPAY' | 'MOBILE_WALLET' | null;
   orderType?: string;
   deliveryFee?: number;
   deliveryAddress?: string;
@@ -188,6 +189,7 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
         promoCode: order.promoCode,
         total: order.totalAmount,
         paymentMethod: order.paymentMethod as 'cash' | 'card',
+        paymentMethodDetail: order.paymentMethodDetail as 'CARD' | 'INSTAPAY' | 'MOBILE_WALLET' | null,
         cardReferenceNumber: order.cardReferenceNumber || undefined,
         isRefunded: order.isRefunded,
         refundReason: order.refundReason,
@@ -758,9 +760,14 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
                   </div>
                   <div className="total-row">
                     <span>Payment:</span>
-                    <span>{order.paymentMethod === 'card' ? 'Card' : 'Cash'}</span>
+                    <span>
+                      {order.paymentMethod === 'cash' ? 'Cash' : 
+                       order.paymentMethodDetail === 'INSTAPAY' ? 'InstaPay' :
+                       order.paymentMethodDetail === 'MOBILE_WALLET' ? 'Mobile Wallet' :
+                       'Card'}
+                    </span>
                   </div>
-                  {order.paymentMethod === 'card' && order.cardReferenceNumber && (
+                  {(order.paymentMethod === 'card' || order.paymentMethodDetail) && order.cardReferenceNumber && (
                     <div className="total-row">
                       <span>Ref. No:</span>
                       <span className="text-xs">{order.cardReferenceNumber}</span>

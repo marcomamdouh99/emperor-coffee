@@ -31,6 +31,7 @@ export interface ReceiptData {
   promoCode?: string;
   total: number;
   paymentMethod: 'cash' | 'card';
+  paymentMethodDetail?: 'CARD' | 'INSTAPAY' | 'MOBILE_WALLET' | null;
   cardReferenceNumber?: string;
   isRefunded: boolean;
   refundReason?: string;
@@ -457,11 +458,24 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
 
   // Payment Method - use selected font size
   encoder.fontSize(baseFontSize)
-    .newLine()
-    .text(`Payment: ${data.paymentMethod === 'card' ? 'Card' : 'Cash'}`)
+    .newLine();
+  
+  // Determine payment method label
+  let paymentLabel = 'Cash';
+  if (data.paymentMethod === 'card') {
+    if (data.paymentMethodDetail === 'INSTAPAY') {
+      paymentLabel = 'InstaPay';
+    } else if (data.paymentMethodDetail === 'MOBILE_WALLET') {
+      paymentLabel = 'Mobile Wallet';
+    } else {
+      paymentLabel = 'Card';
+    }
+  }
+  
+  encoder.text(`Payment: ${paymentLabel}`)
     .newLines(2);
 
-  // Card Reference Number - if card payment
+  // Card Reference Number - if card payment or related methods
   if (data.paymentMethod === 'card' && data.cardReferenceNumber) {
     encoder.text(`Ref. No: ${data.cardReferenceNumber}`)
       .newLines(2);
@@ -523,7 +537,8 @@ export interface ShiftClosingReportData {
   paymentSummary: {
     cash: number;
     card: number;
-    other: number;
+    instapay: number;
+    wallet: number;
     total: number;
   };
   categoryBreakdown: Array<{
@@ -570,37 +585,59 @@ export function generateShiftClosingReceiptPaper1(data: ShiftClosingReportData):
 
   // Payment Summary Row
   const cashierName = data.shift.cashier.name || data.shift.cashier.username;
-  
-  // Format for TOTAL Visa, TOTAL Cash, User
-  const visaTotal = formatMoney(data.paymentSummary.card + data.paymentSummary.other);
+
+  // Format for TOTAL Card, InstaPay, Wallet, Cash, User
+  const cardTotal = formatMoney(data.paymentSummary.card);
+  const instapayTotal = formatMoney(data.paymentSummary.instapay);
+  const walletTotal = formatMoney(data.paymentSummary.wallet);
   const cashTotal = formatMoney(data.paymentSummary.cash);
-  
-  // Create a formatted row
+
+  // Create formatted rows
   encoder.style({ bold: true })
-    .text('TOTAL Visa')
+    .text('TOTAL Card')
     .newLine()
     .style({ bold: false });
-  
+
   encoder.align('right')
-    .text(visaTotal)
+    .text(cardTotal)
     .align('left')
     .newLines(1);
-  
+
+  encoder.style({ bold: true })
+    .text('TOTAL InstaPay')
+    .newLine()
+    .style({ bold: false });
+
+  encoder.align('right')
+    .text(instapayTotal)
+    .align('left')
+    .newLines(1);
+
+  encoder.style({ bold: true })
+    .text('TOTAL Mobile Wallet')
+    .newLine()
+    .style({ bold: false });
+
+  encoder.align('right')
+    .text(walletTotal)
+    .align('left')
+    .newLines(1);
+
   encoder.style({ bold: true })
     .text('TOTAL Cash')
     .newLine()
     .style({ bold: false });
-  
+
   encoder.align('right')
     .text(cashTotal)
     .align('left')
     .newLines(1);
-  
+
   encoder.style({ bold: true })
     .text('User')
     .newLine()
     .style({ bold: false });
-  
+
   encoder.text(cashierName)
     .newLines(2);
 
@@ -841,6 +878,8 @@ export function generateDayClosingReceiptPaper1(shiftData: DayClosingShiftData, 
     { label: 'TOTAL DELIVERY FEES', value: shiftData.totals.deliveryFees },
     { label: 'TOTAL REFUND', value: shiftData.totals.refunds },
     { label: 'TOTAL CARD', value: shiftData.totals.card },
+    { label: 'TOTAL INSTAPAY', value: shiftData.totals.instapay },
+    { label: 'TOTAL MOBILE WALLET', value: shiftData.totals.wallet },
     { label: 'TOTAL CASH', value: shiftData.totals.cash },
     { label: 'OPENING CASH BALANCE', value: shiftData.totals.openingCashBalance },
     { label: 'TOTAL', value: shiftData.totals.expectedCash },

@@ -338,22 +338,5 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
     </div>
   );
 
-  // Render using Portal to ensure it's always on top of all dialogs
-  if (typeof window !== 'undefined') {
-    // Open numpad and save focused input when isOpen
-    useEffect(() => {
-      if (isOpen) {
-        console.log('[Numpad] Numpad opening, saving focused input');
-        handleOpenNumpad();
-      } else {
-        console.log('[Numpad] Numpad closing, restoring focused input');
-        handleCloseNumpad();
-      }
-    }, [isOpen, focusedInput]);
-  }
-    
-    return createPortal(numpadContent, document.body);
-  }
-
   return numpadContent;
 }

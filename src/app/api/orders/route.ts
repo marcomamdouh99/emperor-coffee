@@ -745,6 +745,7 @@ export async function POST(request: NextRequest) {
         totalAmount: responseOrder.totalAmount,
         subtotal: responseOrder.subtotal,
         paymentMethod: responseOrder.paymentMethod,
+        paymentMethodDetail: responseOrder.paymentMethodDetail,
         orderType: responseOrder.orderType,
         deliveryFee: responseOrder.deliveryFee,
         deliveryAddress: responseOrder.deliveryAddress,

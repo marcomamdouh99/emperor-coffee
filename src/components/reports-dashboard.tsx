@@ -16,7 +16,7 @@ import {
   DollarSign, Store, FileText, RotateCw, FileSpreadsheet, PieChart,
   Clock, Users, CreditCard, Wallet, Truck, Utensils, Coffee, ArrowUpRight,
   ArrowDownRight, Activity, Target, AlertCircle, RefreshCw, Download,
-  ArrowRight, Eye, Printer, RefreshCw as RefreshIcon, XCircle
+  ArrowRight, Eye, Printer, RefreshCw as RefreshIcon, XCircle, Smartphone
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n-context';
@@ -82,6 +82,7 @@ interface Order {
   deliveryFee: number;
   orderTimestamp: Date;
   paymentMethod: string;
+  paymentMethodDetail?: 'CARD' | 'INSTAPAY' | 'MOBILE_WALLET' | null;
   orderType: string;
   isRefunded: boolean;
   refundReason?: string;
@@ -863,14 +864,32 @@ export default function ReportsDashboard() {
                       const revenue = typeof data === 'object' ? data.revenue : 0;
                       if (typeof data !== 'object' || count === 0) return null;
 
-                      const Icon = method.toLowerCase() === 'card' ? CreditCard : Wallet;
+                      let Icon = Wallet;
+                      let iconColor = 'text-slate-600 dark:text-slate-400';
+                      const methodLower = method.toLowerCase();
+
+                      if (methodLower === 'card') {
+                        Icon = CreditCard;
+                        iconColor = 'text-blue-600 dark:text-blue-400';
+                      } else if (methodLower === 'instapay') {
+                        Icon = Smartphone;
+                        iconColor = 'text-purple-600 dark:text-purple-400';
+                      } else if (methodLower === 'wallet' || methodLower === 'mobile_wallet') {
+                        Icon = Wallet;
+                        iconColor = 'text-orange-600 dark:text-orange-400';
+                      } else if (methodLower === 'cash') {
+                        Icon = DollarSign;
+                        iconColor = 'text-green-600 dark:text-green-400';
+                      }
 
                       return (
                         <div key={method} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                           <div className="flex items-center gap-3">
-                            <Icon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                            <Icon className={`h-5 w-5 ${iconColor}`} />
                             <div>
-                              <p className="font-medium capitalize text-slate-900 dark:text-white">{method}</p>
+                              <p className="font-medium capitalize text-slate-900 dark:text-white">
+                                {methodLower === 'mobile_wallet' ? 'Mobile Wallet' : method}
+                              </p>
                               <p className="text-xs text-slate-500">{count} transactions</p>
                             </div>
                           </div>
@@ -989,7 +1008,10 @@ export default function ReportsDashboard() {
                             </TableCell>
                             <TableCell>
                               <Badge variant={order.paymentMethod === 'card' ? 'default' : 'secondary'}>
-                                {order.paymentMethod}
+                                {order.paymentMethod === 'cash' ? 'Cash' : 
+                                 order.paymentMethodDetail === 'INSTAPAY' ? 'InstaPay' :
+                                 order.paymentMethodDetail === 'MOBILE_WALLET' ? 'Mobile Wallet' :
+                                 'Card'}
                               </Badge>
                             </TableCell>
                             <TableCell className="font-semibold">

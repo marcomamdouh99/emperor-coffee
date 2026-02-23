@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clock, DollarSign, ShoppingCart, Play, Square, AlertCircle, Calendar, User, TrendingUp, Store, CreditCard, Wallet, CircleDollarSign, Activity } from 'lucide-react';
+import { Clock, DollarSign, ShoppingCart, Play, Square, AlertCircle, Calendar, User, TrendingUp, Store, CreditCard, Wallet, CircleDollarSign, Activity, Smartphone } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n-context';
 import { formatCurrency } from '@/lib/utils';
@@ -61,7 +61,8 @@ interface Cashier {
 interface PaymentBreakdown {
   cash: number;
   card: number;
-  other: number;
+  instapay: number;
+  wallet: number;
   total: number;
 }
 
@@ -252,7 +253,8 @@ export default function ShiftManagement() {
   const [paymentBreakdown, setPaymentBreakdown] = useState<PaymentBreakdown>({
     cash: 0,
     card: 0,
-    other: 0,
+    instapay: 0,
+    wallet: 0,
     total: 0,
   });
   // Business Day states
@@ -1157,7 +1159,7 @@ export default function ShiftManagement() {
           setCloseDialogOpen(false);
           setClosingCash('');
           setShiftNotes('');
-          setPaymentBreakdown({ cash: 0, card: 0, other: 0, total: 0 });
+          setPaymentBreakdown({ cash: 0, card: 0, instapay: 0, wallet: 0, total: 0 });
           setSelectedShift(null);
           refetchShifts();
           if (user?.role === 'CASHIER') {
@@ -1196,7 +1198,7 @@ export default function ShiftManagement() {
               setCloseDialogOpen(false);
               setClosingCash('');
               setShiftNotes('');
-              setPaymentBreakdown({ cash: 0, card: 0, other: 0, total: 0 });
+              setPaymentBreakdown({ cash: 0, card: 0, instapay: 0, wallet: 0, total: 0 });
               setSelectedShift(null);
               refetchShifts();
               if (user?.role === 'CASHIER') {
@@ -1230,7 +1232,7 @@ export default function ShiftManagement() {
           setCloseDialogOpen(false);
           setClosingCash('');
           setShiftNotes('');
-          setPaymentBreakdown({ cash: 0, card: 0, other: 0, total: 0 });
+          setPaymentBreakdown({ cash: 0, card: 0, instapay: 0, wallet: 0, total: 0 });
           setSelectedShift(null);
           refetchShifts();
           if (user?.role === 'CASHIER') {
@@ -1278,7 +1280,7 @@ export default function ShiftManagement() {
           setCloseDialogOpen(false);
           setClosingCash('');
           setShiftNotes('');
-          setPaymentBreakdown({ cash: 0, card: 0, other: 0, total: 0 });
+          setPaymentBreakdown({ cash: 0, card: 0, instapay: 0, wallet: 0, total: 0 });
           setSelectedShift(null);
           refetchShifts();
           if (user?.role === 'CASHIER') {
@@ -1397,9 +1399,9 @@ export default function ShiftManagement() {
   useEffect(() => {
     setPaymentBreakdown(prev => ({
       ...prev,
-      total: prev.cash + prev.card + prev.other,
+      total: prev.cash + prev.card + prev.instapay + prev.wallet,
     }));
-  }, [paymentBreakdown.cash, paymentBreakdown.card, paymentBreakdown.other]);
+  }, [paymentBreakdown.cash, paymentBreakdown.card, paymentBreakdown.instapay, paymentBreakdown.wallet]);
 
   return (
     <div className="space-y-4 md:space-y-6 px-2 md:px-0 pb-safe-bottom">
@@ -1681,10 +1683,24 @@ export default function ShiftManagement() {
                       <CircleDollarSign className="h-5 w-5 text-purple-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400">Other</p>
+                      <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400">InstaPay</p>
                       <p className="text-base md:text-lg font-bold truncate">
-                        {selectedShift.paymentBreakdown?.other
-                          ? formatCurrency(selectedShift.paymentBreakdown.other, currency)
+                        {selectedShift.paymentBreakdown?.instapay !== undefined
+                          ? formatCurrency(selectedShift.paymentBreakdown.instapay, currency)
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg shrink-0">
+                      <Smartphone className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400">Mobile Wallet</p>
+                      <p className="text-base md:text-lg font-bold truncate">
+                        {selectedShift.paymentBreakdown?.wallet !== undefined
+                          ? formatCurrency(selectedShift.paymentBreakdown.wallet, currency)
                           : '—'}
                       </p>
                     </div>
@@ -1803,7 +1819,8 @@ export default function ShiftManagement() {
                         <TableHead className="text-right whitespace-nowrap">Revenue</TableHead>
                         <TableHead className="text-right whitespace-nowrap">Cash</TableHead>
                         <TableHead className="text-right whitespace-nowrap">Card</TableHead>
-                        <TableHead className="text-right whitespace-nowrap">Other</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">InstaPay</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Mobile Wallet</TableHead>
                         <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1903,9 +1920,18 @@ export default function ShiftManagement() {
                               )}
                             </TableCell>
                             <TableCell className="text-right whitespace-nowrap">
-                              {shift.paymentBreakdown?.other !== undefined ? (
+                              {shift.paymentBreakdown?.instapay !== undefined ? (
                                 <span className="text-purple-600">
-                                  {formatCurrency(shift.paymentBreakdown.other, currency)}
+                                  {formatCurrency(shift.paymentBreakdown.instapay, currency)}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {shift.paymentBreakdown?.wallet !== undefined ? (
+                                <span className="text-orange-600">
+                                  {formatCurrency(shift.paymentBreakdown.wallet, currency)}
                                 </span>
                               ) : (
                                 <span className="text-slate-400">—</span>
@@ -2170,7 +2196,7 @@ export default function ShiftManagement() {
                 {/* Payment Breakdown */}
                 <div className="p-3 md:p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                   <Label className="text-sm font-medium mb-3 block">Payment Breakdown</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cashPayments" className="text-xs">Cash</Label>
                       <Input
@@ -2196,13 +2222,25 @@ export default function ShiftManagement() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="otherPayments" className="text-xs">Other</Label>
+                      <Label htmlFor="instapayPayments" className="text-xs">InstaPay</Label>
                       <Input
-                        id="otherPayments"
+                        id="instapayPayments"
                         type="number"
                         step="0.01"
-                        value={paymentBreakdown.other}
-                        onChange={(e) => setPaymentBreakdown(prev => ({ ...prev, other: parseFloat(e.target.value) || 0 }))}
+                        value={paymentBreakdown.instapay}
+                        onChange={(e) => setPaymentBreakdown(prev => ({ ...prev, instapay: parseFloat(e.target.value) || 0 }))}
+                        placeholder="0.00"
+                        className="h-11 text-base"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="walletPayments" className="text-xs">Mobile Wallet</Label>
+                      <Input
+                        id="walletPayments"
+                        type="number"
+                        step="0.01"
+                        value={paymentBreakdown.wallet}
+                        onChange={(e) => setPaymentBreakdown(prev => ({ ...prev, wallet: parseFloat(e.target.value) || 0 }))}
                         placeholder="0.00"
                         className="h-11 text-base"
                       />
@@ -2212,7 +2250,7 @@ export default function ShiftManagement() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-600 dark:text-slate-400">Total Payments</span>
                       <span className="font-bold text-blue-700 dark:text-blue-300">
-                        {formatCurrency(paymentBreakdown.total, currency)}
+                        {formatCurrency(paymentBreakdown.cash + paymentBreakdown.card + paymentBreakdown.instapay + paymentBreakdown.wallet, currency)}
                       </span>
                     </div>
                   </div>
@@ -2224,13 +2262,13 @@ export default function ShiftManagement() {
                     <div>
                       <div className="text-sm text-slate-600 dark:text-slate-400">Expected Cash</div>
                       <div className="text-xs text-slate-500">
-                        Opening + (Total Payments - Card - Other) - Daily Expenses
+                        Opening + Cash - Daily Expenses
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-300">
                         {formatCurrency(
-                          selectedShift.openingCash + paymentBreakdown.cash + paymentBreakdown.other - currentDailyExpenses,
+                          selectedShift.openingCash + paymentBreakdown.cash - currentDailyExpenses,
                           currency
                         )}
                       </div>
@@ -2338,7 +2376,7 @@ export default function ShiftManagement() {
                     setSelectedShift(null);
                     setClosingCash('');
                     setShiftNotes('');
-                    setPaymentBreakdown({ cash: 0, card: 0, other: 0, total: 0 });
+                    setPaymentBreakdown({ cash: 0, card: 0, instapay: 0, wallet: 0, total: 0 });
                   }}
                   className="w-full sm:w-auto h-11 min-h-[44px]"
                 >

@@ -93,6 +93,8 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
       status: 'completed' as const, // Use correct Prisma enum value
       paymentStatus: 'paid' as const, // Use correct Prisma enum value
       paymentMethod: orderData.paymentMethod,
+      paymentMethodDetail: orderData.paymentMethodDetail || null,
+      cardReferenceNumber: orderData.cardReferenceNumber || null,
       notes: orderData.notes || null,
       orderTimestamp: new Date().toISOString(), // Set orderTimestamp for receipt
       createdAt: new Date().toISOString(),
@@ -331,7 +333,7 @@ export default function POSInterface() {
   const [numpadValue, setNumpadValue] = useState('');
   const [numpadTarget, setNumpadTarget] = useState<'quantity' | null>(null);
   const [numpadTargetId, setNumpadTargetId] = useState<string | null>(null);
-  const [numpadCallback, setNumpadCallback] = useState<((value: string) => void) | null)(null);
+  const [numpadCallback, setNumpadCallback] = useState<((value: string) => void) | null>(null);
   
   // Track the last focused input element (for global numpad)
   const [focusedInputRef, setFocusedInputRef] = useState<{
@@ -2395,21 +2397,10 @@ export default function POSInterface() {
             <Button
               onClick={() => {
                 if (focusedInputRef.element) {
-                  // Open numpad connected to the focused input
-                  handleOpenNumpad(
-                    focusedInputRef.getValue(),
-                    'quantity',
-                    focusedInputRef.element.id,
-                    (value) => {
-                      if (focusedInputRef.element) {
-                        focusedInputRef.element.value = value;
-                        // Trigger input change event to trigger any validations
-                        const event = new Event('input', { bubbles: true });
-                        focusedInputRef.element.dispatchEvent(event);
-                      }
-                    }
-                  }
-                setShowNumpad(true);
+                  // Focus the input and open numpad
+                  focusedInputRef.element.focus();
+                  setShowNumpad(true);
+                }
               }}
               size="sm"
               variant={showNumpad ? "default" : "outline"}
