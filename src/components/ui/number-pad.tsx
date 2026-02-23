@@ -13,8 +13,7 @@ import { X, Check, Delete } from 'lucide-react';
 interface NumberPadProps {
   isOpen: boolean;
   onClose: () => void;
-  onValue: (value: string) => void;
-  onSubmit: (value: string) => void;
+  onValueChange: (value: string) => void;
   title?: string;
   decimal?: boolean;
   maxLength?: number;
@@ -24,8 +23,7 @@ interface NumberPadProps {
 export function NumberPad({
   isOpen,
   onClose,
-  onValue,
-  onSubmit,
+  onValueChange,
   title = 'Enter Value',
   decimal = true,
   maxLength = 10,
@@ -46,15 +44,20 @@ export function NumberPad({
   const handleKeyPress = (key: string) => {
     if (key === 'C') {
       setValue('');
+      onValueChange('');
     } else if (key === '⌫') {
-      setValue(prev => prev.slice(0, -1));
+      setValue(prev => {
+        const newValue = prev.slice(0, -1);
+        onValueChange(newValue);
+        return newValue;
+      });
     } else if (key === '.') {
       // Only allow one decimal point
       if (!value.includes('.')) {
         setValue(prev => {
           const newValue = prev + '.';
           if (newValue.length <= maxLength) {
-            onValue(newValue);
+            onValueChange(newValue);
             return newValue;
           }
           return prev;
@@ -65,7 +68,7 @@ export function NumberPad({
       setValue(prev => {
         const newValue = prev + key;
         if (newValue.length <= maxLength) {
-          onValue(newValue);
+          onValueChange(newValue);
           return newValue;
         }
         return prev;
@@ -75,14 +78,12 @@ export function NumberPad({
 
   const handlePreset = (presetValue: string) => {
     setValue(presetValue);
-    onValue(presetValue);
+    onValueChange(presetValue);
   };
 
   const handleSubmit = () => {
     console.log('[NumberPad handleSubmit] Submitting with value:', value);
-    onValue(value);
-    console.log('[NumberPad handleSubmit] Calling onSubmit with value:', value);
-    onSubmit(value);
+    onValueChange(value);
     setValue('');
     onClose();
   };

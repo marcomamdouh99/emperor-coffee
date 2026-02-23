@@ -1688,24 +1688,21 @@ export default function POSInterface() {
     setShowNumberPad(true);
   };
 
-  const handleNumberPadValue = (value: string) => {
-    console.log('[handleNumberPadValue] Value changed:', value);
+  const handleNumberPadValueChange = (value: string) => {
+    console.log('[handleNumberPadValueChange] Value changed:', value);
     setNumberPadValue(value);
-  };
-
-  const handleNumberPadSubmit = (value: string) => {
-    console.log('[handleNumberPadSubmit] Submitting value:', value);
-    console.log('[handleNumberPadSubmit] callback exists:', !!numberPadCallback);
+    // Immediately call the callback to update the input field
     if (numberPadCallback) {
-      console.log('[handleNumberPadSubmit] Calling callback with value:', value);
+      console.log('[handleNumberPadValueChange] Calling callback with value:', value);
       numberPadCallback(value);
     }
-    // Clear state after a brief delay to ensure callback completes
-    setTimeout(() => {
-      setShowNumberPad(false);
-      setNumberPadValue('');
-      setNumberPadCallback(null);
-    }, 0);
+  };
+
+  const handleNumberPadClose = () => {
+    console.log('[handleNumberPadClose] Closing numpad');
+    setShowNumberPad(false);
+    setNumberPadValue('');
+    setNumberPadCallback(null);
   };
 
   // Load held orders when shift changes
@@ -3788,13 +3785,8 @@ export default function POSInterface() {
       {/* Number Pad Dialog */}
       <NumberPad
         isOpen={showNumberPad}
-        onClose={() => {
-          setShowNumberPad(false);
-          setNumberPadValue('');
-          setNumberPadCallback(null);
-        }}
-        onValue={handleNumberPadValue}
-        onSubmit={handleNumberPadSubmit}
+        onClose={handleNumberPadClose}
+        onValueChange={handleNumberPadValueChange}
         title="Enter Value"
         decimal={true}
         maxLength={10}
