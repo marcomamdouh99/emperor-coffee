@@ -31,7 +31,6 @@ export function NumberPad({
 }: NumberPadProps) {
   const [value, setValue] = useState(initialValue);
   const previousIsOpen = useRef(isOpen);
-  const hasUserInteracted = useRef(false);
   const onValueChangeRef = useRef(onValueChange);
 
   // Keep ref in sync with prop
@@ -39,37 +38,26 @@ export function NumberPad({
     onValueChangeRef.current = onValueChange;
   }, [onValueChange]);
 
-  // Update value when dialog opens and notify parent of initial value
+  // Initialize value when dialog opens (don't call callback)
   useEffect(() => {
-    console.log('[NumberPad useEffect] isOpen:', isOpen, 'previousIsOpen:', previousIsOpen.current, 'initialValue:', initialValue);
     if (isOpen && !previousIsOpen.current) {
-      // Opening the dialog - set initial value and notify parent
+      console.log('[NumberPad] Opening with initialValue:', initialValue);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(initialValue);
-      hasUserInteracted.current = false;
-      // Notify parent of the initial value using the ref
-      console.log('[NumberPad useEffect] Calling onValueChange with initialValue:', initialValue, 'type:', typeof initialValue);
-      if (onValueChangeRef.current && typeof onValueChangeRef.current === 'function') {
-        onValueChangeRef.current(initialValue);
-      } else {
-        console.log('[NumberPad useEffect] onValueChangeRef.current is not a function:', onValueChangeRef.current);
-      }
     } else if (!isOpen) {
-      // Dialog closed - reset for next open
-      hasUserInteracted.current = false;
+      setValue('');
     }
     previousIsOpen.current = isOpen;
   }, [isOpen, initialValue]);
 
   const handleKeyPress = (key: string) => {
-    hasUserInteracted.current = true;
     if (key === 'C') {
       setValue('');
-      onValueChange('');
+      onValueChangeRef.current('');
     } else if (key === '⌫') {
       setValue(prev => {
         const newValue = prev.slice(0, -1);
-        onValueChange(newValue);
+        onValueChangeRef.current(newValue);
         return newValue;
       });
     } else if (key === '.') {
@@ -78,7 +66,7 @@ export function NumberPad({
         setValue(prev => {
           const newValue = prev + '.';
           if (newValue.length <= maxLength) {
-            onValueChange(newValue);
+            onValueChangeRef.current(newValue);
             return newValue;
           }
           return prev;
@@ -89,7 +77,7 @@ export function NumberPad({
       setValue(prev => {
         const newValue = prev + key;
         if (newValue.length <= maxLength) {
-          onValueChange(newValue);
+          onValueChangeRef.current(newValue);
           return newValue;
         }
         return prev;
@@ -98,14 +86,13 @@ export function NumberPad({
   };
 
   const handlePreset = (presetValue: string) => {
-    hasUserInteracted.current = true;
     setValue(presetValue);
-    onValueChange(presetValue);
+    onValueChangeRef.current(presetValue);
   };
 
   const handleSubmit = () => {
     console.log('[NumberPad handleSubmit] Submitting with value:', value);
-    onValueChange(value);
+    onValueChangeRef.current(value);
     setValue('');
     onClose();
   };
