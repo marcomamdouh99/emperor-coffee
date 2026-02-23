@@ -859,23 +859,37 @@ export async function GET(request: NextRequest) {
       orderBy: { orderTimestamp: 'desc' },
       take: limit,
       skip: offset,
-      include: {
-        items: {
-          include: {
-            menuItem: {
-              select: { id: true, name: true, category: true, price: true },
-            },
-          },
-        },
-        cashier: {
-          select: { username: true, name: true },
-        },
-        branch: {
-          select: { branchName: true },
-        },
-        courier: {
-          select: { name: true, phone: true },
-        },
+      select: {
+        id: true,
+        branchId: true,
+        orderNumber: true,
+        orderTimestamp: true,
+        totalAmount: true,
+        subtotal: true,
+        paymentMethod: true,
+        paymentMethodDetail: true,
+        orderType: true,
+        deliveryFee: true,
+        deliveryAddress: true,
+        deliveryAreaId: true,
+        isRefunded: true,
+        refundReason: true,
+        transactionHash: true,
+        synced: true,
+        shiftId: true,
+        createdAt: true,
+        updatedAt: true,
+        cashierId: true,
+        customerPhone: true,
+        customerName: true,
+        loyaltyPointsRedeemed: true,
+        loyaltyDiscount: true,
+        promoCodeId: true,
+        promoDiscount: true,
+        cardReferenceNumber: true,
+        items: true,
+        branch: true,
+        courier: true,
       },
     });
 

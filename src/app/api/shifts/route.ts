@@ -114,25 +114,35 @@ export async function GET(request: NextRequest) {
         const paymentBreakdown = {
           cash: 0,
           card: 0,
-          other: 0,
+          instapay: 0,
+          wallet: 0,
         };
 
         // Payment breakdown also excludes delivery fees
+        // Group by both paymentMethod and paymentMethodDetail to properly categorize payments
         const orderPaymentStats = await db.order.groupBy({
-          by: ['paymentMethod'],
+          by: ['paymentMethod', 'paymentMethodDetail'],
           where: { shiftId: shift.id },
           _sum: { subtotal: true },
           _count: true,
         });
 
         orderPaymentStats.forEach(stat => {
-          const method = stat.paymentMethod.toLowerCase();
+          const method = stat.paymentMethod?.toLowerCase();
+          const detail = stat.paymentMethodDetail?.toUpperCase();
+
           if (method === 'cash') {
-            paymentBreakdown.cash = stat._sum.subtotal || 0;
+            paymentBreakdown.cash = (paymentBreakdown.cash || 0) + (stat._sum.subtotal || 0);
           } else if (method === 'card') {
-            paymentBreakdown.card = stat._sum.subtotal || 0;
-          } else {
-            paymentBreakdown.other = (paymentBreakdown.other || 0) + (stat._sum.subtotal || 0);
+            // Check paymentMethodDetail to properly categorize
+            if (detail === 'INSTAPAY') {
+              paymentBreakdown.instapay = (paymentBreakdown.instapay || 0) + (stat._sum.subtotal || 0);
+            } else if (detail === 'MOBILE_WALLET') {
+              paymentBreakdown.wallet = (paymentBreakdown.wallet || 0) + (stat._sum.subtotal || 0);
+            } else {
+              // Regular card or undefined detail
+              paymentBreakdown.card = (paymentBreakdown.card || 0) + (stat._sum.subtotal || 0);
+            }
           }
         });
 

@@ -105,9 +105,9 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
       e.stopPropagation();
       e.preventDefault();
     }
-    
+
     let newValue = value;
-    
+
     if (key === 'C') {
       newValue = '';
     } else if (key === '⌫') {
@@ -118,15 +118,16 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
         newValue = value + '.';
       }
     } else {
-      // Number key
-      if (value.length < maxLength) {
+      // Number key or special preset (00, 0.125, 0.250, 0.500)
+      const newLength = value.length + key.length;
+      if (newLength <= maxLength) {
         newValue = value + key;
       }
     }
-    
+
     // Update display value
     onChange(newValue);
-    
+
     // Immediately call the value change callback if provided
     // This updates the target field in real-time
     if (onValueChange) {

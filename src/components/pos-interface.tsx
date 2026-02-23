@@ -1069,9 +1069,17 @@ export default function POSInterface() {
   };
 
   const handlePaymentSelect = async (paymentMethod: 'cash' | 'card') => {
-    setShowPaymentDialog(false);
-    // Create ONE final order with all table items
-    await createTableOrder(paymentMethod);
+    if (paymentMethod === 'cash') {
+      // Process cash payment immediately
+      setShowPaymentDialog(false);
+      await createTableOrder('cash');
+    } else {
+      // For card payments, show card payment dialog to select payment method detail
+      setShowPaymentDialog(false);
+      setCardReferenceNumber('');
+      setPaymentMethodDetail('CARD');
+      setShowCardPaymentDialog(true);
+    }
   };
 
   const closeTableInDB = async () => {
@@ -1152,6 +1160,88 @@ export default function POSInterface() {
         taxRate: 0.14,
         total,
         paymentMethod,
+        cashierId: user?.id,
+        tableId: selectedTable.id,
+        shiftId: currentShift?.id,
+      };
+
+      // Try API first
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Show receipt
+        setReceiptData(data.order);
+        setShowReceipt(true);
+
+        // Clear table cart and close table
+        localStorage.removeItem(`table-cart-${selectedTable.id}`);
+        setTableCart([]);
+
+        // Close the table in DB
+        await closeTableInDB();
+      } else {
+        const errorMessage = data.error || data.details || 'Failed to create order';
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('Failed to create table order:', error);
+      alert(`Failed to create order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const createTableOrderWithCard = async (cardRefNumber: string, paymentMethodDetailParam: 'CARD' | 'INSTAPAY' | 'MOBILE_WALLET') => {
+    if (!selectedTable || tableCart.length === 0) return;
+
+    setProcessing(true);
+
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        alert('User not logged in');
+        setProcessing(false);
+        return;
+      }
+
+      const user = JSON.parse(userStr);
+
+      const branchId = user?.role === 'CASHIER' ? user?.branchId : selectedBranch;
+      if (!branchId) {
+        alert('Branch not found');
+        setProcessing(false);
+        return;
+      }
+
+      // Calculate totals
+      const subtotal = tableCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const total = subtotal; // No delivery fee for dine-in
+
+      // Prepare order items
+      const orderItems = tableCart.map(item => ({
+        menuItemId: item.menuItemId,
+        quantity: item.quantity,
+        menuItemVariantId: item.variantId || null,
+        customVariantValue: item.customVariantValue || null,
+        specialInstructions: item.note || null,
+      }));
+
+      const orderData: any = {
+        branchId,
+        orderType: 'dine-in',
+        items: orderItems,
+        subtotal,
+        taxRate: 0.14,
+        total,
+        paymentMethod: 'card',
+        cardReferenceNumber: cardRefNumber,
+        paymentMethodDetail: paymentMethodDetailParam,
         cashierId: user?.id,
         tableId: selectedTable.id,
         shiftId: currentShift?.id,
@@ -1775,7 +1865,15 @@ export default function POSInterface() {
       return;
     }
     setShowCardPaymentDialog(false);
-    await handleCheckout('card', cardReferenceNumber.trim(), paymentMethodDetail);
+
+    // Check if this is a table order or regular cart order
+    if (orderType === 'dine-in' && selectedTable && tableCart.length > 0) {
+      // Create table order with card payment
+      await createTableOrderWithCard(cardReferenceNumber.trim(), paymentMethodDetail);
+    } else {
+      // Regular cart order
+      await handleCheckout('card', cardReferenceNumber.trim(), paymentMethodDetail);
+    }
   };
 
   const handleCardPaymentCancel = () => {
