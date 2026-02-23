@@ -752,8 +752,16 @@ export default function POSInterface() {
   const handleItemClick = (item: MenuItem) => {
     if (item.hasVariants && item.variants && item.variants.length > 0) {
       setSelectedItemForVariant(item);
-      setSelectedVariant(null);
       setCustomVariantValue('');
+      
+      // Auto-select custom input variant if present
+      const customInputVariant = item.variants.find(v => v.variantType.isCustomInput);
+      if (customInputVariant) {
+        setSelectedVariant(customInputVariant);
+      } else {
+        setSelectedVariant(null);
+      }
+      
       setVariantDialogOpen(true);
     } else {
       addToCart(item, null);
@@ -896,8 +904,8 @@ export default function POSInterface() {
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue > 0) {
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue >= 1) {
       updateQuantity(itemId, numValue);
     }
   };
@@ -2374,8 +2382,8 @@ export default function POSInterface() {
                       </Button>
                       <Input
                         type="number"
-                        min="0.001"
-                        step="0.001"
+                        min="1"
+                        step="1"
                         value={item.quantity}
                         onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                         className="w-16 h-9 text-center font-bold text-lg text-slate-900 dark:text-white border-slate-200 dark:border-slate-700"

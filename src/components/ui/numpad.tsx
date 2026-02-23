@@ -94,7 +94,13 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
     }
   }, [isDragging, dragOffset]);
 
-  const handlePress = (key: string) => {
+  const handlePress = (key: string, e?: React.MouseEvent) => {
+    // Stop event propagation to prevent dialog from closing
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    
     let newValue = value;
     
     if (key === 'C') {
@@ -135,7 +141,11 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
         width: isMinimized ? '200px' : '280px',
         minWidth: isMinimized ? '200px' : '280px',
       }}
-      onMouseDown={handleMouseDown}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        handleMouseDown(e);
+      }}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Header - Drag Handle */}
       <div
@@ -186,105 +196,105 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
           <div className={`grid grid-cols-3 gap-2 ${className}`}>
             <Button
               variant="outline"
-              onClick={() => handlePress('7')}
+              onClick={(e) => handlePress('7', e)}
               className="h-14 text-2xl font-semibold"
             >
               7
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('8')}
+              onClick={(e) => handlePress('8', e)}
               className="h-14 text-2xl font-semibold"
             >
               8
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('9')}
+              onClick={(e) => handlePress('9', e)}
               className="h-14 text-2xl font-semibold"
             >
               9
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('4')}
+              onClick={(e) => handlePress('4', e)}
               className="h-14 text-2xl font-semibold"
             >
               4
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('5')}
+              onClick={(e) => handlePress('5', e)}
               className="h-14 text-2xl font-semibold"
             >
               5
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('6')}
+              onClick={(e) => handlePress('6', e)}
               className="h-14 text-2xl font-semibold"
             >
               6
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('1')}
+              onClick={(e) => handlePress('1', e)}
               className="h-14 text-2xl font-semibold"
             >
               1
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('2')}
+              onClick={(e) => handlePress('2', e)}
               className="h-14 text-2xl font-semibold"
             >
               2
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('3')}
+              onClick={(e) => handlePress('3', e)}
               className="h-14 text-2xl font-semibold"
             >
               3
             </Button>
             <Button
               variant="destructive"
-              onClick={() => handlePress('C')}
+              onClick={(e) => handlePress('C', e)}
               className="h-14 text-xl font-semibold"
             >
               C
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('0')}
+              onClick={(e) => handlePress('0', e)}
               className="h-14 text-2xl font-semibold"
             >
               0
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('.')}
+              onClick={(e) => handlePress('.', e)}
               className="h-14 text-2xl font-semibold"
             >
               .
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('⌫')}
+              onClick={(e) => handlePress('⌫', e)}
               className="h-14 text-xl font-semibold"
             >
               ⌫
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('00')}
+              onClick={(e) => handlePress('00', e)}
               className="h-14 text-xl font-semibold"
             >
               00
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('0.125')}
+              onClick={(e) => handlePress('0.125', e)}
               className="h-14 text-sm font-semibold"
               title="1/8 = 0.125"
             >
@@ -292,7 +302,7 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('0.250')}
+              onClick={(e) => handlePress('0.250', e)}
               className="h-14 text-sm font-semibold"
               title="1/4 = 0.250"
             >
@@ -300,7 +310,7 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
             </Button>
             <Button
               variant="outline"
-              onClick={() => handlePress('0.500')}
+              onClick={(e) => handlePress('0.500', e)}
               className="h-14 text-sm font-semibold"
               title="1/2 = 0.500"
             >
@@ -308,7 +318,10 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
             </Button>
             {onSubmit && (
               <Button
-                onClick={onSubmit}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSubmit();
+                }}
                 className="h-14 text-xl font-semibold bg-emerald-600 hover:bg-emerald-700 col-span-2"
               >
                 ✓
