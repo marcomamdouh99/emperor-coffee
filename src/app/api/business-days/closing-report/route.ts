@@ -110,13 +110,28 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Calculate payment breakdown (cash vs card)
+    // Calculate payment breakdown with card details
     let cashTotal = 0;
     let cardTotal = 0;
+    let instapayTotal = 0;
+    let walletTotal = 0;
+
     allOrders.forEach(order => {
-      if (order.paymentMethod.toLowerCase() === 'cash') {
+      const method = order.paymentMethod.toLowerCase();
+      if (method === 'cash') {
         cashTotal += order.totalAmount;
-      } else if (order.paymentMethod.toLowerCase() === 'card' || order.paymentMethod.toLowerCase().includes('visa') || order.paymentMethod.toLowerCase().includes('credit')) {
+      } else if (method === 'card') {
+        // Break down card payments by detail
+        const detail = order.paymentMethodDetail?.toUpperCase();
+        if (detail === 'INSTAPAY') {
+          instapayTotal += order.totalAmount;
+        } else if (detail === 'MOBILE_WALLET') {
+          walletTotal += order.totalAmount;
+        } else {
+          // Default to CARD for regular card payments
+          cardTotal += order.totalAmount;
+        }
+      } else if (method.includes('visa') || method.includes('credit')) {
         cardTotal += order.totalAmount;
       }
     });
@@ -237,6 +252,8 @@ export async function GET(request: NextRequest) {
       let totalSales = 0;
       let cashTotalShift = 0;
       let cardTotalShift = 0;
+      let instapayTotalShift = 0;
+      let walletTotalShift = 0;
 
       shiftOrders.forEach(order => {
         const type = order.orderType || 'dine-in';
@@ -246,7 +263,7 @@ export async function GET(request: NextRequest) {
           totalSales += order.subtotal;
         }
 
-        const orderDiscount = (order.loyaltyDiscount || 0) + (order.promoDiscount || 0);
+        const orderDiscount = (order.promoDiscount || 0);
         if (orderTypeBreakdown[type]) {
           orderTypeBreakdown[type].discounts += orderDiscount;
         }
@@ -256,7 +273,17 @@ export async function GET(request: NextRequest) {
         const method = order.paymentMethod.toLowerCase();
         if (method === 'cash') {
           cashTotalShift += order.totalAmount;
-        } else if (method === 'card' || method.includes('visa') || method.includes('credit')) {
+        } else if (method === 'card') {
+          // Break down card payments by detail
+          const detail = order.paymentMethodDetail?.toUpperCase();
+          if (detail === 'INSTAPAY') {
+            instapayTotalShift += order.totalAmount;
+          } else if (detail === 'MOBILE_WALLET') {
+            walletTotalShift += order.totalAmount;
+          } else {
+            cardTotalShift += order.totalAmount;
+          }
+        } else if (method.includes('visa') || method.includes('credit')) {
           cardTotalShift += order.totalAmount;
         }
       });
@@ -282,6 +309,8 @@ export async function GET(request: NextRequest) {
           deliveryFees: totalDeliveryFees,
           refunds: totalRefunds,
           card: cardTotalShift,
+          instapay: instapayTotalShift,
+          wallet: walletTotalShift,
           cash: cashTotalShift,
           dailyExpenses: shiftDailyExpenses,
           openingCashBalance: shift.openingCash,
@@ -340,6 +369,8 @@ export async function GET(request: NextRequest) {
         loyaltyDiscounts: businessDay.loyaltyDiscounts,
         cashSales: cashTotal,
         cardSales: cardTotal,
+        instapaySales: instapayTotal,
+        walletSales: walletTotal,
         totalShifts: businessDay.shifts.length,
         dailyExpenses: totalDailyExpensesDay
       },

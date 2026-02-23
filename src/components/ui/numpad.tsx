@@ -8,6 +8,7 @@ import { Minus, Maximize, X, GripVertical } from 'lucide-react';
 interface NumpadProps {
   value: string;
   onChange: (value: string) => void;
+  onValueChange?: (value: string) => void; // Called immediately on each key press
   onSubmit?: () => void;
   maxLength?: number;
   className?: string;
@@ -15,7 +16,7 @@ interface NumpadProps {
   isOpen?: boolean;
 }
 
-export function Numpad({ value, onChange, onSubmit, maxLength = 10, className, onClose, isOpen = true }: NumpadProps) {
+export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 10, className, onClose, isOpen = true }: NumpadProps) {
   const [position, setPosition] = useState({ x: 20, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -41,7 +42,6 @@ export function Numpad({ value, onChange, onSubmit, maxLength = 10, className, o
         setIsMinimized(savedMinimized === 'true');
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Save position to localStorage when it changes
@@ -113,7 +113,14 @@ export function Numpad({ value, onChange, onSubmit, maxLength = 10, className, o
       }
     }
     
+    // Update display value
     onChange(newValue);
+    
+    // Immediately call the value change callback if provided
+    // This updates the target field in real-time
+    if (onValueChange) {
+      onValueChange(newValue);
+    }
   };
 
   // Don't render if not open

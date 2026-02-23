@@ -52,7 +52,10 @@ interface ApiResponse {
       deliveryFees: number;
       refunds: number;
       card: number;
+      instapay: number;
+      wallet: number;
       cash: number;
+      dailyExpenses: number;
       openingCashBalance: number;
       expectedCash: number;
       closingCashBalance: number;
@@ -183,7 +186,10 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     const totalDeliveryFees = fullReportData.totals.deliveryFees || 0;
     const totalRefunds = fullReportData.totals.refunds || 0;
     const totalCard = fullReportData.totals.card || 0;
+    const totalInstapay = fullReportData.totals.instapay || 0;
+    const totalWallet = fullReportData.totals.wallet || 0;
     const totalCash = fullReportData.totals.cash || 0;
+    const totalDailyExpenses = fullReportData.totals.dailyExpenses || 0;
     const openingBalance = fullReportData.totals.openingCashBalance || 0;
     const expectedCash = fullReportData.totals.expectedCash || 0;
     const closingBalance = fullReportData.totals.closingCashBalance || 0;
@@ -446,8 +452,20 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       <span>${formatCurrency(totalCard)}</span>
     </div>
     <div class="total-row">
+      <span>Total InstaPay:</span>
+      <span>${formatCurrency(totalInstapay)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Wallet:</span>
+      <span>${formatCurrency(totalWallet)}</span>
+    </div>
+    <div class="total-row">
       <span>Total Cash:</span>
       <span>${formatCurrency(totalCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Daily Expenses:</span>
+      <span>-${formatCurrency(totalDailyExpenses)}</span>
     </div>
     <div class="total-row">
       <span>Opening Cash Balance:</span>
@@ -713,30 +731,55 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          <span className="font-semibold text-sm">TOTAL Visa</span>
+                      {/* Card Payment Breakdown */}
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Payment Methods</div>
+                        <div className="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
+                          <span className="font-semibold text-sm">Total Card:</span>
+                          <span className="font-bold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(data.paymentSummary.card)}
+                          </span>
                         </div>
-                        <span className="font-bold text-blue-600 dark:text-blue-400">
-                          {formatCurrency(data.paymentSummary.card + data.paymentSummary.other)}
-                        </span>
+                        <div className="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-900">
+                          <span className="font-semibold text-sm">Total InstaPay:</span>
+                          <span className="font-bold text-purple-600 dark:text-purple-400">
+                            {formatCurrency(data.paymentSummary.instapay)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-900">
+                          <span className="font-semibold text-sm">Total Wallet:</span>
+                          <span className="font-bold text-orange-600 dark:text-orange-400">
+                            {formatCurrency(data.paymentSummary.wallet)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <span className="font-semibold text-sm">Total Cash:</span>
+                          </div>
+                          <span className="font-bold text-green-600 dark:text-green-400">
+                            {formatCurrency(data.paymentSummary.cash)}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          <span className="font-semibold text-sm">TOTAL Cash</span>
+                      {/* Daily Expenses */}
+                      {fullReportData && fullReportData.totals.dailyExpenses > 0 && (
+                        <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            <span className="font-semibold text-sm">Total Daily Expenses:</span>
+                          </div>
+                          <span className="font-bold text-red-600 dark:text-red-400">
+                            -{formatCurrency(fullReportData.totals.dailyExpenses)}
+                          </span>
                         </div>
-                        <span className="font-bold text-green-600 dark:text-green-400">
-                          {formatCurrency(data.paymentSummary.cash)}
-                        </span>
-                      </div>
+                      )}
 
                       <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-semibold text-sm">User</span>
+                          <span className="font-semibold text-sm">User:</span>
                         </div>
                         <span className="font-medium">
                           {data.shift.cashier.name || data.shift.cashier.username}

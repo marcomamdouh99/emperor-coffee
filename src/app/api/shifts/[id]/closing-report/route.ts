@@ -54,16 +54,29 @@ export async function GET(
       }, { status: 404 });
     }
 
-    // Calculate payment breakdown
+    // Calculate payment breakdown with card details
     let cashTotal = 0;
     let cardTotal = 0;
+    let instapayTotal = 0;
+    let walletTotal = 0;
     let otherTotal = 0;
 
     shift.orders.forEach(order => {
       const method = order.paymentMethod.toLowerCase();
       if (method === 'cash') {
         cashTotal += order.totalAmount;
-      } else if (method === 'card' || method.includes('visa') || method.includes('credit')) {
+      } else if (method === 'card') {
+        // Break down card payments by detail
+        const detail = order.paymentMethodDetail?.toUpperCase();
+        if (detail === 'INSTAPAY') {
+          instapayTotal += order.totalAmount;
+        } else if (detail === 'MOBILE_WALLET') {
+          walletTotal += order.totalAmount;
+        } else {
+          // Default to CARD for regular card payments
+          cardTotal += order.totalAmount;
+        }
+      } else if (method.includes('visa') || method.includes('credit')) {
         cardTotal += order.totalAmount;
       } else {
         otherTotal += order.totalAmount;
@@ -96,7 +109,7 @@ export async function GET(
       }
 
       // Add discounts
-      const orderDiscount = (order.loyaltyDiscount || 0) + (order.promoDiscount || 0);
+      const orderDiscount = (order.promoDiscount || 0);
       if (orderTypeBreakdown[type]) {
         orderTypeBreakdown[type].discounts += orderDiscount;
       }
@@ -221,8 +234,10 @@ export async function GET(
       paymentSummary: {
         cash: cashTotal,
         card: cardTotal,
+        instapay: instapayTotal,
+        wallet: walletTotal,
         other: otherTotal,
-        total: cashTotal + cardTotal + otherTotal
+        total: cashTotal + cardTotal + instapayTotal + walletTotal + otherTotal
       },
       orderTypeBreakdown,
       totals: {
@@ -231,6 +246,8 @@ export async function GET(
         deliveryFees: totalDeliveryFees,
         refunds: totalRefunds,
         card: cardTotal,
+        instapay: instapayTotal,
+        wallet: walletTotal,
         cash: cashTotal,
         dailyExpenses: totalDailyExpenses,
         openingCashBalance: shift.openingCash,

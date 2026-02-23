@@ -161,7 +161,7 @@ export function TableGrid({ branchId, onTableSelect, showAvailableOnly = false }
     }
 
     const capacity = prompt('What is the capacity for each table? (e.g., 2, 4, 6, 8) (leave empty for default 4)');
-    const tableCapacity = capacity ? parseInt(capacity) || 4;
+    const tableCapacity = capacity ? parseInt(capacity) : 4;
 
     try {
       const response = await fetch('/api/tables', {

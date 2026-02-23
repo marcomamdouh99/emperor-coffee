@@ -124,7 +124,10 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
     const totalDeliveryFees = shift.totals?.deliveryFees || 0;
     const totalRefunds = shift.totals?.refunds || 0;
     const totalCard = shift.totals?.card || 0;
+    const totalInstapay = shift.totals?.instapay || 0;
+    const totalWallet = shift.totals?.wallet || 0;
     const totalCash = shift.totals?.cash || 0;
+    const totalDailyExpenses = shift.totals?.dailyExpenses || 0;
     const openingBalance = shift.totals?.openingCashBalance || 0;
     const expectedCash = shift.totals?.expectedCash || 0;
     const closingBalance = shift.totals?.closingCashBalance || 0;
@@ -387,8 +390,20 @@ export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingRe
       <span>${formatCurrency(totalCard)}</span>
     </div>
     <div class="total-row">
+      <span>Total InstaPay:</span>
+      <span>${formatCurrency(totalInstapay)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Wallet:</span>
+      <span>${formatCurrency(totalWallet)}</span>
+    </div>
+    <div class="total-row">
       <span>Total Cash:</span>
       <span>${formatCurrency(totalCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Daily Expenses:</span>
+      <span>-${formatCurrency(totalDailyExpenses)}</span>
     </div>
     <div class="total-row">
       <span>Opening Cash Balance:</span>
@@ -767,7 +782,10 @@ function ShiftSummaryCard({ shift, index, totalShifts, onPrint }: ShiftSummaryCa
   const totalDeliveryFees = shift.totals?.deliveryFees || 0;
   const totalRefunds = shift.totals?.refunds || 0;
   const totalCard = shift.totals?.card || 0;
+  const totalInstapay = shift.totals?.instapay || 0;
+  const totalWallet = shift.totals?.wallet || 0;
   const totalCash = shift.totals?.cash || 0;
+  const totalDailyExpenses = shift.totals?.dailyExpenses || 0;
   const openingBalance = shift.totals?.openingCashBalance || 0;
   const expectedCash = shift.totals?.expectedCash || 0;
   const closingBalance = shift.totals?.closingCashBalance || 0;
@@ -833,7 +851,10 @@ function ShiftSummaryCard({ shift, index, totalShifts, onPrint }: ShiftSummaryCa
               <SummaryRow label="Total Delivery Fees" value={totalDeliveryFees} />
               <SummaryRow label="Total Refunds" value={totalRefunds} />
               <SummaryRow label="Total Card" value={totalCard} />
+              <SummaryRow label="Total InstaPay" value={totalInstapay} />
+              <SummaryRow label="Total Wallet" value={totalWallet} />
               <SummaryRow label="Total Cash" value={totalCash} highlight />
+              <SummaryRow label="Total Daily Expenses" value={totalDailyExpenses} variant="negative" />
               <SummaryRow label="Opening Cash Balance" value={openingBalance} />
               <SummaryRow label="Expected Cash" value={expectedCash} highlight />
               <SummaryRow label="Closing Cash Balance" value={closingBalance} />

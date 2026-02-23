@@ -896,8 +896,8 @@ export default function POSInterface() {
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
-    const numValue = parseInt(value);
-    if (!isNaN(numValue) && numValue >= 1) {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue > 0) {
       updateQuantity(itemId, numValue);
     }
   };
@@ -1598,6 +1598,10 @@ export default function POSInterface() {
 
   const handleNumpadChange = (value: string) => {
     setNumpadValue(value);
+    // Also call the callback immediately to update the target field
+    if (numpadCallback) {
+      numpadCallback(value);
+    }
   };
 
   const handleNumpadSubmit = () => {
@@ -2370,7 +2374,8 @@ export default function POSInterface() {
                       </Button>
                       <Input
                         type="number"
-                        min="1"
+                        min="0.001"
+                        step="0.001"
                         value={item.quantity}
                         onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                         className="w-16 h-9 text-center font-bold text-lg text-slate-900 dark:text-white border-slate-200 dark:border-slate-700"
@@ -3289,17 +3294,34 @@ export default function POSInterface() {
                   <div className="space-y-3">
                     <div>
                       <Label htmlFor="customVariantValue">Enter Multiplier</Label>
-                      <Input
-                        id="customVariantValue"
-                        type="number"
-                        step="0.001"
-                        min="0.001"
-                        max="999"
-                        value={customVariantValue}
-                        onChange={(e) => setCustomVariantValue(e.target.value)}
-                        placeholder="e.g., 0.125 for 1/8, 0.5 for half"
-                        className="h-11 text-lg font-semibold"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="customVariantValue"
+                          type="number"
+                          step="0.001"
+                          min="0.001"
+                          max="999"
+                          value={customVariantValue}
+                          onChange={(e) => setCustomVariantValue(e.target.value)}
+                          placeholder="e.g., 0.125 for 1/8, 0.5 for half"
+                          className="h-11 text-lg font-semibold flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-11 w-11 shrink-0"
+                          onClick={() => handleOpenNumpad(
+                            customVariantValue,
+                            'quantity',
+                            'custom-variant',
+                            (value) => setCustomVariantValue(value)
+                          )}
+                          title="Open Numpad"
+                        >
+                          <Calculator className="h-5 w-5" />
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400">
                       Enter a multiplier to calculate the price proportionally. For example, if the base is 500g and you want 62.5g (1/8), enter 0.125.
@@ -3682,6 +3704,12 @@ export default function POSInterface() {
       <Numpad
         value={numpadValue}
         onChange={handleNumpadChange}
+        onValueChange={(value) => {
+          // Real-time update when keys are pressed
+          if (numpadCallback) {
+            numpadCallback(value);
+          }
+        }}
         onSubmit={handleNumpadSubmit}
         isOpen={showNumpad}
         onClose={() => {
