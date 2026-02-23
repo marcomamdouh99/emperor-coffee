@@ -73,6 +73,11 @@ export function NumberPad({
     }
   };
 
+  const handlePreset = (presetValue: string) => {
+    setValue(presetValue);
+    onValue(presetValue);
+  };
+
   const handleSubmit = () => {
     onValue(value);
     onSubmit(value);
@@ -91,6 +96,13 @@ export function NumberPad({
     ['7', '8', '9'],
     decimal ? ['.', '0', '⌫'] : ['0', '⌫'],
   ];
+
+  const presets = decimal ? [
+    { label: '1/8', value: '0.125' },
+    { label: '1/4', value: '0.250' },
+    { label: '1/2', value: '0.500' },
+    { label: '3/4', value: '0.750' },
+  ] : [];
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -147,6 +159,30 @@ export function NumberPad({
               </div>
             ))}
           </div>
+
+          {/* Fraction Presets - only show for decimal mode */}
+          {presets.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 px-1">Quick Select:</p>
+              <div className="grid grid-cols-4 gap-2">
+                {presets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePreset(preset.value);
+                    }}
+                    className="h-10 text-xs font-semibold bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-950/50"
+                    title={`${preset.label} = ${preset.value}`}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-2 mt-4">

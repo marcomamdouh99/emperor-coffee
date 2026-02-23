@@ -1693,9 +1693,12 @@ export default function POSInterface() {
     if (numberPadCallback) {
       numberPadCallback(value);
     }
-    setShowNumberPad(false);
-    setNumberPadValue('');
-    setNumberPadCallback(null);
+    // Clear state after a brief delay to ensure callback completes
+    setTimeout(() => {
+      setShowNumberPad(false);
+      setNumberPadValue('');
+      setNumberPadCallback(null);
+    }, 0);
   };
 
   // Load held orders when shift changes
