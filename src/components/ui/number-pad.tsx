@@ -31,17 +31,26 @@ export function NumberPad({
 }: NumberPadProps) {
   const [value, setValue] = useState(initialValue);
   const previousIsOpen = useRef(isOpen);
+  const hasUserInteracted = useRef(false);
 
-  // Update value when dialog opens
+  // Update value when dialog opens and notify parent of initial value
   useEffect(() => {
     if (isOpen && !previousIsOpen.current) {
+      // Opening the dialog - set initial value and notify parent
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(initialValue);
+      hasUserInteracted.current = false;
+      // Notify parent of the initial value
+      onValueChange(initialValue);
+    } else if (!isOpen) {
+      // Dialog closed - reset for next open
+      hasUserInteracted.current = false;
     }
     previousIsOpen.current = isOpen;
-  }, [isOpen, initialValue]);
+  }, [isOpen, initialValue, onValueChange]);
 
   const handleKeyPress = (key: string) => {
+    hasUserInteracted.current = true;
     if (key === 'C') {
       setValue('');
       onValueChange('');
@@ -77,6 +86,7 @@ export function NumberPad({
   };
 
   const handlePreset = (presetValue: string) => {
+    hasUserInteracted.current = true;
     setValue(presetValue);
     onValueChange(presetValue);
   };
