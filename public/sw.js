@@ -1,10 +1,10 @@
 /**
  * Service Worker for Emperor Coffee POS
  * Enables offline functionality with improved caching strategies
- * Version: v3
+ * Version: v4 - Fixed response cloning issue
  */
 
-const CACHE_NAME = 'emperor-pos-v3';
+const CACHE_NAME = 'emperor-pos-v4';
 const CACHE_PREFIX = 'emperor-pos-';
 
 // Routes to skip (API calls - handled differently)
@@ -47,7 +47,7 @@ const CACHE_STRATEGIES = {
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing v3...');
+  console.log('[Service Worker] Installing v4...');
 
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -62,7 +62,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating v3...');
+  console.log('[Service Worker] Activating v4...');
 
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -272,11 +272,16 @@ function handleStaleWhileRevalidate(event, request) {
     caches.match(request).then((cachedResponse) => {
       // Cache hit - return immediately and update in background
       const fetchPromise = fetch(request).then((networkResponse) => {
+        // Clone immediately before returning to avoid body already used error
+        const clonedResponse = networkResponse.clone();
+
         if (networkResponse && networkResponse.status === 200) {
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, networkResponse.clone());
+            // Use the cloned response for caching
+            cache.put(request, clonedResponse);
           });
         }
+        // Return the original response
         return networkResponse;
       }).catch(() => {
         console.log('[Service Worker] Background fetch failed for:', request.url);
