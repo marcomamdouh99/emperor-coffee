@@ -19,6 +19,7 @@ export enum OperationType {
   UPDATE_MENU_ITEM = 'UPDATE_MENU_ITEM',
   CREATE_SHIFT = 'CREATE_SHIFT',
   UPDATE_SHIFT = 'UPDATE_SHIFT',
+  CLOSE_SHIFT = 'CLOSE_SHIFT',
   CREATE_WASTE_LOG = 'CREATE_WASTE_LOG',
   CREATE_TRANSFER = 'CREATE_TRANSFER',
   UPDATE_INVENTORY = 'UPDATE_INVENTORY',
@@ -26,6 +27,18 @@ export enum OperationType {
   UPDATE_PURCHASE_ORDER = 'UPDATE_PURCHASE_ORDER',
   CREATE_RECEIPT_SETTINGS = 'CREATE_RECEIPT_SETTINGS',
   UPDATE_RECEIPT_SETTINGS = 'UPDATE_RECEIPT_SETTINGS',
+  CREATE_DAILY_EXPENSE = 'CREATE_DAILY_EXPENSE',
+  CREATE_VOIDED_ITEM = 'CREATE_VOIDED_ITEM',
+  CREATE_PROMO_CODE = 'CREATE_PROMO_CODE',
+  USE_PROMO_CODE = 'USE_PROMO_CODE',
+  CREATE_LOYALTY_TRANSACTION = 'CREATE_LOYALTY_TRANSACTION',
+  CREATE_TABLE = 'CREATE_TABLE',
+  UPDATE_TABLE = 'UPDATE_TABLE',
+  CLOSE_TABLE = 'CLOSE_TABLE',
+  CREATE_INVENTORY_TRANSACTION = 'CREATE_INVENTORY_TRANSACTION',
+  CREATE_INVENTORY = 'CREATE_INVENTORY',
+  CREATE_WASTE = 'CREATE_WASTE',
+  UPDATE_USER = 'UPDATE_USER',
 }
 
 export interface SyncOperation {
@@ -63,6 +76,10 @@ const STORAGE_KEYS = {
   CUSTOMER_ADDRESSES: 'customer_addresses',
   COURIERS: 'couriers',
   RECEIPT_SETTINGS: 'receipt_settings',
+  TABLES: 'tables',
+  DAILY_EXPENSES: 'daily_expenses',
+  PROMO_CODES: 'promo_codes',
+  INVENTORY: 'inventory',
 };
 
 // ============================================
@@ -539,6 +556,186 @@ class LocalStorageService {
       console.log('[LocalStorageService] All data cleared');
     } catch (error) {
       console.error('[LocalStorageService] Error clearing data:', error);
+    }
+  }
+
+  // ============================================
+  // ADDITIONAL METHODS FOR POS INTERFACE
+  // ============================================
+
+  /**
+   * Save a single order (used by POS interface for offline orders)
+   */
+  async saveOrder(order: any): Promise<void> {
+    try {
+      const orders = await this.getOrders();
+      const index = orders.findIndex((o: any) => o.id === order.id);
+      if (index >= 0) {
+        orders[index] = order;
+      } else {
+        orders.push(order);
+      }
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+      console.log('[LocalStorageService] Saved order:', order.id);
+    } catch (error) {
+      console.error('[LocalStorageService] Error saving order:', error);
+    }
+  }
+
+  /**
+   * Save a single shift (used by POS interface for offline shifts)
+   */
+  async saveShift(shift: any): Promise<void> {
+    try {
+      const shifts = await this.getShifts();
+      const index = shifts.findIndex((s: any) => s.id === shift.id);
+      if (index >= 0) {
+        shifts[index] = shift;
+      } else {
+        shifts.push(shift);
+      }
+      localStorage.setItem(STORAGE_KEYS.SHIFTS, JSON.stringify(shifts));
+      console.log('[LocalStorageService] Saved shift:', shift.id);
+    } catch (error) {
+      console.error('[LocalStorageService] Error saving shift:', error);
+    }
+  }
+
+  /**
+   * Get all menu items (alias for getMenuItems)
+   */
+  async getAllMenuItems(): Promise<any[]> {
+    return this.getMenuItems();
+  }
+
+  /**
+   * Get all shifts (alias for getShifts)
+   */
+  async getAllShifts(): Promise<any[]> {
+    return this.getShifts();
+  }
+
+  /**
+   * Get all orders (alias for getOrders)
+   */
+  async getAllOrders(): Promise<any[]> {
+    return this.getOrders();
+  }
+
+  /**
+   * Get all waste logs (alias for getWasteLogs)
+   */
+  async getAllWasteLogs(): Promise<any[]> {
+    return this.getWasteLogs();
+  }
+
+  /**
+   * Get all branches (alias for getBranches)
+   */
+  async getAllBranches(): Promise<any[]> {
+    return this.getBranches();
+  }
+
+  /**
+   * Get all delivery areas (alias for getDeliveryAreas)
+   */
+  async getAllDeliveryAreas(): Promise<any[]> {
+    return this.getDeliveryAreas();
+  }
+
+  /**
+   * Get all customers (alias for getCustomers)
+   */
+  async getAllCustomers(): Promise<any[]> {
+    return this.getCustomers();
+  }
+
+  /**
+   * Get all customer addresses (alias for getCustomerAddresses)
+   */
+  async getAllCustomerAddresses(): Promise<any[]> {
+    return this.getCustomerAddresses();
+  }
+
+  /**
+   * Get all couriers (alias for getCouriers)
+   */
+  async getAllCouriers(): Promise<any[]> {
+    return this.getCouriers();
+  }
+
+  /**
+   * Batch save tables
+   */
+  async batchSaveTables(items: any[]): Promise<void> {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(items));
+      console.log('[LocalStorageService] Saved', items.length, 'tables');
+    } catch (error) {
+      console.error('[LocalStorageService] Error saving tables:', error);
+    }
+  }
+
+  /**
+   * Get all tables
+   */
+  async getAllTables(): Promise<any[]> {
+    try {
+      const itemsStr = localStorage.getItem(STORAGE_KEYS.TABLES);
+      return itemsStr ? JSON.parse(itemsStr) : [];
+    } catch (error) {
+      console.error('[LocalStorageService] Error getting tables:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Batch save daily expenses
+   */
+  async batchSaveDailyExpenses(items: any[]): Promise<void> {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DAILY_EXPENSES, JSON.stringify(items));
+      console.log('[LocalStorageService] Saved', items.length, 'daily expenses');
+    } catch (error) {
+      console.error('[LocalStorageService] Error saving daily expenses:', error);
+    }
+  }
+
+  /**
+   * Get all daily expenses
+   */
+  async getAllDailyExpenses(): Promise<any[]> {
+    try {
+      const itemsStr = localStorage.getItem(STORAGE_KEYS.DAILY_EXPENSES);
+      return itemsStr ? JSON.parse(itemsStr) : [];
+    } catch (error) {
+      console.error('[LocalStorageService] Error getting daily expenses:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Batch save inventory
+   */
+  async batchSaveInventory(items: any[]): Promise<void> {
+    try {
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(items));
+      console.log('[LocalStorageService] Saved', items.length, 'inventory records');
+    } catch (error) {
+      console.error('[LocalStorageService] Error saving inventory:', error);
+    }
+  }
+
+  /**
+   * Get all inventory
+   */
+  async getAllInventory(): Promise<any[]> {
+    try {
+      const itemsStr = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+      return itemsStr ? JSON.parse(itemsStr) : [];
+    } catch (error) {
+      console.error('[LocalStorageService] Error getting inventory:', error);
+      return [];
     }
   }
 }

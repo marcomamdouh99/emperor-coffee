@@ -5,9 +5,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { getLocalStorageService } from '@/lib/storage/local-storage';
+import { getIndexedDBStorage } from '@/lib/storage/indexeddb-storage';
 
-const localStorageService = getLocalStorageService();
+const indexedDBStorage = getIndexedDBStorage();
 
 export function useOfflineData<T>(
   apiEndpoint: string,
@@ -76,35 +76,35 @@ export function useOfflineData<T>(
 
           // Also save to IndexedDB for offline use (in background, don't wait)
           if (apiEndpoint.includes('/api/categories')) {
-            localStorageService.batchSaveCategories(Array.isArray(data) ? data : []).catch(e =>
+            indexedDBStorage.batchSaveCategories(Array.isArray(data) ? data : []).catch(e =>
               console.log('[useOfflineData] Failed to cache categories:', e.message)
             );
           } else if (apiEndpoint.includes('/api/menu-items')) {
-            localStorageService.batchSaveMenuItems(Array.isArray(data) ? data : []).catch(e =>
+            indexedDBStorage.batchSaveMenuItems(Array.isArray(data) ? data : []).catch(e =>
               console.log('[useOfflineData] Failed to cache menu items:', e.message)
             );
           } else if (apiEndpoint.includes('/api/branches')) {
-            localStorageService.batchSaveBranches(Array.isArray(data) ? data : (data.branches || [])).catch(e =>
+            indexedDBStorage.batchSaveBranches(Array.isArray(data) ? data : (data.branches || [])).catch(e =>
               console.log('[useOfflineData] Failed to cache branches:', e.message)
             );
           } else if (apiEndpoint.includes('/api/delivery-areas')) {
-            localStorageService.batchSaveDeliveryAreas(Array.isArray(data) ? data : (data.areas || [])).catch(e =>
+            indexedDBStorage.batchSaveDeliveryAreas(Array.isArray(data) ? data : (data.areas || [])).catch(e =>
               console.log('[useOfflineData] Failed to cache delivery areas:', e.message)
             );
           } else if (apiEndpoint.includes('/api/couriers')) {
-            localStorageService.batchSaveCouriers(Array.isArray(data) ? data : (data.couriers || [])).catch(e =>
+            indexedDBStorage.batchSaveCouriers(Array.isArray(data) ? data : (data.couriers || [])).catch(e =>
               console.log('[useOfflineData] Failed to cache couriers:', e.message)
             );
           } else if (apiEndpoint.includes('/api/customers')) {
-            localStorageService.batchSaveCustomers(Array.isArray(data) ? data : (data.customers || [])).catch(e =>
+            indexedDBStorage.batchSaveCustomers(Array.isArray(data) ? data : (data.customers || [])).catch(e =>
               console.log('[useOfflineData] Failed to cache customers:', e.message)
             );
           } else if (apiEndpoint.includes('/api/users')) {
-            localStorageService.batchSaveUsers(Array.isArray(data) ? data : (data.users || [])).catch(e =>
+            indexedDBStorage.batchSaveUsers(Array.isArray(data) ? data : (data.users || [])).catch(e =>
               console.log('[useOfflineData] Failed to cache users:', e.message)
             );
           } else if (apiEndpoint.includes('/api/shifts')) {
-            localStorageService.batchSaveShifts(Array.isArray(data) ? data : (data.shifts || [])).catch(e =>
+            indexedDBStorage.batchSaveShifts(Array.isArray(data) ? data : (data.shifts || [])).catch(e =>
               console.log('[useOfflineData] Failed to cache shifts:', e.message)
             );
           }
@@ -190,15 +190,15 @@ export function useOfflineData<T>(
 
 // Helper functions for fetching common data types from IndexedDB
 export const offlineDataFetchers = {
-  menuItems: () => localStorageService.getAllMenuItems(),
-  categories: () => localStorageService.getAllCategories(),
-  ingredients: () => localStorageService.getAllIngredients(),
-  users: () => localStorageService.getAllUsers(),
-  orders: () => localStorageService.getAllOrders(),
-  shifts: () => localStorageService.getAllShifts(),
-  wasteLogs: () => localStorageService.getAllWasteLogs(),
-  branches: () => localStorageService.getAllBranches(),
-  deliveryAreas: () => localStorageService.getAllDeliveryAreas(),
-  customers: () => localStorageService.getAllCustomers(),
-  couriers: () => localStorageService.getAllCouriers(),
+  menuItems: () => indexedDBStorage.getAllMenuItems(),
+  categories: () => indexedDBStorage.getAllCategories(),
+  ingredients: () => indexedDBStorage.getAllIngredients(),
+  users: () => indexedDBStorage.getAllUsers(),
+  orders: () => indexedDBStorage.getAllOrders(),
+  shifts: () => indexedDBStorage.getAllShifts(),
+  wasteLogs: () => indexedDBStorage.getAllWasteLogs(),
+  branches: () => indexedDBStorage.getAllBranches(),
+  deliveryAreas: () => indexedDBStorage.getAllDeliveryAreas(),
+  customers: () => indexedDBStorage.getAllCustomers(),
+  couriers: () => indexedDBStorage.getAllCouriers(),
 };
