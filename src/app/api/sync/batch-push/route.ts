@@ -21,6 +21,15 @@ const OperationType = {
   CLOSE_SHIFT: 'CLOSE_SHIFT',
   CREATE_CUSTOMER: 'CREATE_CUSTOMER',
   UPDATE_USER: 'UPDATE_USER',
+  CREATE_DAILY_EXPENSE: 'CREATE_DAILY_EXPENSE',
+  CREATE_VOIDED_ITEM: 'CREATE_VOIDED_ITEM',
+  CREATE_PROMO_CODE: 'CREATE_PROMO_CODE',
+  USE_PROMO_CODE: 'USE_PROMO_CODE',
+  CREATE_LOYALTY_TRANSACTION: 'CREATE_LOYALTY_TRANSACTION',
+  CREATE_TABLE: 'CREATE_TABLE',
+  UPDATE_TABLE: 'UPDATE_TABLE',
+  CLOSE_TABLE: 'CLOSE_TABLE',
+  CREATE_INVENTORY_TRANSACTION: 'CREATE_INVENTORY_TRANSACTION',
 } as const;
 
 type OperationTypeType = typeof OperationType[keyof typeof OperationType];
@@ -185,6 +194,42 @@ async function processOperation(operation: SyncOperation, branchId: string): Pro
 
     case OperationType.UPDATE_USER:
       await updateUser(operation.data);
+      break;
+
+    case OperationType.CREATE_DAILY_EXPENSE:
+      await createDailyExpense(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_VOIDED_ITEM:
+      await createVoidedItem(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_PROMO_CODE:
+      await createPromoCode(operation.data, branchId);
+      break;
+
+    case OperationType.USE_PROMO_CODE:
+      await handleUsePromoCode(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_LOYALTY_TRANSACTION:
+      await createLoyaltyTransaction(operation.data);
+      break;
+
+    case OperationType.CREATE_TABLE:
+      await createTable(operation.data, branchId);
+      break;
+
+    case OperationType.UPDATE_TABLE:
+      await updateTable(operation.data, branchId);
+      break;
+
+    case OperationType.CLOSE_TABLE:
+      await closeTable(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_INVENTORY_TRANSACTION:
+      await createInventoryTransaction(operation.data, branchId);
       break;
 
     default:
@@ -925,6 +970,185 @@ async function updateUser(data: any): Promise<void> {
       branchId: data.branchId || null,
       isActive: data.isActive,
       updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Create daily expense
+ */
+async function createDailyExpense(data: any, branchId: string): Promise<void> {
+  await db.dailyExpense.create({
+    data: {
+      id: data.id,
+      branchId,
+      shiftId: data.shiftId,
+      amount: data.amount,
+      reason: data.reason,
+      recordedBy: data.recordedBy,
+      createdAt: new Date(data.createdAt),
+    },
+  });
+}
+
+/**
+ * Create voided item
+ */
+async function createVoidedItem(data: any, branchId: string): Promise<void> {
+  await db.voidedItem.create({
+    data: {
+      id: data.id,
+      orderItemId: data.orderItemId,
+      orderQuantity: data.orderQuantity,
+      voidedQuantity: data.voidedQuantity,
+      remainingQuantity: data.remainingQuantity,
+      unitPrice: data.unitPrice,
+      voidedSubtotal: data.voidedSubtotal,
+      reason: data.reason,
+      voidedBy: data.voidedBy,
+      voidedAt: new Date(data.voidedAt),
+      createdAt: new Date(data.createdAt),
+    },
+  });
+}
+
+/**
+ * Create promo code
+ */
+async function createPromoCode(data: any, branchId: string): Promise<void> {
+  // Check if promo code already exists
+  const existing = await db.promotionCode.findUnique({
+    where: { code: data.code }
+  });
+
+  if (existing) {
+    console.log(`[BatchPush] Promo code ${data.code} already exists, skipping`);
+    return;
+  }
+
+  await db.promotionCode.create({
+    data: {
+      id: data.id,
+      promotionId: data.promotionId,
+      code: data.code,
+      isActive: data.isActive,
+      usageCount: data.usageCount || 0,
+      maxUses: data.maxUses || null,
+      isSingleUse: data.isSingleUse || false,
+      campaignName: data.campaignName || null,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    },
+  });
+}
+
+/**
+ * Use promo code (increment usage count)
+ */
+async function handleUsePromoCode(data: any, branchId: string): Promise<void> {
+  await db.promotionCode.update({
+    where: { code: data.code },
+    data: {
+      usageCount: {
+        increment: 1,
+      },
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Create loyalty transaction
+ */
+async function createLoyaltyTransaction(data: any): Promise<void> {
+  await db.loyaltyTransaction.create({
+    data: {
+      id: data.id,
+      customerId: data.customerId,
+      points: data.points,
+      type: data.type,
+      orderId: data.orderId || null,
+      amount: data.amount || null,
+      notes: data.notes || null,
+      createdAt: new Date(data.createdAt),
+    },
+  });
+}
+
+/**
+ * Create table
+ */
+async function createTable(data: any, branchId: string): Promise<void> {
+  await db.table.create({
+    data: {
+      id: data.id,
+      branchId,
+      tableNumber: data.tableNumber,
+      status: data.status || 'AVAILABLE',
+      customerId: data.customerId || null,
+      capacity: data.capacity || null,
+      openedAt: data.openedAt ? new Date(data.openedAt) : null,
+      closedAt: data.closedAt ? new Date(data.closedAt) : null,
+      openedBy: data.openedBy || null,
+      closedBy: data.closedBy || null,
+      notes: data.notes || null,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    },
+  });
+}
+
+/**
+ * Update table
+ */
+async function updateTable(data: any, branchId: string): Promise<void> {
+  await db.table.update({
+    where: { id: data.id },
+    data: {
+      status: data.status,
+      customerId: data.customerId || null,
+      openedAt: data.openedAt ? new Date(data.openedAt) : null,
+      closedAt: data.closedAt ? new Date(data.closedAt) : null,
+      openedBy: data.openedBy || null,
+      closedBy: data.closedBy || null,
+      notes: data.notes || null,
+      updatedAt: new Date(data.updatedAt),
+    },
+  });
+}
+
+/**
+ * Close table
+ */
+async function closeTable(data: any, branchId: string): Promise<void> {
+  await db.table.update({
+    where: { id: data.id },
+    data: {
+      status: 'AVAILABLE',
+      closedAt: new Date(data.closedAt || Date.now()),
+      closedBy: data.closedBy,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Create inventory transaction
+ */
+async function createInventoryTransaction(data: any, branchId: string): Promise<void> {
+  await db.inventoryTransaction.create({
+    data: {
+      id: data.id,
+      branchId,
+      ingredientId: data.ingredientId,
+      transactionType: data.transactionType,
+      quantityChange: data.quantityChange,
+      stockBefore: data.stockBefore,
+      stockAfter: data.stockAfter,
+      orderId: data.orderId || null,
+      reason: data.reason || null,
+      createdBy: data.createdBy,
+      createdAt: new Date(data.createdAt),
     },
   });
 }

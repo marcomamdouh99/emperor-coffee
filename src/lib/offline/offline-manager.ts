@@ -2,11 +2,12 @@
  * Offline Manager Service
  * Manages online/offline detection, operation queuing, and automatic sync
  * Allows branches to work offline for weeks and sync when back online
+ * Uses IndexedDB for reliable offline storage
  */
 
-import { getLocalStorageService, OperationType, SyncOperation, SyncState } from '../storage/local-storage';
+import { getIndexedDBStorage, OperationType, SyncOperation, SyncState } from '../storage/indexeddb-storage';
 
-const localStorageService = getLocalStorageService();
+const storageService = getIndexedDBStorage();
 
 // Sync status for UI
 export enum SyncStatus {
@@ -68,7 +69,7 @@ class OfflineManager {
       this.branchId = branchId;
 
       // Initialize local storage
-      await localStorageService.init();
+      await storageService.init();
 
       // Check actual network connectivity
       await this.checkActualConnectivity();
@@ -80,9 +81,9 @@ class OfflineManager {
       }
 
       // Load sync state
-      const syncState = await localStorageService.getSyncState();
+      const syncState = await storageService.getSyncState();
       if (!syncState) {
-        await localStorageService.updateSyncState({
+        await storageService.updateSyncState({
           branchId: this.branchId,
           isOnline: this.isOnline,
           lastPullTimestamp: 0,
@@ -92,7 +93,7 @@ class OfflineManager {
       }
 
       // Update online status in sync state
-      await localStorageService.updateSyncState({ isOnline: this.isOnline });
+      await storageService.updateSyncState({ isOnline: this.isOnline });
 
       this.initialized = true;
 
@@ -126,11 +127,11 @@ class OfflineManager {
 
       clearTimeout(timeoutId);
       this.isOnline = true;
-      await localStorageService.updateSyncState({ isOnline: true });
+      await storageService.updateSyncState({ isOnline: true });
     } catch (err) {
       console.log('[OfflineManager] Network check failed, setting offline');
       this.isOnline = false;
-      await localStorageService.updateSyncState({ isOnline: false });
+      await storageService.updateSyncState({ isOnline: false });
     }
   }
 
@@ -143,7 +144,7 @@ class OfflineManager {
 
     if (this.isOnline) {
       console.log('[OfflineManager] Connection restored');
-      await localStorageService.updateSyncState({ isOnline: true });
+      await storageService.updateSyncState({ isOnline: true });
       this.notifyListeners(SyncStatus.IDLE, { message: 'Back online' });
 
       // Start auto-sync
@@ -162,7 +163,7 @@ class OfflineManager {
   private handleOffline = async (): Promise<void> => {
     console.log('[OfflineManager] Connection lost');
     this.isOnline = false;
-    await localStorageService.updateSyncState({ isOnline: false });
+    await storageService.updateSyncState({ isOnline: false });
     this.stopAutoSync();
     this.notifyListeners(SyncStatus.OFFLINE, { message: 'You are offline' });
   };
@@ -239,7 +240,7 @@ class OfflineManager {
    * Get pending operations count
    */
   async getPendingOperationsCount(): Promise<number> {
-    return localStorageService.getPendingOperationsCount();
+    return storageService.getPendingOperationsCount();
   }
 
   /**
@@ -247,7 +248,7 @@ class OfflineManager {
    */
   async queueOperation(type: OperationType, data: any): Promise<void> {
     // Store operation locally
-    await localStorageService.addOperation({
+    await storageService.addOperation({
       type,
       data,
       branchId: this.branchId,
@@ -255,7 +256,7 @@ class OfflineManager {
 
     // Update pending count
     const count = await this.getPendingOperationsCount();
-    await localStorageService.updateSyncState({ pendingOperations: count });
+    await storageService.updateSyncState({ pendingOperations: count });
 
     // If online, trigger sync
     if (this.isOnline && !this.isSyncing) {
@@ -311,7 +312,7 @@ class OfflineManager {
       const result = await this.pushOperations();
 
       // Update sync state
-      await localStorageService.updateSyncState({
+      await storageService.updateSyncState({
         lastPushTimestamp: Date.now(),
         pendingOperations: await this.getPendingOperationsCount(),
       });
@@ -355,7 +356,7 @@ class OfflineManager {
    */
   private async pullData(): Promise<void> {
     // Skip pull if already tried recently or if offline
-    const syncState = await localStorageService.getSyncState();
+    const syncState = await storageService.getSyncState();
     const lastPull = syncState?.lastPullTimestamp || 0;
     const timeSinceLastPull = Date.now() - lastPull;
     
@@ -377,7 +378,7 @@ class OfflineManager {
 
       if (!response.ok) {
         console.log('[OfflineManager] Pull API not available:', response.status);
-        await localStorageService.updateSyncState({ 
+        await storageService.updateSyncState({ 
           lastPullFailed: true,
           lastPullTimestamp: Date.now()
         });
@@ -390,59 +391,67 @@ class OfflineManager {
       // Store pulled data locally
       if (result.data) {
         if (result.data.menuItems && Array.isArray(result.data.menuItems)) {
-          await localStorageService.batchSaveMenuItems(result.data.menuItems);
+          await storageService.batchSaveMenuItems(result.data.menuItems);
           console.log('[OfflineManager] Saved', result.data.menuItems.length, 'menu items');
         }
         if (result.data.ingredients && Array.isArray(result.data.ingredients)) {
-          await localStorageService.batchSaveIngredients(result.data.ingredients);
+          await storageService.batchSaveIngredients(result.data.ingredients);
           console.log('[OfflineManager] Saved', result.data.ingredients.length, 'ingredients');
         }
         if (result.data.categories && Array.isArray(result.data.categories)) {
-          await localStorageService.batchSaveCategories(result.data.categories);
+          await storageService.batchSaveCategories(result.data.categories);
           console.log('[OfflineManager] Saved', result.data.categories.length, 'categories');
         }
         if (result.data.users && Array.isArray(result.data.users)) {
-          await localStorageService.batchSaveUsers(result.data.users);
+          await storageService.batchSaveUsers(result.data.users);
           console.log('[OfflineManager] Saved', result.data.users.length, 'users');
         }
         if (result.data.orders && Array.isArray(result.data.orders)) {
-          await localStorageService.batchSaveOrders(result.data.orders);
+          await storageService.batchSaveOrders(result.data.orders);
           console.log('[OfflineManager] Saved', result.data.orders.length, 'orders');
         }
         if (result.data.shifts && Array.isArray(result.data.shifts)) {
-          await localStorageService.batchSaveShifts(result.data.shifts);
+          await storageService.batchSaveShifts(result.data.shifts);
           console.log('[OfflineManager] Saved', result.data.shifts.length, 'shifts');
         }
         if (result.data.wasteLogs && Array.isArray(result.data.wasteLogs)) {
-          await localStorageService.batchSaveWasteLogs(result.data.wasteLogs);
+          await storageService.batchSaveWasteLogs(result.data.wasteLogs);
           console.log('[OfflineManager] Saved', result.data.wasteLogs.length, 'waste logs');
         }
         if (result.data.branches && Array.isArray(result.data.branches)) {
-          await localStorageService.batchSaveBranches(result.data.branches);
+          await storageService.batchSaveBranches(result.data.branches);
           console.log('[OfflineManager] Saved', result.data.branches.length, 'branches');
         }
         if (result.data.deliveryAreas && Array.isArray(result.data.deliveryAreas)) {
-          await localStorageService.batchSaveDeliveryAreas(result.data.deliveryAreas);
+          await storageService.batchSaveDeliveryAreas(result.data.deliveryAreas);
           console.log('[OfflineManager] Saved', result.data.deliveryAreas.length, 'delivery areas');
         }
         if (result.data.customers && Array.isArray(result.data.customers)) {
-          await localStorageService.batchSaveCustomers(result.data.customers);
+          await storageService.batchSaveCustomers(result.data.customers);
           console.log('[OfflineManager] Saved', result.data.customers.length, 'customers');
         }
         if (result.data.customerAddresses && Array.isArray(result.data.customerAddresses)) {
-          await localStorageService.batchSaveCustomerAddresses(result.data.customerAddresses);
+          await storageService.batchSaveCustomerAddresses(result.data.customerAddresses);
           console.log('[OfflineManager] Saved', result.data.customerAddresses.length, 'customer addresses');
         }
         if (result.data.couriers && Array.isArray(result.data.couriers)) {
-          await localStorageService.batchSaveCouriers(result.data.couriers);
+          await storageService.batchSaveCouriers(result.data.couriers);
           console.log('[OfflineManager] Saved', result.data.couriers.length, 'couriers');
         }
         if (result.data.receiptSettings) {
-          await localStorageService.saveReceiptSettings(result.data.receiptSettings);
+          await storageService.saveReceiptSettings(result.data.receiptSettings);
           console.log('[OfflineManager] Saved receipt settings');
         }
+        if (result.data.tables && Array.isArray(result.data.tables)) {
+          await storageService.batchSaveTables(result.data.tables);
+          console.log('[OfflineManager] Saved', result.data.tables.length, 'tables');
+        }
+        if (result.data.inventory && Array.isArray(result.data.inventory)) {
+          await storageService.batchSaveInventory(result.data.inventory);
+          console.log('[OfflineManager] Saved', result.data.inventory.length, 'inventory records');
+        }
 
-        await localStorageService.updateSyncState({ 
+        await storageService.updateSyncState({
           lastPullFailed: false,
           lastPullTimestamp: Date.now()
         });
@@ -451,7 +460,7 @@ class OfflineManager {
       console.log('[OfflineManager] Data pulled successfully');
     } catch (error) {
       // Silent fail - sync errors shouldn't spam console
-      await localStorageService.updateSyncState({ 
+      await storageService.updateSyncState({ 
         lastPullFailed: true,
         lastPullTimestamp: Date.now()
       });
@@ -472,7 +481,7 @@ class OfflineManager {
 
     try {
       // Get pending operations in batches
-      let operations = await localStorageService.getPendingOperations();
+      let operations = await storageService.getPendingOperations();
 
       while (operations.length > 0) {
         // Process batch
@@ -490,16 +499,16 @@ class OfflineManager {
         // Remove successful operations
         for (const op of batch) {
           if (!batchResult.failedIds.includes(op.id)) {
-            await localStorageService.removeOperation(op.id);
+            await storageService.removeOperation(op.id);
           } else {
             // Increment retry count
             op.retryCount += 1;
-            await localStorageService.updateOperation(op);
+            await storageService.updateOperation(op);
           }
         }
 
         // Get next batch
-        operations = await localStorageService.getPendingOperations();
+        operations = await storageService.getPendingOperations();
 
         // Small delay between batches
         if (operations.length > 0) {
@@ -586,7 +595,7 @@ class OfflineManager {
     pendingOperations: number;
     syncStatus: SyncStatus;
   }> {
-    const state = await localStorageService.getSyncState();
+    const state = await storageService.getSyncState();
     const pendingOps = await this.getPendingOperationsCount();
 
     return {
@@ -602,8 +611,8 @@ class OfflineManager {
    * Clear all local data (reset)
    */
   async clearAllData(): Promise<void> {
-    await localStorageService.clearAllData();
-    await localStorageService.updateSyncState({
+    await storageService.clearAllData();
+    await storageService.updateSyncState({
       branchId: this.branchId,
       isOnline: this.isOnline,
       lastPullTimestamp: 0,
