@@ -717,6 +717,7 @@ model Shift {
   openingRevenue          Float     @default(0)
   closingRevenue          Float?
   closingLoyaltyDiscounts Float?    @default(0) // Total loyalty discounts redeemed during shift
+  closingDailyExpenses    Float?    @default(0) // Total daily expenses during shift
   closingPromoDiscounts   Float?    @default(0) // Total promo discounts applied during shift
   isClosed                Boolean   @default(false)
   notes                   String?

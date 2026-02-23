@@ -6,6 +6,7 @@ export const orderItemSchema = z.object({
   menuItemId: z.string().min(1).max(50),  // Accept any valid ID format
   quantity: z.number().int().positive().min(1).max(99),
   menuItemVariantId: z.string().min(1).max(50).nullable().optional(),  // Accept string, null, or undefined
+  customVariantValue: z.number().positive().nullable().optional(),  // Custom variant multiplier (e.g., 0.125 for 1/8)
   specialInstructions: z.string().max(500).nullable().optional()  // Item notes/special requests
 })
 

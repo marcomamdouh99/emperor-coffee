@@ -186,8 +186,16 @@ export async function GET(
       }))
       .sort((a, b) => b.totalSales - a.totalSales);
 
-    // Calculate cash balance
-    const expectedCash = shift.openingCash + cashTotal;
+    // Get daily expenses for this shift
+    const dailyExpenses = await db.dailyExpense.findMany({
+      where: {
+        shiftId: shiftId
+      }
+    });
+    const totalDailyExpenses = dailyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+    // Calculate cash balance (subtract daily expenses)
+    const expectedCash = shift.openingCash + cashTotal - totalDailyExpenses;
     const overShort = shift.closingCash ? shift.closingCash - expectedCash : null;
 
     // Generate shift number from orders count or closing orders
@@ -224,6 +232,7 @@ export async function GET(
         refunds: totalRefunds,
         card: cardTotal,
         cash: cashTotal,
+        dailyExpenses: totalDailyExpenses,
         openingCashBalance: shift.openingCash,
         expectedCash: expectedCash,
         closingCashBalance: shift.closingCash || 0,

@@ -199,9 +199,30 @@ export async function GET(request: NextRequest) {
     // Get refunds
     const refunds = allOrders.filter(o => o.isRefunded);
 
+    // Get daily expenses for all shifts in this business day
+    const shiftIds = businessDay.shifts.map(s => s.id);
+    const allDailyExpenses = await db.dailyExpense.findMany({
+      where: {
+        shiftId: {
+          in: shiftIds
+        }
+      }
+    });
+
+    // Group expenses by shift
+    const expensesByShift = new Map<string, number>();
+    allDailyExpenses.forEach(expense => {
+      const current = expensesByShift.get(expense.shiftId) || 0;
+      expensesByShift.set(expense.shiftId, current + expense.amount);
+    });
+
+    // Calculate total daily expenses for the day
+    const totalDailyExpensesDay = allDailyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
     // Calculate shift data for new DayClosingReceipt format
     const shiftsData = businessDay.shifts.map((shift, index) => {
       const shiftOrders = shift.orders.filter(o => !o.isRefunded);
+      const shiftDailyExpenses = expensesByShift.get(shift.id) || 0;
 
       // Calculate order type breakdown for this shift
       const orderTypeBreakdown = {
@@ -245,9 +266,9 @@ export async function GET(request: NextRequest) {
         orderTypeBreakdown[type].total = orderTypeBreakdown[type].value - orderTypeBreakdown[type].discounts;
       });
 
-      // Calculate cash difference
+      // Calculate cash difference (subtract daily expenses)
       const closingRevenue = shift.closingRevenue || 0;
-      const expectedCash = shift.openingCash + cashTotalShift;
+      const expectedCash = shift.openingCash + cashTotalShift - shiftDailyExpenses;
       const overShort = shift.closingCash ? shift.closingCash - expectedCash : null;
 
       return {
@@ -262,6 +283,7 @@ export async function GET(request: NextRequest) {
           refunds: totalRefunds,
           card: cardTotalShift,
           cash: cashTotalShift,
+          dailyExpenses: shiftDailyExpenses,
           openingCashBalance: shift.openingCash,
           expectedCash,
           closingCashBalance: shift.closingCash || 0,
@@ -282,7 +304,15 @@ export async function GET(request: NextRequest) {
       shifts: shiftsData,
       categoryBreakdown: categories,
       notes: businessDay.notes,
-      fontSize: 'medium' as const
+      fontSize: 'medium' as const,
+      dailyExpenses: {
+        total: totalDailyExpensesDay,
+        breakdown: allDailyExpenses.map(exp => ({
+          amount: exp.amount,
+          reason: exp.reason,
+          shiftId: exp.shiftId
+        }))
+      }
     };
 
     // Legacy report data for backward compatibility
@@ -310,7 +340,8 @@ export async function GET(request: NextRequest) {
         loyaltyDiscounts: businessDay.loyaltyDiscounts,
         cashSales: cashTotal,
         cardSales: cardTotal,
-        totalShifts: businessDay.shifts.length
+        totalShifts: businessDay.shifts.length,
+        dailyExpenses: totalDailyExpensesDay
       },
       categoryBreakdown: categories,
       shifts: businessDay.shifts.map(shift => ({

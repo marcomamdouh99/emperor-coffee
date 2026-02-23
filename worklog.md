@@ -746,3 +746,232 @@ Created \`/home/z/my-project/src/app/api/orders/[id]/transfer-items/route.ts\`:
 ### Known Issues:
 - Pre-existing lint errors in unrelated files (pwa-install-prompt.tsx, receipt-settings.tsx, table-grid.tsx)
 - These do not affect the POS functionality being implemented
+
+---
+## Task ID: POS-Critical-Issues-Fix
+Agent: zai-web-dev
+Task: Fix 4 critical issues in POS system
+
+### Work Summary:
+
+#### **Issue 4: Custom Variant Input Price Bug (COMPLETED) ✅**
+
+**Root Cause Identified:**
+- The `orderItemSchema` in `/home/z/my-project/src/lib/validators.ts` was missing the `customVariantValue` field
+- When frontend sent `customVariantValue` (e.g., 0.1), Zod validation stripped it out
+- Backend received `customVariantValue: null` and couldn't calculate the correct price
+- Backend fell back to base price (500) instead of calculated price (50)
+
+**Fix Applied:**
+1. Added `customVariantValue: z.number().positive().nullable().optional()` to `orderItemSchema` in validators.ts
+2. Enhanced backend validation in `/home/z/my-project/src/app/api/orders/route.ts`:
+   - Changed condition from `item.customVariantValue` to `item.customVariantValue !== null && item.customVariantValue !== undefined`
+   - Added `parseFloat(String(item.customVariantValue))` to ensure type safety
+   - Added validation for NaN and invalid values with fallback to 1
+   - Added detailed console logging for debugging custom variant calculations
+3. Backend now correctly calculates: `finalPrice = menuItem.price * customVariantValue`
+
+**Files Modified:**
+- `/home/z/my-project/src/lib/validators.ts` (line 9)
+- `/home/z/my-project/src/app/api/orders/route.ts` (lines 370-386)
+
+**Expected Behavior:**
+- Custom variant with 0.1 multiplier at 500 base price now correctly shows 50 in cart and receipt
+- Backend properly stores unitPrice: 50, subtotal: 50
+
+---
+
+#### **Issue 2: Card Payment Options Not Visible (COMPLETED) ✅**
+
+**Root Cause:**
+- Card payment dialog was missing the UI for selecting payment method type
+- State variable `paymentMethodDetail` existed but had no visual controls
+- Users couldn't choose between CARD, INSTAPAY, or MOBILE_WALLET
+
+**Fix Applied:**
+1. Added RadioGroup import to `/home/z/my-project/src/components/pos-interface.tsx`
+2. Created payment method selection UI with 3 radio buttons:
+   - **Card** (CreditCard icon, blue accent): Credit/Debit Card
+   - **Instapay** (Smartphone icon, emerald accent): Instant Payment
+   - **Mobile Wallet** (Smartphone icon, purple accent): Vodafone Cash, Etisalat, Orange
+3. Each option has:
+   - Radio button for selection
+   - Icon and title
+   - Description
+   - Hover effects
+4. Updated DialogDescription to mention payment type selection
+5. RadioGroup properly bound to `paymentMethodDetail` state
+
+**Files Modified:**
+- `/home/z/my-project/src/components/pos-interface.tsx` (line 14: import, lines 3526-3561: UI)
+
+**Visual Design:**
+- Consistent with emerald/indigo/blue color scheme
+- Large touch-friendly clickable areas
+- Clear visual feedback on hover and selection
+
+---
+
+#### **Issue 1: Daily Expenses in Shift/Day Closing (COMPLETED) ✅**
+
+**Implementation:**
+
+**Backend Changes:**
+1. **Shift Closing API** (`/home/z/my-project/src/app/api/shifts/[id]/route.ts`):
+   - Added daily expenses aggregation: `dailyExpensesStats`
+   - Calculated `dailyExpenses` from aggregated sum
+   - Updated `cashierRevenue` calculation: `subtotal - loyaltyDiscounts - dailyExpenses`
+   - Added `closingDailyExpenses` field to shift update
+   - Updated console logging to include daily expenses
+
+2. **Shift Closing Report API** (`/home/z/my-project/src/app/api/shifts/[id]/closing-report/route.ts`):
+   - Fetch all daily expenses for the shift
+   - Calculate `totalDailyExpenses`
+   - Updated `expectedCash` calculation: `openingCash + cashTotal - totalDailyExpenses`
+   - Added `dailyExpenses: totalDailyExpenses` to totals section
+
+3. **Day Closing Report API** (`/home/z/my-project/src/app/api/business-days/closing-report/route.ts`):
+   - Fetch all daily expenses for all shifts in the business day
+   - Group expenses by shift using Map
+   - Calculate `totalDailyExpensesDay`
+   - Added `dailyExpenses: shiftDailyExpenses` to each shift's totals
+   - Updated `expectedCash` calculation per shift
+   - Added `dailyExpenses` to report data with total and breakdown
+   - Added `dailyExpenses` to legacy summary
+
+**Database Schema Changes:**
+- Added `closingDailyExpenses Float? @default(0)` to Shift model in `prisma/schema.prisma`
+- Ran `npx prisma db push` to update database
+
+**Files Modified:**
+- `/home/z/my-project/prisma/schema.prisma` (line 720)
+- `/home/z/my-project/src/app/api/shifts/[id]/route.ts` (lines 120-135, 162-182)
+- `/home/z/my-project/src/app/api/shifts/[id]/closing-report/route.ts` (lines 189-199, 228-240)
+- `/home/z/my-project/src/app/api/business-days/closing-report/route.ts` (lines 202-344)
+
+**Expected Behavior:**
+- Shift closing shows: Daily Expenses total in summary
+- Expected cash calculation: `openingCash + cashSales - dailyExpenses`
+- Day closing shows: Total daily expenses across all shifts
+- Each shift in day closing report shows its individual daily expenses
+
+---
+
+#### **Issue 3: Draggable Floating Numpad (COMPLETED) ✅**
+
+**Implementation:**
+Created completely new draggable floating numpad component replacing dialog-based numpad.
+
+**Features Added:**
+1. **Draggable Floating Panel:**
+   - Fixed position with top/left coordinates
+   - High z-index (9999) to stay on top
+   - Constrained to viewport boundaries
+   - Smooth drag handling with mouse events
+
+2. **Drag Functionality:**
+   - Header with drag handle (GripVertical icon)
+   - Mouse down starts drag
+   - Mouse move updates position
+   - Mouse up stops drag
+   - Calculates drag offset for smooth movement
+
+3. **Minimize/Maximize:**
+   - Toggle button in header (Minus2/Maximize2 icons)
+   - Minimized state: shows only header (50px height)
+   - Expanded state: shows full numpad (450px height)
+   - Smooth state transitions
+
+4. **Position Persistence:**
+   - Saves position to `localStorage` key 'numpadPosition'
+   - Saves minimized state to `localStorage` key 'numpadMinimized'
+   - Loads saved state on component mount
+
+5. **Display Integration:**
+   - Built-in display showing current value (large, monospace font)
+   - No separate input needed
+   - Value shown at top of numpad
+
+6. **Toggle Button in POS:**
+   - Added "Show Numpad"/"Hide Numpad" button in cart header
+   - Calculator icon
+   - Color changes based on state (emerald when open, outline when closed)
+   - Positioned below Held Orders button
+
+**Files Created:**
+- `/home/z/my-project/src/components/ui/numpad.tsx` (completely rewritten)
+
+**Files Modified:**
+- `/home/z/my-project/src/components/pos-interface.tsx`:
+  - Line 3665-3678: Replaced Dialog with Numpad component
+  - Lines 2280-2295: Added numpad toggle button
+
+**Visual Design:**
+- Gradient emerald/teal header
+- White/dark mode body
+- Shadow for depth
+- Border with emerald accent
+- Rounded corners (rounded-2xl)
+- Responsive sizing
+
+---
+
+### Technical Notes:
+
+**Prisma Schema:**
+- Successfully pushed `closingDailyExpenses` field to Neon PostgreSQL database
+- No conflicts with existing data
+
+**API Enhancements:**
+- All closing report APIs now include daily expenses
+- Expected cash calculations properly account for expenses
+- Maintains backward compatibility with existing report formats
+
+**UI/UX Improvements:**
+- Card payment dialog now clearly shows 3 payment method options
+- Numpad is now always accessible and can be positioned anywhere
+- Position preferences persist across page refreshes
+
+**Code Quality:**
+- Added ESLint disable comment for numpad useEffect (necessary for localStorage access)
+- All new code follows existing TypeScript patterns
+- Proper error handling and validation
+
+### Testing Recommendations:
+
+**Issue 4 (Custom Variant):**
+1. Create order with custom input variant (e.g., 0.1 at 500 base price)
+2. Verify cart shows 50 (not 500)
+3. Submit order
+4. Verify receipt shows unitPrice: 50, total: 50
+5. Check backend logs for "Custom variant calculated" message
+
+**Issue 2 (Card Payment):**
+1. Click "Card" button in POS
+2. Verify dialog shows 3 radio buttons (Card, Instapay, Mobile Wallet)
+3. Select each option and verify visual feedback
+4. Enter reference number
+5. Submit order
+6. Verify order saved with correct paymentMethodDetail
+
+**Issue 1 (Daily Expenses):**
+1. Open shift and add daily expense
+2. Process some sales
+3. Close shift
+4. Verify shift closing report shows daily expenses
+5. Verify expected cash = openingCash + cash - dailyExpenses
+6. Close day
+7. Verify day closing report shows total daily expenses
+
+**Issue 3 (Draggable Numpad):**
+1. Click "Show Numpad" button in cart header
+2. Verify numpad appears as floating panel
+3. Drag numpad by header to different positions
+4. Verify it stays within viewport
+5. Click minimize button, verify only header shows
+6. Click maximize, verify full numpad shows
+7. Refresh page, verify position and state persist
+
+### Known Issues:
+- Pre-existing lint errors in unrelated files (pwa-install-prompt.tsx, receipt-settings.tsx, table-grid.tsx)
+- These do not affect the POS functionality being fixed

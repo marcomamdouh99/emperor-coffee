@@ -367,10 +367,23 @@ export async function POST(request: NextRequest) {
           variantId = variant.id;
           
           // Check if this is a custom input variant
-          if (variant.variantType.isCustomInput && item.customVariantValue) {
-            customVariantValue = item.customVariantValue;
+          if (variant.variantType.isCustomInput && item.customVariantValue !== null && item.customVariantValue !== undefined) {
+            customVariantValue = parseFloat(String(item.customVariantValue));
+            // Ensure customVariantValue is a valid number
+            if (isNaN(customVariantValue) || customVariantValue <= 0) {
+              console.error('[Order] Invalid customVariantValue:', item.customVariantValue, 'for item:', menuItem.name);
+              customVariantValue = 1; // Fallback to full portion
+            }
             finalPrice = menuItem.price * customVariantValue;
             variantName = `${variant.variantType.name}: ${customVariantValue}x`;
+            console.log('[Order] Custom variant calculated:', {
+              itemName: menuItem.name,
+              basePrice: menuItem.price,
+              customValue: customVariantValue,
+              finalPrice: finalPrice,
+              quantity: item.quantity,
+              subtotal: finalPrice * item.quantity
+            });
           } else {
             // Regular variant with fixed price modifier
             finalPrice = menuItem.price + variant.priceModifier;

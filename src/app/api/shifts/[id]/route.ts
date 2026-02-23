@@ -117,11 +117,22 @@ async function closeShift(id: string, body: any) {
     },
   });
 
+  // Get daily expenses for this shift
+  const dailyExpensesStats = await db.dailyExpense.aggregate({
+    where: {
+      shiftId: shift.id,
+    },
+    _sum: {
+      amount: true,
+    },
+  });
+
   // Calculate what the cashier actually has
   // Cashier revenue = subtotal - loyaltyDiscounts (delivery fees go to courier)
   const deliveryFees = orderStats._sum.deliveryFee || 0;
   const loyaltyDiscounts = loyaltyDiscountStats._sum.amount || 0;
-  const cashierRevenue = (orderStats._sum.subtotal || 0) - loyaltyDiscounts;
+  const dailyExpenses = dailyExpensesStats._sum.amount || 0;
+  const cashierRevenue = (orderStats._sum.subtotal || 0) - loyaltyDiscounts - dailyExpenses;
 
   // Get payment method breakdown (excludes delivery fees)
   const paymentStats = await db.order.groupBy({
@@ -153,7 +164,8 @@ async function closeShift(id: string, body: any) {
     subtotal: orderStats._sum.subtotal || 0,
     deliveryFees,
     loyaltyDiscounts,
-    cashierRevenue, // What cashier actually has (subtotal - discounts, no delivery)
+    dailyExpenses,
+    cashierRevenue, // What cashier actually has (subtotal - discounts - expenses, no delivery)
     paymentBreakdown,
   });
 
@@ -165,8 +177,9 @@ async function closeShift(id: string, body: any) {
       endTime: new Date(),
       isClosed: true,
       closingOrders: orderStats._count,
-      closingRevenue: cashierRevenue, // Cashier's actual revenue (excludes delivery fees & discounts)
+      closingRevenue: cashierRevenue, // Cashier's actual revenue (excludes delivery fees, discounts & expenses)
       closingLoyaltyDiscounts: loyaltyDiscounts,
+      closingDailyExpenses: dailyExpenses,
       notes,
     },
     include: {

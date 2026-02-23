@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Coffee, Cake, Cookie, IceCream, Trash2, Plus, Minus, CreditCard, DollarSign,
   Printer, ShoppingCart, Store, X, CheckCircle, Package, Truck,
@@ -2276,6 +2277,22 @@ export default function POSInterface() {
               )}
             </Button>
           </div>
+          {/* Numpad Toggle Button */}
+          <div className="mt-2">
+            <Button
+              onClick={() => setShowNumpad(!showNumpad)}
+              size="sm"
+              variant={showNumpad ? "default" : "outline"}
+              className={`w-full h-9 text-xs ${
+                showNumpad 
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white' 
+                  : 'border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/50'
+              }`}
+            >
+              <Calculator className="h-3.5 w-3.5 mr-2" />
+              {showNumpad ? 'Hide Numpad' : 'Show Numpad'}
+            </Button>
+          </div>
         </div>
 
         {/* Cart Items */}
@@ -3516,10 +3533,47 @@ export default function POSInterface() {
                     Process payment on terminal first
                   </p>
                   <p className="text-xs text-blue-700 dark:text-blue-400">
-                    Complete the card transaction on your payment terminal, then enter the reference number below to finalize the order.
+                    Complete the card transaction on your payment terminal, then select the payment type and enter the reference number below.
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Payment Method Selection */}
+            <div>
+              <Label className="text-sm font-semibold mb-3 block">Payment Method Type</Label>
+              <RadioGroup value={paymentMethodDetail} onValueChange={(value: 'CARD' | 'INSTAPAY' | 'MOBILE_WALLET') => setPaymentMethodDetail(value)} className="grid grid-cols-1 gap-3">
+                <div className="flex items-center space-x-3 p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer bg-white dark:bg-slate-800">
+                  <RadioGroupItem value="CARD" id="card" className="border-slate-300" />
+                  <label htmlFor="card" className="flex items-center gap-3 flex-1 cursor-pointer">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">Card</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Credit/Debit Card</p>
+                    </div>
+                  </label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 transition-colors cursor-pointer bg-white dark:bg-slate-800">
+                  <RadioGroupItem value="INSTAPAY" id="instapay" className="border-slate-300" />
+                  <label htmlFor="instapay" className="flex items-center gap-3 flex-1 cursor-pointer">
+                    <Smartphone className="h-5 w-5 text-emerald-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">Instapay</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Instant Payment</p>
+                    </div>
+                  </label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-500 transition-colors cursor-pointer bg-white dark:bg-slate-800">
+                  <RadioGroupItem value="MOBILE_WALLET" id="mobile-wallet" className="border-slate-300" />
+                  <label htmlFor="mobile-wallet" className="flex items-center gap-3 flex-1 cursor-pointer">
+                    <Smartphone className="h-5 w-5 text-purple-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">Mobile Wallet</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Vodafone Cash, Etisalat, Orange</p>
+                    </div>
+                  </label>
+                </div>
+              </RadioGroup>
             </div>
 
             <div>
@@ -3624,27 +3678,20 @@ export default function POSInterface() {
         autoPrint={true}
       />
 
-      {/* Numpad Dialog */}
-      <Dialog open={showNumpad} onOpenChange={setShowNumpad}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Numpad</DialogTitle>
-          </DialogHeader>
-          <div className="text-center mb-4">
-            <Input
-              value={numpadValue}
-              onChange={(e) => setNumpadValue(e.target.value)}
-              readOnly
-              className="text-3xl text-center font-mono"
-            />
-          </div>
-          <Numpad
-            value={numpadValue}
-            onChange={handleNumpadChange}
-            onSubmit={handleNumpadSubmit}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Draggable Floating Numpad */}
+      <Numpad
+        value={numpadValue}
+        onChange={handleNumpadChange}
+        onSubmit={handleNumpadSubmit}
+        isOpen={showNumpad}
+        onClose={() => {
+          setShowNumpad(false);
+          setNumpadValue('');
+          setNumpadTarget(null);
+          setNumpadTargetId(null);
+          setNumpadCallback(null);
+        }}
+      />
 
       {/* Daily Expenses Dialog */}
       <Dialog open={showDailyExpenseDialog} onOpenChange={setShowDailyExpenseDialog}>
