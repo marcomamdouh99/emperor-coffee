@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Minus, Maximize, X, GripVertical } from 'lucide-react';
 
@@ -118,9 +119,9 @@ export function Numpad({ value, onChange, onSubmit, maxLength = 10, className, o
   // Don't render if not open
   if (!isOpen) return null;
 
-  return (
+  const numpadContent = (
     <div
-      className="fixed shadow-2xl rounded-2xl bg-white dark:bg-slate-800 border-2 border-emerald-500/30 z-[9999]"
+      className="fixed shadow-2xl rounded-2xl bg-white dark:bg-slate-800 border-2 border-emerald-500/30 z-[99999]"
       style={{
         left: position.x,
         top: position.y,
@@ -274,10 +275,34 @@ export function Numpad({ value, onChange, onSubmit, maxLength = 10, className, o
             >
               00
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => handlePress('0.125')}
+              className="h-14 text-sm font-semibold"
+              title="1/8 = 0.125"
+            >
+              1/8
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handlePress('0.250')}
+              className="h-14 text-sm font-semibold"
+              title="1/4 = 0.250"
+            >
+              1/4
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handlePress('0.500')}
+              className="h-14 text-sm font-semibold"
+              title="1/2 = 0.500"
+            >
+              1/2
+            </Button>
             {onSubmit && (
               <Button
                 onClick={onSubmit}
-                className="h-14 text-xl font-semibold bg-emerald-600 hover:bg-emerald-700 col-span-1"
+                className="h-14 text-xl font-semibold bg-emerald-600 hover:bg-emerald-700 col-span-2"
               >
                 ✓
               </Button>
@@ -287,4 +312,11 @@ export function Numpad({ value, onChange, onSubmit, maxLength = 10, className, o
       )}
     </div>
   );
+
+  // Render using Portal to ensure it's always on top of all dialogs
+  if (typeof window !== 'undefined') {
+    return createPortal(numpadContent, document.body);
+  }
+
+  return numpadContent;
 }
