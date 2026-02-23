@@ -2376,13 +2376,21 @@ export default function POSInterface() {
           <div className="mt-2">
             <Button
               onClick={() => {
-                if (numberPadCallback) {
-                  openNumberPad(numberPadCallback, numberPadValue);
+                if (showNumberPad) {
+                  // Hide the number pad
+                  setShowNumberPad(false);
+                  setNumberPadValue('');
+                  setNumberPadCallback(null);
                 } else {
-                  // If no callback set, just open the number pad with a default callback
-                  openNumberPad((value) => {
-                    console.log('Number pad value:', value);
-                  }, numberPadValue);
+                  // Show the number pad
+                  if (numberPadCallback) {
+                    openNumberPad(numberPadCallback, numberPadValue);
+                  } else {
+                    // If no callback set, just open the number pad with a default callback
+                    openNumberPad((value) => {
+                      console.log('Number pad value:', value);
+                    }, numberPadValue);
+                  }
                 }
               }}
               size="sm"
