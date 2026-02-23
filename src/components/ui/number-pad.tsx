@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,6 +18,7 @@ interface NumberPadProps {
   title?: string;
   decimal?: boolean;
   maxLength?: number;
+  initialValue?: string;
 }
 
 export function NumberPad({
@@ -28,13 +29,19 @@ export function NumberPad({
   title = 'Enter Value',
   decimal = true,
   maxLength = 10,
+  initialValue = '',
 }: NumberPadProps) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialValue);
+  const previousIsOpen = useRef(isOpen);
 
-  // Reset value when dialog opens
-  if (isOpen && value === '') {
-    setValue('');
-  }
+  // Update value when dialog opens
+  useEffect(() => {
+    if (isOpen && !previousIsOpen.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setValue(initialValue);
+    }
+    previousIsOpen.current = isOpen;
+  }, [isOpen, initialValue]);
 
   const handleKeyPress = (key: string) => {
     if (key === 'C') {

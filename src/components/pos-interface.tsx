@@ -1681,7 +1681,7 @@ export default function POSInterface() {
   // Number Pad handlers
   const openNumberPad = (callback: (value: string) => void, initialValue: string = '') => {
     setNumberPadValue(initialValue);
-    setNumberPadCallback(() => callback);
+    setNumberPadCallback(callback);
     setShowNumberPad(true);
   };
 
@@ -2376,22 +2376,8 @@ export default function POSInterface() {
           <div className="mt-2">
             <Button
               onClick={() => {
-                if (showNumberPad) {
-                  // Hide the number pad
-                  setShowNumberPad(false);
-                  setNumberPadValue('');
-                  setNumberPadCallback(null);
-                } else {
-                  // Show the number pad
-                  if (numberPadCallback) {
-                    openNumberPad(numberPadCallback, numberPadValue);
-                  } else {
-                    // If no callback set, just open the number pad with a default callback
-                    openNumberPad((value) => {
-                      console.log('Number pad value:', value);
-                    }, numberPadValue);
-                  }
-                }
+                // Simply toggle the show state
+                setShowNumberPad(!showNumberPad);
               }}
               size="sm"
               variant={showNumberPad ? "default" : "outline"}
@@ -3815,6 +3801,7 @@ export default function POSInterface() {
         title="Enter Value"
         decimal={true}
         maxLength={10}
+        initialValue={numberPadValue}
       />
 
       {/* Daily Expenses Dialog */}
