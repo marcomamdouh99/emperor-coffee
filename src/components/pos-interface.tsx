@@ -902,7 +902,9 @@ export default function POSInterface() {
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
+    console.log('[handleQuantityChange] itemId:', itemId, 'value:', value);
     const numValue = parseInt(value);
+    console.log('[handleQuantityChange] parsed numValue:', numValue, 'isValid:', !isNaN(numValue) && numValue >= 1);
     if (!isNaN(numValue) && numValue >= 1) {
       updateQuantity(itemId, numValue);
     }
@@ -1680,17 +1682,22 @@ export default function POSInterface() {
 
   // Number Pad handlers
   const openNumberPad = (callback: (value: string) => void, initialValue: string = '') => {
+    console.log('[openNumberPad] Opening numpad with initialValue:', initialValue);
     setNumberPadValue(initialValue);
     setNumberPadCallback(callback);
     setShowNumberPad(true);
   };
 
   const handleNumberPadValue = (value: string) => {
+    console.log('[handleNumberPadValue] Value changed:', value);
     setNumberPadValue(value);
   };
 
   const handleNumberPadSubmit = (value: string) => {
+    console.log('[handleNumberPadSubmit] Submitting value:', value);
+    console.log('[handleNumberPadSubmit] callback exists:', !!numberPadCallback);
     if (numberPadCallback) {
+      console.log('[handleNumberPadSubmit] Calling callback with value:', value);
       numberPadCallback(value);
     }
     // Clear state after a brief delay to ensure callback completes
@@ -3385,10 +3392,16 @@ export default function POSInterface() {
                           variant="outline"
                           size="icon"
                           className="h-11 w-11 shrink-0"
-                          onClick={() => openNumberPad(
-                            (value) => setCustomVariantValue(value),
-                            customVariantValue || ''
-                          )}
+                          onClick={() => {
+                            console.log('[Custom Input Numpad Button] Clicked, current customVariantValue:', customVariantValue);
+                            openNumberPad(
+                              (value) => {
+                                console.log('[Custom Input Callback] Called with value:', value);
+                                setCustomVariantValue(value);
+                              },
+                              customVariantValue || ''
+                            );
+                          }}
                           title="Open Number Pad"
                         >
                           <Calculator className="h-5 w-5" />

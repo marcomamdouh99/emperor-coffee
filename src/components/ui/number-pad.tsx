@@ -79,7 +79,9 @@ export function NumberPad({
   };
 
   const handleSubmit = () => {
+    console.log('[NumberPad handleSubmit] Submitting with value:', value);
     onValue(value);
+    console.log('[NumberPad handleSubmit] Calling onSubmit with value:', value);
     onSubmit(value);
     setValue('');
     onClose();
