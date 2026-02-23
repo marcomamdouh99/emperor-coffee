@@ -271,6 +271,10 @@ export default function ShiftManagement() {
   const [shiftForReceipt, setShiftForReceipt] = useState<Shift | null>(null);
   // Cash-only revenue for expected cash calculation
   const [shiftCashRevenue, setShiftCashRevenue] = useState(0);
+  
+  // Daily Expenses for current shift
+  const [currentDailyExpenses, setCurrentDailyExpenses] = useState(0);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
 
 
   // Offline-capable data fetching for branches
@@ -656,6 +660,35 @@ export default function ShiftManagement() {
       fetchBusinessDayStatus();
     }
   }, [selectedBranch]);
+
+  // Fetch daily expenses for the selected shift
+  useEffect(() => {
+    const fetchDailyExpenses = async () => {
+      if (!selectedShift?.id) {
+        setCurrentDailyExpenses(0);
+        return;
+      }
+
+      setLoadingExpenses(true);
+      try {
+        const response = await fetch(`/api/daily-expenses?shiftId=${selectedShift.id}`);
+        const data = await response.json();
+        if (response.ok && data.expenses) {
+          const total = data.expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+          setCurrentDailyExpenses(total);
+        } else {
+          setCurrentDailyExpenses(0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch daily expenses:', error);
+        setCurrentDailyExpenses(0);
+      } finally {
+        setLoadingExpenses(false);
+      }
+    };
+
+    fetchDailyExpenses();
+  }, [selectedShift?.id]);
 
 
   // Business Day handlers
@@ -1314,7 +1347,8 @@ export default function ShiftManagement() {
     // For open shifts, use shiftCashRevenue (cash-only)
     // For closed shifts, we can't calculate it accurately without payment breakdown
     const cashRevenueDuringShift = selectedShift.isClosed ? 0 : shiftCashRevenue;
-    const expectedCash = selectedShift.openingCash + cashRevenueDuringShift;
+    // Expected Cash = Opening + (Total Payments - Card - Other) - Daily Expenses
+    const expectedCash = selectedShift.openingCash + cashRevenueDuringShift - currentDailyExpenses;
     const actualCash = parseFloat(closingCash) || 0;
     const discrepancy = actualCash - expectedCash;
 
@@ -1613,7 +1647,7 @@ export default function ShiftManagement() {
                 </div>
 
                 {/* Payment Breakdown */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                   <div className="flex items-center gap-3 p-3 md:p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                     <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
                       <Wallet className="h-5 w-5 text-green-600" />
@@ -1652,6 +1686,19 @@ export default function ShiftManagement() {
                         {selectedShift.paymentBreakdown?.other
                           ? formatCurrency(selectedShift.paymentBreakdown.other, currency)
                           : '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Daily Expenses Card */}
+                  <div className={`flex items-center gap-3 p-3 md:p-4 rounded-lg ${currentDailyExpenses > 0 ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-900'}`}>
+                    <div className={`p-2 rounded-lg shrink-0 ${currentDailyExpenses > 0 ? 'bg-red-100 dark:bg-red-900' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                      <DollarSign className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400">Daily Expenses</p>
+                      <p className={`text-base md:text-lg font-bold truncate ${currentDailyExpenses > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                        {loadingExpenses ? 'Loading...' : currentDailyExpenses > 0 ? `-${formatCurrency(currentDailyExpenses, currency)}` : '—'}
                       </p>
                     </div>
                   </div>
@@ -2177,13 +2224,13 @@ export default function ShiftManagement() {
                     <div>
                       <div className="text-sm text-slate-600 dark:text-slate-400">Expected Cash</div>
                       <div className="text-xs text-slate-500">
-                        Opening + (Total Payments - Card - Other)
+                        Opening + (Total Payments - Card - Other) - Daily Expenses
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-300">
                         {formatCurrency(
-                          selectedShift.openingCash + paymentBreakdown.cash + paymentBreakdown.other,
+                          selectedShift.openingCash + paymentBreakdown.cash + paymentBreakdown.other - currentDailyExpenses,
                           currency
                         )}
                       </div>
