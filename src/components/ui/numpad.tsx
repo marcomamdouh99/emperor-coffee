@@ -22,6 +22,11 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
   const [isMinimized, setIsMinimized] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const headerRef = useRef<HTMLDivElement>(null);
+  
+  // Track the focused input element
+  const [focusedInput, setFocusedInput] = useState<HTMLElement | null>(null);
+  const [inputValueBeforeNumpad, setInputValueBeforeNumpad] = useState('');
+  const [inputInputBeforeNumpad, setInputInputBeforeNumpad] = useState<HTMLInputElement | null>(null);
 
   // Load saved position from localStorage
   useEffect(() => {
@@ -335,6 +340,18 @@ export function Numpad({ value, onChange, onValueChange, onSubmit, maxLength = 1
 
   // Render using Portal to ensure it's always on top of all dialogs
   if (typeof window !== 'undefined') {
+    // Open numpad and save focused input when isOpen
+    useEffect(() => {
+      if (isOpen) {
+        console.log('[Numpad] Numpad opening, saving focused input');
+        handleOpenNumpad();
+      } else {
+        console.log('[Numpad] Numpad closing, restoring focused input');
+        handleCloseNumpad();
+      }
+    }, [isOpen, focusedInput]);
+  }
+    
     return createPortal(numpadContent, document.body);
   }
 

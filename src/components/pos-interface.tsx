@@ -331,11 +331,33 @@ export default function POSInterface() {
   const [numpadValue, setNumpadValue] = useState('');
   const [numpadTarget, setNumpadTarget] = useState<'quantity' | null>(null);
   const [numpadTargetId, setNumpadTargetId] = useState<string | null>(null);
-  const [numpadCallback, setNumpadCallback] = useState<((value: string) => void) | null>(null);
+  const [numpadCallback, setNumpadCallback] = useState<((value: string) => void) | null)(null);
+  
+  // Track the last focused input element (for global numpad)
+  const [focusedInputRef, setFocusedInputRef] = useState<{
+    element: HTMLInputElement | null;
+    getValue: () => string;
+  }>({ element: null, getValue: () => '' });
+
+  // Track if numpad is in global mode (can update any input)
+  const [numpadGlobalMode, setNumpadGlobalMode] = useState(false);
 
   const { currency, t } = useI18n();
 
-  // Offline-capable data fetching
+  // Track currently focused input when it receives focus
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      if (e.target instanceof HTMLInputElement) {
+        setFocusedInputRef({
+          element: e.target,
+          getValue: () => e.target.value,
+        });
+      }
+    };
+
+    document.addEventListener('focus', handleFocus);
+    return () => document.removeEventListener('focus', handleFocus);
+  }, []);
   const { data: categoriesData, loading: categoriesLoading } = useOfflineData(
     '/api/categories?active=true',
     {
@@ -1591,36 +1613,115 @@ export default function POSInterface() {
   };
 
   // Numpad handlers
-  const handleOpenNumpad = (
-    currentValue: string,
-    target: 'quantity',
-    targetId: string,
-    callback: (value: string) => void
-  ) => {
-    setNumpadValue(currentValue);
-    setNumpadTarget(target);
-    setNumpadTargetId(targetId);
-    setNumpadCallback(() => callback);
-    setShowNumpad(true);
+  const handleOpenNumpad = (targetInput?: HTMLInputElement) => {
+    const focusedInput = targetInput || (document.activeElement as HTMLInputElement);
+    
+    if (focusedInput) {
+      // Focus the input before opening numpad
+      focusedInput.focus();
+      
+      // Get current value from focused input
+      const currentValue = focusedInput.value;
+      
+      setNumpadValue(currentValue);
+      setNumpadTarget('input');
+      setNumpadTargetId(focusedInput.id || 'unknown');
+      setShowNumpad(true);
+      
+      // Store the focused input reference for real-time updates
+      setFocusedInputRef({
+        element: focusedInput,
+        getValue: () => focusedInput.value
+      });
+    }
   };
 
   const handleNumpadChange = (value: string) => {
     setNumpadValue(value);
-    // Also call the callback immediately to update the target field
-    if (numpadCallback) {
-      numpadCallback(value);
+    // Send keystrokes to the focused input element
+    if (focusedInputRef.element && document.activeElement === focusedInputRef.element) {
+      const element = focusedInputRef.element;
+      const currentValue = element.value;
+      const start = element.selectionStart;
+      const end = element.selectionEnd;
+      
+      // Determine how to update the value based on selection
+      let newValue: string;
+      if (start !== end) {
+        // Text is selected - replace selected portion
+        newValue = currentValue.substring(0, start) + value + currentValue.substring(end);
+      } else if (value === 'C') {
+        newValue = '';
+      } else if (value === '⌫') {
+        newValue = currentValue.slice(0, -1);
+      } else if (value === '.') {
+        if (!currentValue.includes('.')) {
+          newValue = currentValue + '.';
+        }
+      } else {
+        // Number key
+        if (currentValue.length < 10) {
+          newValue = currentValue + value;
+        }
+      }
+      
+      if (newValue !== currentValue) {
+        element.value = newValue;
+        // Trigger input event
+        const event = new Event('input', { bubbles: true });
+        element.dispatchEvent(event);
+      }
     }
+    
+    // Also update display
+    onChange(newValue);
   };
 
-  const handleNumpadSubmit = () => {
-    if (numpadCallback) {
-      numpadCallback(numpadValue);
+  const handleNumpadPress = (key: string, e?: React.MouseEvent) => {
+    // Stop event propagation to prevent dialog from closing
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
     }
-    setShowNumpad(false);
-    setNumpadValue('');
-    setNumpadTarget(null);
-    setNumpadTargetId(null);
-    setNumpadCallback(null);
+    
+    let newValue = '';
+    
+    if (key === 'C') {
+      newValue = '';
+    } else if (key === '⌫') {
+      newValue = numpadValue.slice(0, -1);
+    } else if (key === '.') {
+      if (!numpadValue.includes('.')) {
+        newValue = numpadValue + '.';
+      }
+    } else {
+      // Number key or fraction
+      if (numpadValue.length < 10) {
+        newValue = numpadValue + key;
+      }
+    }
+    
+    // Send keystrokes to the focused input element
+    if (focusedInputRef.element && document.activeElement === focusedInputRef.element) {
+      const element = focusedInputRef.element;
+      const currentValue = element.value;
+      const start = element.selectionStart;
+      const end = element.selectionEnd;
+      
+      // Determine how to update the value based on selection
+      if (start !== end) {
+        newValue = currentValue.substring(0, start) + newValue + currentValue.substring(end);
+      }
+    
+      if (newValue !== currentValue) {
+        element.value = newValue;
+        const event = new Event('input', { bubbles: true });
+        element.dispatchEvent(event);
+      }
+    }
+    
+    // Update numpad display
+    onChange(newValue);
   };
 
   // Load held orders when shift changes
@@ -2292,7 +2393,24 @@ export default function POSInterface() {
           {/* Numpad Toggle Button */}
           <div className="mt-2">
             <Button
-              onClick={() => setShowNumpad(!showNumpad)}
+              onClick={() => {
+                if (focusedInputRef.element) {
+                  // Open numpad connected to the focused input
+                  handleOpenNumpad(
+                    focusedInputRef.getValue(),
+                    'quantity',
+                    focusedInputRef.element.id,
+                    (value) => {
+                      if (focusedInputRef.element) {
+                        focusedInputRef.element.value = value;
+                        // Trigger input change event to trigger any validations
+                        const event = new Event('input', { bubbles: true });
+                        focusedInputRef.element.dispatchEvent(event);
+                      }
+                    }
+                  }
+                setShowNumpad(true);
+              }}
               size="sm"
               variant={showNumpad ? "default" : "outline"}
               className={`w-full h-9 text-xs ${
@@ -2302,7 +2420,7 @@ export default function POSInterface() {
               }`}
             >
               <Calculator className="h-3.5 w-3.5 mr-2" />
-              {showNumpad ? 'Hide Numpad' : 'Show Numpad'}
+              {showNumpad ? 'Hide Numbers' : 'Show Numbers'}
             </Button>
           </div>
         </div>
