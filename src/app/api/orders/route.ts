@@ -238,6 +238,7 @@ export async function POST(request: NextRequest) {
       promoDiscount,
       orderNumber,
       cardReferenceNumber,
+      paymentMethodDetail,
     } = validationResult.data;
 
     // Get next order number if not provided
@@ -453,6 +454,7 @@ export async function POST(request: NextRequest) {
           promoCodeId: promoCodeId || null,
           promoDiscount: promoDiscount || 0,
           cardReferenceNumber: cardReferenceNumber || null,
+          paymentMethodDetail: paymentMethodDetail || null,
         },
       });
 

@@ -18,12 +18,13 @@ import {
   TrendingUp, AlertTriangle, Grid, Filter, Menu as MenuIcon,
   Sparkles, Bell, Layers, Wallet, Calendar, Barcode, Receipt, Utensils,
   ChevronRight, Tag, Gift, ShoppingBag, RefreshCw, Check, Info,
-  PanelLeftClose, PanelLeftOpen, Users, MessageSquare, Edit3
+  PanelLeftClose, PanelLeftOpen, Users, MessageSquare, Edit3, Smartphone, Pause, Play, Calculator
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
 import { formatCurrency } from '@/lib/utils';
 import { ReceiptViewer } from '@/components/receipt-viewer';
 import CustomerSearch from '@/components/customer-search';
+import { Numpad } from '@/components/ui/numpad';
 import { useOfflineData, offlineDataFetchers } from '@/hooks/use-offline-data';
 import { useAutoSync } from '@/hooks/use-auto-sync';
 import TableGridView from '@/components/table-grid-view';
@@ -305,12 +306,31 @@ export default function POSInterface() {
   // Card payment confirmation dialog state
   const [showCardPaymentDialog, setShowCardPaymentDialog] = useState(false);
   const [cardReferenceNumber, setCardReferenceNumber] = useState('');
+  const [paymentMethodDetail, setPaymentMethodDetail] = useState<'CARD' | 'INSTAPAY' | 'MOBILE_WALLET'>('CARD');
 
   // Item note dialog state
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
   const [editingNote, setEditingNote] = useState('');
   const [editingQuantity, setEditingQuantity] = useState(1);
+
+  // Daily Expenses dialog state
+  const [showDailyExpenseDialog, setShowDailyExpenseDialog] = useState(false);
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseReason, setExpenseReason] = useState('');
+  const [currentDailyExpenses, setCurrentDailyExpenses] = useState<number>(0);
+  const [loadingDailyExpenses, setLoadingDailyExpenses] = useState(false);
+
+  // Hold Orders state
+  const [heldOrders, setHeldOrders] = useState<any[]>([]);
+  const [showHeldOrdersDialog, setShowHeldOrdersDialog] = useState(false);
+
+  // Numpad state
+  const [showNumpad, setShowNumpad] = useState(false);
+  const [numpadValue, setNumpadValue] = useState('');
+  const [numpadTarget, setNumpadTarget] = useState<'quantity' | null>(null);
+  const [numpadTargetId, setNumpadTargetId] = useState<string | null>(null);
+  const [numpadCallback, setNumpadCallback] = useState<((value: string) => void) | null>(null);
 
   const { currency, t } = useI18n();
 
@@ -602,6 +622,34 @@ export default function POSInterface() {
     };
     fetchCurrentShift();
   }, [user, user?.branchId, selectedBranch]);
+
+  // Fetch daily expenses for current shift
+  useEffect(() => {
+    const fetchDailyExpenses = async () => {
+      if (!currentShift?.id) {
+        setCurrentDailyExpenses(0);
+        return;
+      }
+      
+      setLoadingDailyExpenses(true);
+      try {
+        const response = await fetch(`/api/daily-expenses?shiftId=${currentShift.id}`);
+        const data = await response.json();
+        if (response.ok && data.expenses) {
+          const total = data.expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+          setCurrentDailyExpenses(total);
+        } else {
+          setCurrentDailyExpenses(0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch daily expenses:', error);
+        setCurrentDailyExpenses(0);
+      } finally {
+        setLoadingDailyExpenses(false);
+      }
+    };
+    fetchDailyExpenses();
+  }, [currentShift?.id]);
 
   // Fetch low stock alerts
   useEffect(() => {
@@ -1323,6 +1371,250 @@ export default function POSInterface() {
     }
   };
 
+  // Daily expense handlers
+  const handleDailyExpenseSubmit = async () => {
+    if (!currentShift) {
+      alert('No active shift. Please open a shift first.');
+      return;
+    }
+
+    const amount = parseFloat(expenseAmount);
+    if (!amount || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    if (!expenseReason.trim()) {
+      alert('Please enter a reason for expense');
+      return;
+    }
+
+    try {
+      const branchId = user?.role === 'CASHIER' ? user?.branchId : selectedBranch;
+      const response = await fetch('/api/daily-expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId,
+          shiftId: currentShift.id,
+          amount,
+          reason: expenseReason.trim(),
+          recordedBy: user.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        // Update daily expenses total
+        setCurrentDailyExpenses(prev => prev + amount);
+
+        // Close dialog and reset form
+        setShowDailyExpenseDialog(false);
+        setExpenseAmount('');
+        setExpenseReason('');
+
+        alert('Daily expense recorded successfully!');
+      } else {
+        alert(data.error || 'Failed to record expense');
+      }
+    } catch (error) {
+      console.error('Failed to record daily expense:', error);
+      alert('Failed to record expense. Please try again.');
+    }
+  };
+
+  // Held Orders handlers
+  const getLocalStorageKey = () => {
+    const branchId = user?.role === 'CASHIER' ? user?.branchId : selectedBranch;
+    return `heldOrders_${branchId}_${currentShift?.id || 'no-shift'}`;
+  };
+
+  const loadHeldOrders = () => {
+    try {
+      const key = getLocalStorageKey();
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        setHeldOrders(JSON.parse(stored));
+      } else {
+        setHeldOrders([]);
+      }
+    } catch (error) {
+      console.error('Failed to load held orders:', error);
+      setHeldOrders([]);
+    }
+  };
+
+  const handleHoldOrder = () => {
+    const currentCart = (orderType === 'dine-in' && selectedTable) ? tableCart : cart;
+
+    if (currentCart.length === 0) {
+      alert('Cart is empty. Add items before holding.');
+      return;
+    }
+
+    try {
+      const branchId = user?.role === 'CASHIER' ? user?.branchId : selectedBranch;
+      const holdOrder = {
+        id: Date.now().toString(),
+        timestamp: Date.now(),
+        items: currentCart,
+        orderType: orderType,
+        tableNumber: selectedTable?.tableNumber || null,
+        tableId: selectedTable?.id || null,
+        customerData: selectedAddress || null,
+        customerAddressId: selectedAddress?.id || null,
+        deliveryAddress: orderType === 'delivery' ? deliveryAddress : null,
+        deliveryArea: orderType === 'delivery' ? deliveryArea : null,
+        selectedCourierId: orderType === 'delivery' ? selectedCourierId : null,
+        notes: '', // Can be extended if needed
+        subtotal: subtotal,
+        deliveryFee: deliveryFee,
+        loyaltyDiscount: loyaltyDiscount,
+        promoDiscount: promoDiscount,
+        promoCodeId: promoCodeId,
+        promoCode: promoCode,
+        redeemedPoints: redeemedPoints,
+      };
+
+      const key = getLocalStorageKey();
+      const existingHeldOrders = JSON.parse(localStorage.getItem(key) || '[]');
+      const updatedHeldOrders = [...existingHeldOrders, holdOrder];
+      localStorage.setItem(key, JSON.stringify(updatedHeldOrders));
+
+      // Clear cart state
+      if (orderType === 'dine-in' && selectedTable) {
+        setTableCart([]);
+        localStorage.setItem(`table-cart-${selectedTable.id}`, JSON.stringify([]));
+      } else {
+        setCart([]);
+      }
+
+      // Clear discounts and customer
+      setRedeemedPoints(0);
+      setLoyaltyDiscount(0);
+      setPromoCode('');
+      setPromoCodeId('');
+      setPromoDiscount(0);
+      setSelectedAddress(null);
+      setDeliveryAddress('');
+      setDeliveryArea('');
+      setSelectedCourierId('none');
+
+      // Refresh held orders list
+      loadHeldOrders();
+
+      alert('Order held successfully!');
+    } catch (error) {
+      console.error('Failed to hold order:', error);
+      alert('Failed to hold order. Please try again.');
+    }
+  };
+
+  const handleRestoreHeldOrder = (holdId: string) => {
+    try {
+      const key = getLocalStorageKey();
+      const existingHeldOrders = JSON.parse(localStorage.getItem(key) || '[]');
+      const heldOrderIndex = existingHeldOrders.findIndex((h: any) => h.id === holdId);
+
+      if (heldOrderIndex === -1) {
+        alert('Held order not found');
+        return;
+      }
+
+      const heldOrder = existingHeldOrders[heldOrderIndex];
+
+      // Restore cart
+      if (heldOrder.orderType === 'dine-in' && heldOrder.tableId) {
+        // Find and select the table
+        setOrderType('dine-in');
+        // Note: We'd need to fetch the table details and set selectedTable
+        // For now, restore to table cart
+        setTableCart(heldOrder.items);
+        if (heldOrder.tableId) {
+          localStorage.setItem(`table-cart-${heldOrder.tableId}`, JSON.stringify(heldOrder.items));
+        }
+      } else {
+        setOrderType(heldOrder.orderType);
+        setCart(heldOrder.items);
+      }
+
+      // Restore other state
+      setSelectedAddress(heldOrder.customerData);
+      if (heldOrder.orderType === 'delivery') {
+        setDeliveryAddress(heldOrder.deliveryAddress || '');
+        setDeliveryArea(heldOrder.deliveryArea || '');
+        setSelectedCourierId(heldOrder.selectedCourierId || 'none');
+      }
+      setRedeemedPoints(heldOrder.redeemedPoints || 0);
+      setLoyaltyDiscount(heldOrder.loyaltyDiscount || 0);
+      setPromoCode(heldOrder.promoCode || '');
+      setPromoCodeId(heldOrder.promoCodeId || '');
+      setPromoDiscount(heldOrder.promoDiscount || 0);
+
+      // Remove from localStorage
+      const updatedHeldOrders = existingHeldOrders.filter((h: any) => h.id !== holdId);
+      localStorage.setItem(key, JSON.stringify(updatedHeldOrders));
+      loadHeldOrders();
+
+      alert('Order restored successfully!');
+      setShowHeldOrdersDialog(false);
+    } catch (error) {
+      console.error('Failed to restore held order:', error);
+      alert('Failed to restore order. Please try again.');
+    }
+  };
+
+  const handleDeleteHeldOrder = (holdId: string) => {
+    if (!confirm('Are you sure you want to delete this held order?')) {
+      return;
+    }
+
+    try {
+      const key = getLocalStorageKey();
+      const existingHeldOrders = JSON.parse(localStorage.getItem(key) || '[]');
+      const updatedHeldOrders = existingHeldOrders.filter((h: any) => h.id !== holdId);
+      localStorage.setItem(key, JSON.stringify(updatedHeldOrders));
+      loadHeldOrders();
+    } catch (error) {
+      console.error('Failed to delete held order:', error);
+      alert('Failed to delete held order. Please try again.');
+    }
+  };
+
+  // Numpad handlers
+  const handleOpenNumpad = (
+    currentValue: string,
+    target: 'quantity',
+    targetId: string,
+    callback: (value: string) => void
+  ) => {
+    setNumpadValue(currentValue);
+    setNumpadTarget(target);
+    setNumpadTargetId(targetId);
+    setNumpadCallback(() => callback);
+    setShowNumpad(true);
+  };
+
+  const handleNumpadChange = (value: string) => {
+    setNumpadValue(value);
+  };
+
+  const handleNumpadSubmit = () => {
+    if (numpadCallback) {
+      numpadCallback(numpadValue);
+    }
+    setShowNumpad(false);
+    setNumpadValue('');
+    setNumpadTarget(null);
+    setNumpadTargetId(null);
+    setNumpadCallback(null);
+  };
+
+  // Load held orders when shift changes
+  useEffect(() => {
+    loadHeldOrders();
+  }, [currentShift?.id, selectedBranch, user?.branchId, user?.role]);
+
   const handlePrint = () => {
     if (receiptData) {
       setShowReceipt(true);
@@ -1334,23 +1626,25 @@ export default function POSInterface() {
     if (cart.length === 0) return;
     setShowCardPaymentDialog(true);
     setCardReferenceNumber('');
+    setPaymentMethodDetail('CARD');
   };
 
   const handleCardPaymentSubmit = async () => {
     if (!cardReferenceNumber.trim()) {
-      alert('Please enter the card reference number');
+      alert('Please enter the reference number');
       return;
     }
     setShowCardPaymentDialog(false);
-    await handleCheckout('card', cardReferenceNumber.trim());
+    await handleCheckout('card', cardReferenceNumber.trim(), paymentMethodDetail);
   };
 
   const handleCardPaymentCancel = () => {
     setShowCardPaymentDialog(false);
     setCardReferenceNumber('');
+    setPaymentMethodDetail('CARD');
   };
 
-  const handleCheckout = async (paymentMethod: 'cash' | 'card', cardRefNumber?: string) => {
+  const handleCheckout = async (paymentMethod: 'cash' | 'card', cardRefNumber?: string, paymentMethodDetailParam?: 'CARD' | 'INSTAPAY' | 'MOBILE_WALLET') => {
     if (cart.length === 0) return;
 
     // For cashiers, check if they have an active shift
@@ -1411,6 +1705,7 @@ export default function POSInterface() {
       // Add card reference number if provided
       if (paymentMethod === 'card' && cardRefNumber) {
         orderData.cardReferenceNumber = cardRefNumber;
+        orderData.paymentMethodDetail = paymentMethodDetailParam || 'CARD';
       }
 
       // Add shiftId to order data
@@ -1939,6 +2234,48 @@ export default function POSInterface() {
               Last Order: <span className="font-semibold text-slate-700 dark:text-slate-300">#{lastOrderNumber}</span>
             </div>
           )}
+          {/* Daily Expenses Section */}
+          {currentShift && (
+            <div className="mt-3 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-xl border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <p className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">Daily Expenses</p>
+                    <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                      {formatCurrency(currentDailyExpenses, currency)}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setShowDailyExpenseDialog(true)}
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                >
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+            </div>
+          )}
+          {/* Held Orders Button */}
+          <div className="mt-2 flex gap-2">
+            <Button
+              onClick={() => setShowHeldOrdersDialog(true)}
+              size="sm"
+              variant="outline"
+              className="flex-1 h-9 text-xs border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/50"
+            >
+              <Clock className="h-3.5 w-3.5 mr-2" />
+              Held Orders
+              {heldOrders.length > 0 && (
+                <Badge className="ml-2 h-5 min-w-[20px] px-1.5 flex items-center justify-center bg-indigo-600 text-white text-[10px] font-bold">
+                  {heldOrders.length}
+                </Badge>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Cart Items */}
@@ -2021,6 +2358,20 @@ export default function POSInterface() {
                         onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                         className="w-16 h-9 text-center font-bold text-lg text-slate-900 dark:text-white border-slate-200 dark:border-slate-700"
                       />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600 dark:hover:text-emerald-400 border-slate-200 dark:border-slate-700 transition-all"
+                        onClick={() => handleOpenNumpad(
+                          item.quantity.toString(),
+                          'quantity',
+                          item.id,
+                          (value) => handleQuantityChange(item.id, value)
+                        )}
+                        title="Open Numpad"
+                      >
+                        <Calculator className="h-3.5 w-3.5" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="icon"
@@ -2378,24 +2729,35 @@ export default function POSInterface() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
               <Button
-                onClick={() => handleCheckout('cash')}
-                disabled={processing || currentCart.length === 0}
-                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-xl shadow-emerald-500/30 font-bold h-12 text-base rounded-xl transition-all hover:shadow-emerald-500/40"
-              >
-                <DollarSign className="h-4.5 w-4.5 mr-2" />
-                Cash
-              </Button>
-              <Button
-                onClick={handleCardPaymentClick}
+                onClick={handleHoldOrder}
                 disabled={processing || currentCart.length === 0}
                 variant="outline"
-                className="border-2 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 font-bold h-12 text-base rounded-xl transition-all"
+                className="w-full h-12 text-base font-semibold border-2 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-all"
               >
-                <CreditCard className="h-4.5 w-4.5 mr-2" />
-                Card
+                <Pause className="h-4.5 w-4.5 mr-2" />
+                Hold Order
               </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => handleCheckout('cash')}
+                  disabled={processing || currentCart.length === 0}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-xl shadow-emerald-500/30 font-bold h-12 text-base rounded-xl transition-all hover:shadow-emerald-500/40"
+                >
+                  <DollarSign className="h-4.5 w-4.5 mr-2" />
+                  Cash
+                </Button>
+                <Button
+                  onClick={handleCardPaymentClick}
+                  disabled={processing || currentCart.length === 0}
+                  variant="outline"
+                  className="border-2 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 font-bold h-12 text-base rounded-xl transition-all"
+                >
+                  <CreditCard className="h-4.5 w-4.5 mr-2" />
+                  Card
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -2558,6 +2920,20 @@ export default function POSInterface() {
                               onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                               className="w-14 h-9 text-center font-bold text-base text-slate-900 dark:text-white border-slate-200 dark:border-slate-700"
                             />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-600 dark:hover:text-emerald-400 border-slate-200 dark:border-slate-700"
+                              onClick={() => handleOpenNumpad(
+                                item.quantity.toString(),
+                                'quantity',
+                                item.id,
+                                (value) => handleQuantityChange(item.id, value)
+                              )}
+                              title="Open Numpad"
+                            >
+                              <Calculator className="h-3 w-3" />
+                            </Button>
                             <Button
                               variant="outline"
                               size="icon"
@@ -3248,6 +3624,109 @@ export default function POSInterface() {
         autoPrint={true}
       />
 
+      {/* Numpad Dialog */}
+      <Dialog open={showNumpad} onOpenChange={setShowNumpad}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Numpad</DialogTitle>
+          </DialogHeader>
+          <div className="text-center mb-4">
+            <Input
+              value={numpadValue}
+              onChange={(e) => setNumpadValue(e.target.value)}
+              readOnly
+              className="text-3xl text-center font-mono"
+            />
+          </div>
+          <Numpad
+            value={numpadValue}
+            onChange={handleNumpadChange}
+            onSubmit={handleNumpadSubmit}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Daily Expenses Dialog */}
+      <Dialog open={showDailyExpenseDialog} onOpenChange={setShowDailyExpenseDialog}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Wallet className="h-5 w-5 text-white" />
+              </div>
+              <DialogTitle className="text-xl font-bold">Add Daily Expense</DialogTitle>
+            </div>
+            <DialogDescription>
+              Record a daily expense for the current shift
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="expenseAmount" className="text-sm font-semibold">
+                Amount ({currency}) *
+              </Label>
+              <Input
+                id="expenseAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={expenseAmount}
+                onChange={(e) => setExpenseAmount(e.target.value)}
+                placeholder="Enter amount..."
+                className="mt-1.5 text-sm h-11 rounded-xl"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label htmlFor="expenseReason" className="text-sm font-semibold">
+                Reason / Notes *
+              </Label>
+              <Textarea
+                id="expenseReason"
+                value={expenseReason}
+                onChange={(e) => setExpenseReason(e.target.value)}
+                placeholder="e.g., Electricity Company, Supplies, etc..."
+                rows={3}
+                className="mt-1.5 resize-none rounded-xl"
+                maxLength={200}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {expenseReason.length}/200 characters
+              </p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  This expense will be automatically added to the Costs tab for tracking and reporting.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDailyExpenseDialog(false);
+                setExpenseAmount('');
+                setExpenseReason('');
+              }}
+              className="flex-1 rounded-xl h-11 font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDailyExpenseSubmit}
+              disabled={!expenseAmount || !expenseReason.trim()}
+              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-xl h-11 font-semibold shadow-lg shadow-amber-500/30"
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Record Expense
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Item Note Dialog */}
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
         <DialogContent className="sm:max-w-md rounded-3xl">
@@ -3308,12 +3787,136 @@ export default function POSInterface() {
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSaveNote}
               className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl h-11 px-6 font-semibold shadow-lg shadow-emerald-500/30"
             >
               <Check className="h-4 w-4 mr-2" />
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Held Orders Dialog */}
+      <Dialog open={showHeldOrdersDialog} onOpenChange={setShowHeldOrdersDialog}>
+        <DialogContent className="sm:max-w-2xl rounded-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-4 border-b">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Clock className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold">Held Orders</DialogTitle>
+                <DialogDescription>
+                  {heldOrders.length} {heldOrders.length === 1 ? 'order' : 'orders'} on hold
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1 py-4 px-2">
+            {heldOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-3">
+                  <Clock className="h-8 w-8 opacity-40" />
+                </div>
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">No held orders</p>
+              </div>
+            ) : (
+              <div className="space-y-3 pr-2">
+                {heldOrders.map((heldOrder) => {
+                  const itemsCount = heldOrder.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+                  const totalAmount = heldOrder.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) + (heldOrder.deliveryFee || 0) - (heldOrder.loyaltyDiscount || 0) - (heldOrder.promoDiscount || 0);
+                  const timeHeld = Math.floor((Date.now() - heldOrder.timestamp) / 60000); // minutes
+
+                  const getOrderTypeBadge = (type: string) => {
+                    switch (type) {
+                      case 'dine-in':
+                        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Dine In</Badge>;
+                      case 'take-away':
+                        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Take Away</Badge>;
+                      case 'delivery':
+                        return <Badge className="bg-orange-100 text-orange-700 border-orange-200">Delivery</Badge>;
+                      default:
+                        return <Badge>{type}</Badge>;
+                    }
+                  };
+
+                  return (
+                    <div key={heldOrder.id} className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-850 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/50 hover:shadow-lg transition-all">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-2">
+                          {getOrderTypeBadge(heldOrder.orderType)}
+                          {heldOrder.tableNumber && (
+                            <Badge variant="outline" className="border-blue-300 text-blue-700">
+                              Table {heldOrder.tableNumber}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          {timeHeld < 60 ? `${timeHeld}m ago` : `${Math.floor(timeHeld / 60)}h ${timeHeld % 60}m ago`}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-3">
+                        {heldOrder.items.slice(0, 3).map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between text-xs">
+                            <span className="text-slate-600 dark:text-slate-300">
+                              {item.name} {item.variantName && `(${item.variantName})`} x{item.quantity}
+                            </span>
+                            <span className="font-medium text-slate-900 dark:text-white">
+                              {formatCurrency(item.price * item.quantity, currency)}
+                            </span>
+                          </div>
+                        ))}
+                        {heldOrder.items.length > 3 && (
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            +{heldOrder.items.length - 3} more items
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+                        <div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {itemsCount} {itemsCount === 1 ? 'item' : 'items'}
+                          </p>
+                          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(totalAmount, currency)}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleDeleteHeldOrder(heldOrder.id)}
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-3 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleRestoreHeldOrder(heldOrder.id)}
+                            size="sm"
+                            className="h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold shadow-lg shadow-indigo-500/30"
+                          >
+                            <Play className="h-4 w-4 mr-2" />
+                            Restore
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter className="pt-4 border-t">
+            <Button
+              onClick={() => setShowHeldOrdersDialog(false)}
+              variant="outline"
+              className="flex-1 rounded-xl h-11 font-semibold"
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

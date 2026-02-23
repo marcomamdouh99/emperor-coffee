@@ -42,6 +42,7 @@ model User {
   closedBusinessDays     BusinessDay[]          @relation("BusinessDayCloser")
   tablesOpened           Table[]                @relation("TableOpener")
   tablesClosed           Table[]                @relation("TableCloser")
+  dailyExpenses         DailyExpense[]         @relation("ExpenseRecorder")
 
   @@index([username])
   @@index([branchId])
@@ -92,6 +93,7 @@ model Branch {
   businessDays            BusinessDay[]
   promoBranchRestrictions PromotionBranch[]
   tables                  Table[]
+  dailyExpenses           DailyExpense[]
 
   @@index([licenseKey])
   @@index([isActive])
@@ -406,6 +408,7 @@ model BranchCost {
   branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
   shift        Shift?       @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   costCategory CostCategory @relation(fields: [costCategoryId], references: [id], onDelete: Cascade)
+  dailyExpenses DailyExpense[]
 
   @@index([branchId])
   @@index([costCategoryId])
@@ -413,6 +416,34 @@ model BranchCost {
   @@index([branchId, period])
   @@index([branchId, costCategoryId])
   @@index([shiftId])
+}
+
+// ============================================
+// DAILY EXPENSES
+// ============================================
+
+model DailyExpense {
+  id             String   @id @default(cuid())
+  branchId       String
+  shiftId        String
+  amount         Float
+  reason         String   // Reason for expense (e.g., "Electricity Company", "Government Fees")
+  recordedBy     String   // User ID of the cashier who recorded the expense
+  createdAt      DateTime @default(now())
+  
+  // Cost tracking - links to BranchCost for reporting in Branch Operation
+  costId         String?  // Reference to the BranchCost record created
+
+  branch   Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  shift    Shift      @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  cost     BranchCost? @relation(fields: [costId], references: [id], onDelete: SetNull)
+  recorder User       @relation("ExpenseRecorder", fields: [recordedBy], references: [id])
+
+  @@index([branchId])
+  @@index([shiftId])
+  @@index([recordedBy])
+  @@index([createdAt])
+  @@index([costId])
 }
 
 // ============================================
@@ -456,6 +487,7 @@ model Order {
   promoCodeId       String? // Applied promo code
   promoDiscount     Float    @default(0) // Promo discount amount
   cardReferenceNumber String? // Card transaction reference number
+  paymentMethodDetail String? // Card payment detail: 'CARD', 'INSTAPAY', 'MOBILE_WALLET'
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -469,6 +501,8 @@ model Order {
   courier         Courier?               @relation(fields: [courierId], references: [id], onDelete: SetNull)
   items           OrderItem[]
   inventoryTxns   InventoryTransaction[]
+  transfersFrom   OrderItemTransfer[]    @relation("TransferFrom")
+  transfersTo     OrderItemTransfer[]    @relation("TransferTo")
 
   @@unique([branchId, orderNumber])
   @@index([branchId])
@@ -565,6 +599,28 @@ model VoidedItem {
 
   @@index([orderItemId])
   @@index([voidedAt])
+}
+
+// ============================================
+// ORDER ITEM TRANSFERS (TABLE TO TABLE)
+// ============================================
+
+model OrderItemTransfer {
+  id             String   @id @default(cuid())
+  fromOrderId    String
+  toOrderId      String
+  itemId         String
+  itemName       String
+  quantity       Float
+  transferredBy  String
+  transferredAt  DateTime @default(now())
+
+  fromOrder Order @relation("TransferFrom", fields: [fromOrderId], references: [id], onDelete: Cascade)
+  toOrder   Order @relation("TransferTo", fields: [toOrderId], references: [id], onDelete: Cascade)
+
+  @@index([fromOrderId])
+  @@index([toOrderId])
+  @@index([transferredAt])
 }
 
 // ============================================
@@ -667,11 +723,12 @@ model Shift {
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
-  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  businessDay BusinessDay? @relation("BusinessDayShifts", fields: [dayId], references: [id], onDelete: SetNull)
-  cashier     User         @relation(fields: [cashierId], references: [id])
-  orders      Order[]
-  costs       BranchCost[]
+  branch        Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  businessDay   BusinessDay?   @relation("BusinessDayShifts", fields: [dayId], references: [id], onDelete: SetNull)
+  cashier       User           @relation(fields: [cashierId], references: [id])
+  orders        Order[]
+  costs         BranchCost[]
+  dailyExpenses DailyExpense[]
 
   @@index([branchId])
   @@index([dayId])

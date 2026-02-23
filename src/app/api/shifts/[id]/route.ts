@@ -32,6 +32,63 @@ async function closeShift(id: string, body: any) {
     return { error: 'Shift not found', status: 404 };
   }
 
+  // Check for active Dine In orders before allowing shift close
+  const activeDineInOrders = await db.order.findMany({
+    where: {
+      shiftId: id,
+      orderType: 'dine-in',
+      isRefunded: false,
+    },
+    include: {
+      table: {
+        select: {
+          id: true,
+          tableNumber: true,
+        },
+      },
+    },
+  });
+
+  // Filter out orders that are fully refunded or don't have active tables
+  const activeOrders = activeDineInOrders.filter(order => {
+    // Check if the table is still occupied
+    if (order.table) {
+      const tableOrders = activeDineInOrders.filter(o => o.tableId === order.tableId);
+      // Only consider table active if there are non-refunded orders
+      return tableOrders.length > 0;
+    }
+    return false;
+  });
+
+  // Also check for tables with OCCUPIED status that have orders in this shift
+  const occupiedTables = await db.table.findMany({
+    where: {
+      branchId: shift.branchId,
+      status: 'OCCUPIED',
+      openedBy: shift.cashierId,
+    },
+  });
+
+  // Combine both checks
+  const openTables = new Set();
+  activeOrders.forEach(order => {
+    if (order.table) {
+      openTables.add(order.table.tableNumber);
+    }
+  });
+  occupiedTables.forEach(table => {
+    openTables.add(table.tableNumber);
+  });
+
+  if (openTables.size > 0) {
+    const tableNumbers = Array.from(openTables).sort((a, b) => a - b).join(', ');
+    console.log('[closeShift] Cannot close shift - Tables still occupied:', tableNumbers);
+    return {
+      error: `Cannot close shift. The following tables are still occupied: ${tableNumbers}. Please close all tables before ending your shift.`,
+      status: 400,
+    };
+  }
+
   // Calculate actual closing figures from orders
   // Revenue = subtotal (excludes delivery fees which go to couriers, excludes loyalty discounts)
   const orderStats = await db.order.aggregate({

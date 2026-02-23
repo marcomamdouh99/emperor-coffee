@@ -30,7 +30,8 @@ export const orderCreateSchema = z.object({
   promoCodeId: z.string().min(1).optional(), // Applied promo code ID
   promoDiscount: z.number().min(0).optional(), // Promo discount amount
   orderNumber: z.number().int().positive().optional(),
-  cardReferenceNumber: z.string().max(100).nullable().optional() // Card transaction reference number
+  cardReferenceNumber: z.string().max(100).nullable().optional(), // Card transaction reference number
+  paymentMethodDetail: z.enum(['CARD', 'INSTAPAY', 'MOBILE_WALLET']).nullable().optional() // Card payment detail type
 }).passthrough() // Allow extra fields like subtotal, total, taxRate
 
 // User validation
