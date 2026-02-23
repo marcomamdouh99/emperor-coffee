@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Minus2, Maximize2, X, GripVertical } from 'lucide-react';
+import { Minus, Maximize, X, GripVertical } from 'lucide-react';
 
 interface NumpadProps {
   value: string;
@@ -146,9 +146,9 @@ export function Numpad({ value, onChange, onSubmit, maxLength = 10, className, o
             onClick={() => setIsMinimized(!isMinimized)}
           >
             {isMinimized ? (
-              <Maximize2 className="h-4 w-4" />
+              <Maximize className="h-4 w-4" />
             ) : (
-              <Minus2 className="h-4 w-4" />
+              <Minus className="h-4 w-4" />
             )}
           </Button>
           {onClose && (
