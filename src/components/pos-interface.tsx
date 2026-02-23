@@ -1726,6 +1726,30 @@ export default function POSInterface() {
     onChange(newValue);
   };
 
+  const handleNumpadSubmit = () => {
+    // Call the callback if it exists (e.g., to update a specific quantity field)
+    if (numpadCallback) {
+      numpadCallback(numpadValue);
+    }
+
+    // Apply the final value to the focused input
+    if (focusedInputRef.element) {
+      const element = focusedInputRef.element;
+      element.value = numpadValue;
+      const event = new Event('input', { bubbles: true });
+      element.dispatchEvent(event);
+      const changeEvent = new Event('change', { bubbles: true });
+      element.dispatchEvent(changeEvent);
+    }
+
+    // Close the numpad
+    setShowNumpad(false);
+    setNumpadValue('');
+    setNumpadTarget(null);
+    setNumpadTargetId(null);
+    setNumpadCallback(null);
+  };
+
   // Load held orders when shift changes
   useEffect(() => {
     loadHeldOrders();
