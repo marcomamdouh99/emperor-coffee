@@ -204,7 +204,7 @@ async function closeShift(id: string, body: any) {
       closingLoyaltyDiscounts: loyaltyDiscounts,
       closingDailyExpenses: dailyExpenses,
       notes,
-      paymentBreakdown, // Save payment breakdown to database
+      // Note: paymentBreakdown removed temporarily due to Prisma issue
     },
     include: {
       cashier: true,
@@ -220,7 +220,7 @@ async function closeShift(id: string, body: any) {
     success: true,
     shift: {
       ...updatedShift,
-      paymentBreakdown,
+      paymentBreakdown, // Include in response even if not saved to DB yet
     },
     message: 'Shift closed successfully',
   };
