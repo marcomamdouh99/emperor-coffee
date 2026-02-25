@@ -672,29 +672,31 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle>Shift Closing Receipt</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {loading && (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-8 px-6">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <span className="ml-3 text-muted-foreground">Loading shift data...</span>
             </div>
           )}
 
           {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="px-6 py-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            </div>
           )}
 
           {!loading && !error && data && (
-            <ScrollArea className="flex-1 pr-4">
-              <div className="space-y-6 pb-4">
+            <ScrollArea className="flex-1 px-6">
+              <div className="space-y-6 pb-6">
                 {/* Paper 1: Payment Summary */}
                 <Card>
                   <CardHeader className="pb-3">
@@ -860,7 +862,7 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
           )}
         </div>
 
-        <DialogFooter className="mt-4">
+        <DialogFooter className="px-6 pb-6 pt-4 border-t">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
