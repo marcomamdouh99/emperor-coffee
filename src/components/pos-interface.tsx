@@ -735,6 +735,24 @@ export default function POSInterface() {
     }
   }, [orderType, selectedTable]);
 
+  // Auto-open numpad when variant dialog opens with custom input variant
+  useEffect(() => {
+    if (variantDialogOpen && selectedVariant?.variantType.isCustomInput) {
+      // Small delay to ensure the dialog is fully rendered
+      const timer = setTimeout(() => {
+        openNumberPad(
+          (value) => {
+            console.log('[Auto-open Numpad] Called with value:', value);
+            setCustomVariantValue(value);
+          },
+          customVariantValue || ''
+        );
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [variantDialogOpen, selectedVariant?.id]);
+
   // Filter menu items by category and search
   const filteredMenuItems = useMemo(() => {
     let items = menuItems.filter((item) => {
