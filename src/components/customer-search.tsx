@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, User, MapPin, Phone, UserPlus, X, Star, Gift } from 'lucide-react';
 
@@ -422,11 +422,13 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
   };
 
   const openNewCustomerDialog = () => {
+    console.log('[CustomerSearch] Opening new customer dialog with searchQuery:', searchQuery);
+
     // Check if search query is a phone number or name
     const isPhone = searchQuery && searchQuery.match(/^[0-9+\-\s()]+$/);
 
     // Set form with pre-filled data
-    setNewCustomer({
+    const newCustomerData = {
       name: isPhone ? '' : (searchQuery || ''),
       phone: isPhone ? searchQuery : '',
       email: '',
@@ -435,7 +437,10 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
       floor: '',
       apartment: '',
       deliveryAreaId: '',
-    });
+    };
+
+    console.log('[CustomerSearch] Setting new customer data:', newCustomerData);
+    setNewCustomer(newCustomerData);
     setShowNewCustomerDialog(true);
   };
 
@@ -525,13 +530,15 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
             "{searchQuery}" doesn't match any existing customers
           </p>
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700"
+            onClick={openNewCustomerDialog}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Register New Customer
+          </Button>
           <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Register New Customer
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto z-[200]">
               <DialogHeader>
                 <DialogTitle>Register New Customer</DialogTitle>
