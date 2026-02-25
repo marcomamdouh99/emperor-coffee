@@ -422,10 +422,13 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
   };
 
   const openNewCustomerDialog = () => {
-    // Reset form first
+    // Check if search query is a phone number or name
+    const isPhone = searchQuery && searchQuery.match(/^[0-9+\-\s()]+$/);
+
+    // Set form with pre-filled data
     setNewCustomer({
-      name: '',
-      phone: '',
+      name: isPhone ? '' : (searchQuery || ''),
+      phone: isPhone ? searchQuery : '',
       email: '',
       building: '',
       streetAddress: '',
@@ -433,13 +436,6 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
       apartment: '',
       deliveryAreaId: '',
     });
-
-    // Pre-fill name from search if it looks like a name (not a phone number)
-    if (searchQuery && !searchQuery.match(/^[0-9+\-\s()]+$/)) {
-      setNewCustomer(prev => ({ ...prev, name: searchQuery }));
-    } else if (searchQuery && searchQuery.match(/^[0-9+\-\s()]+$/)) {
-      setNewCustomer(prev => ({ ...prev, phone: searchQuery }));
-    }
     setShowNewCustomerDialog(true);
   };
 
@@ -623,7 +619,7 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
                         <SelectTrigger className="mt-1">
                           <SelectValue placeholder="Select delivery area" />
                         </SelectTrigger>
-                        <SelectContent portal={false}>
+                        <SelectContent>
                           {deliveryAreas.map((area) => (
                             <SelectItem key={area.id} value={area.id}>
                               {area.name}
