@@ -273,7 +273,7 @@ export default function POSDashboard() {
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* Glassmorphism Header - Mobile Responsive */}
         <header className="sticky top-0 z-50 backdrop-blur-xl backdrop-saturate-150 bg-white/80/80 backdrop-filter blur(20px) border-b border-slate-200/200 shadow-2xl">
-        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
+        <div className="px-2 sm:px-4 py-2 sm:py-4">
           <div className="flex items-center justify-between gap-2">
             {/* Mobile Menu Button & Logo */}
             <div className="flex items-center gap-2 sm:gap-6">
@@ -429,7 +429,7 @@ export default function POSDashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <main className="flex-1 px-2 sm:px-4 py-4 sm:py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Desktop Tabs - Hidden on mobile */}
           <TabsList className="hidden lg:flex flex-wrap w-full bg-white/60 backdrop-blur-md rounded-xl shadow-xl border border-slate-200/200 p-1">
@@ -826,7 +826,7 @@ export default function POSDashboard() {
 
       {/* Footer */}
       <footer className="bg-white/80 backdrop-blur-md border-t border-slate-200/200 mt-auto">
-        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6">
+        <div className="px-2 sm:px-4 py-3 sm:py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0 text-xs sm:text-sm text-slate-500">
             <p>© 2026 Emperor Coffee. All rights reserved.</p>
             <div className="text-slate-400">Premium POS System</div>
