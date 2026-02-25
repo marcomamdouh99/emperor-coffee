@@ -107,6 +107,18 @@ export function useOfflineData<T>(
             indexedDBStorage.batchSaveShifts(Array.isArray(data) ? data : (data.shifts || [])).catch(e =>
               console.log('[useOfflineData] Failed to cache shifts:', e.message)
             );
+          } else if (apiEndpoint.includes('/api/promo-codes')) {
+            indexedDBStorage.batchSavePromoCodes(Array.isArray(data) ? data : (data.promoCodes || [])).catch(e =>
+              console.log('[useOfflineData] Failed to cache promo codes:', e.message)
+            );
+          } else if (apiEndpoint.includes('/api/tables')) {
+            indexedDBStorage.batchSaveTables(Array.isArray(data) ? data : (data.tables || [])).catch(e =>
+              console.log('[useOfflineData] Failed to cache tables:', e.message)
+            );
+          } else if (apiEndpoint.includes('/api/inventory')) {
+            indexedDBStorage.batchSaveInventory(Array.isArray(data) ? data : (data.inventory || [])).catch(e =>
+              console.log('[useOfflineData] Failed to cache inventory:', e.message)
+            );
           }
         } else {
           throw new Error(`API request failed: ${response.statusText}`);
@@ -201,4 +213,8 @@ export const offlineDataFetchers = {
   deliveryAreas: () => indexedDBStorage.getAllDeliveryAreas(),
   customers: () => indexedDBStorage.getAllCustomers(),
   couriers: () => indexedDBStorage.getAllCouriers(),
+  promoCodes: () => indexedDBStorage.getAllPromoCodes(),
+  tables: () => indexedDBStorage.getAllTables(),
+  inventory: () => indexedDBStorage.getAllInventory(),
+  recipes: () => indexedDBStorage.getAllRecipes(),
 };

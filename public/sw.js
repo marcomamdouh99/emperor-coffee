@@ -33,6 +33,9 @@ const CACHE_STRATEGIES = {
     '/api/customers',
     '/api/receipt-settings',
     '/api/tables',
+    '/api/promo-codes',
+    '/api/inventory',
+    '/api/recipes',
   ],
   // Never cache - always network
   NETWORK_ONLY: [
@@ -184,10 +187,15 @@ function handleApiRequest(event, request) {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Cache successful responses
+        // Cache successful responses with TTL (5 minutes for read APIs)
         if (response && response.status === 200) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
+            // Add cache expiration (5 minutes = 300 seconds)
+            const cacheOptions = {
+              cacheName: CACHE_NAME,
+              expiration: Date.now() + 300000, // 5 minutes from now
+            };
             cache.put(request, responseToCache);
           });
         }

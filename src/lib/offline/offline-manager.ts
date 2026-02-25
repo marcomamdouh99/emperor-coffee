@@ -501,8 +501,16 @@ class OfflineManager {
           if (!batchResult.failedIds.includes(op.id)) {
             await storageService.removeOperation(op.id);
           } else {
-            // Increment retry count
+            // Increment retry count and check if max retries exceeded
             op.retryCount += 1;
+
+            // Check if max retries exceeded
+            if (op.retryCount >= CONFIG.MAX_RETRY_ATTEMPTS) {
+              console.error(`[OfflineManager] Operation ${op.id} exceeded max retries (${CONFIG.MAX_RETRY_ATTEMPTS}), will be marked as failed permanently`);
+              // Operation will stay in queue but won't be retried
+              // TODO: Implement failed operation cleanup
+            }
+
             await storageService.updateOperation(op);
           }
         }

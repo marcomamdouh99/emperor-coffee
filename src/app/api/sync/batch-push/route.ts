@@ -20,6 +20,7 @@ const OperationType = {
   UPDATE_SHIFT: 'UPDATE_SHIFT',
   CLOSE_SHIFT: 'CLOSE_SHIFT',
   CREATE_CUSTOMER: 'CREATE_CUSTOMER',
+  UPDATE_CUSTOMER: 'UPDATE_CUSTOMER',
   UPDATE_USER: 'UPDATE_USER',
   CREATE_DAILY_EXPENSE: 'CREATE_DAILY_EXPENSE',
   CREATE_VOIDED_ITEM: 'CREATE_VOIDED_ITEM',
@@ -30,6 +31,15 @@ const OperationType = {
   UPDATE_TABLE: 'UPDATE_TABLE',
   CLOSE_TABLE: 'CLOSE_TABLE',
   CREATE_INVENTORY_TRANSACTION: 'CREATE_INVENTORY_TRANSACTION',
+  CREATE_INGREDIENT: 'CREATE_INGREDIENT',
+  UPDATE_INGREDIENT: 'UPDATE_INGREDIENT',
+  CREATE_MENU_ITEM: 'CREATE_MENU_ITEM',
+  UPDATE_MENU_ITEM: 'UPDATE_MENU_ITEM',
+  CREATE_TRANSFER: 'CREATE_TRANSFER',
+  CREATE_PURCHASE_ORDER: 'CREATE_PURCHASE_ORDER',
+  UPDATE_PURCHASE_ORDER: 'UPDATE_PURCHASE_ORDER',
+  CREATE_RECEIPT_SETTINGS: 'CREATE_RECEIPT_SETTINGS',
+  UPDATE_RECEIPT_SETTINGS: 'UPDATE_RECEIPT_SETTINGS',
 } as const;
 
 type OperationTypeType = typeof OperationType[keyof typeof OperationType];
@@ -230,6 +240,46 @@ async function processOperation(operation: SyncOperation, branchId: string): Pro
 
     case OperationType.CREATE_INVENTORY_TRANSACTION:
       await createInventoryTransaction(operation.data, branchId);
+      break;
+
+    case OperationType.UPDATE_CUSTOMER:
+      await updateCustomer(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_INGREDIENT:
+      await createIngredient(operation.data, branchId);
+      break;
+
+    case OperationType.UPDATE_INGREDIENT:
+      await updateIngredient(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_MENU_ITEM:
+      await createMenuItem(operation.data, branchId);
+      break;
+
+    case OperationType.UPDATE_MENU_ITEM:
+      await updateMenuItem(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_TRANSFER:
+      await createTransfer(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_PURCHASE_ORDER:
+      await createPurchaseOrder(operation.data, branchId);
+      break;
+
+    case OperationType.UPDATE_PURCHASE_ORDER:
+      await updatePurchaseOrder(operation.data, branchId);
+      break;
+
+    case OperationType.CREATE_RECEIPT_SETTINGS:
+      await createReceiptSettings(operation.data);
+      break;
+
+    case OperationType.UPDATE_RECEIPT_SETTINGS:
+      await updateReceiptSettings(operation.data);
       break;
 
     default:
@@ -1152,3 +1202,387 @@ async function createInventoryTransaction(data: any, branchId: string): Promise<
     },
   });
 }
+
+/**
+ * Update customer
+ */
+async function updateCustomer(data: any, branchId: string): Promise<void> {
+  await db.customer.update({
+    where: { id: data.id },
+    data: {
+      name: data.name,
+      email: data.email || null,
+      phone: data.phone,
+      notes: data.notes || null,
+      updatedAt: new Date(),
+    },
+  });
+
+  // Update addresses if provided
+  if (data.addresses && Array.isArray(data.addresses)) {
+    for (const addr of data.addresses) {
+      if (addr.id) {
+        // Update existing address
+        await db.customerAddress.update({
+          where: { id: addr.id },
+          data: {
+            building: addr.building || null,
+            streetAddress: addr.streetAddress,
+            floor: addr.floor || null,
+            apartment: addr.apartment || null,
+            deliveryAreaId: addr.deliveryAreaId || null,
+            isDefault: addr.isDefault || false,
+          },
+        });
+      } else {
+        // Create new address
+        await db.customerAddress.create({
+          data: {
+            customerId: data.id,
+            building: addr.building || null,
+            streetAddress: addr.streetAddress,
+            floor: addr.floor || null,
+            apartment: addr.apartment || null,
+            deliveryAreaId: addr.deliveryAreaId || null,
+            isDefault: addr.isDefault || false,
+          },
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Create ingredient
+ */
+async function createIngredient(data: any, branchId: string): Promise<void> {
+  // Check if ingredient already exists by name
+  const existingIngredient = await db.ingredient.findFirst({
+    where: {
+      name: data.name,
+    },
+  });
+
+  let ingredientId: string;
+
+  if (existingIngredient) {
+    // Ingredient exists, use their ID
+    ingredientId = existingIngredient.id;
+    console.log(`[BatchPush] Ingredient with name ${data.name} already exists: ${ingredientId}`);
+
+    // Update branch inventory if provided
+    if (data.initialStock !== undefined && branchId) {
+      const existingInventory = await db.branchInventory.findFirst({
+        where: {
+          branchId,
+          ingredientId,
+        },
+      });
+
+      if (existingInventory) {
+        await db.branchInventory.update({
+          where: { id: existingInventory.id },
+          data: {
+            currentStock: parseFloat(data.initialStock),
+            lastRestockAt: new Date(),
+            lastModifiedAt: new Date(),
+          },
+        });
+      } else {
+        await db.branchInventory.create({
+          data: {
+            branchId,
+            ingredientId,
+            currentStock: parseFloat(data.initialStock),
+            lastRestockAt: new Date(),
+            lastModifiedAt: new Date(),
+          },
+        });
+      }
+    }
+  } else {
+    // Create new ingredient
+    const ingredientData: any = {
+      name: data.name,
+      unit: data.unit,
+      costPerUnit: parseFloat(data.costPerUnit),
+      reorderThreshold: parseFloat(data.reorderThreshold),
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      categoryId: data.categoryId || null,
+    };
+
+    // Only use provided ID if it's not a temporary ID
+    if (data.id && !data.id.startsWith('temp-')) {
+      ingredientData.id = data.id;
+    }
+
+    const createdIngredient = await db.ingredient.create({
+      data: ingredientData,
+    });
+
+    ingredientId = createdIngredient.id;
+    console.log('[BatchPush] Ingredient created successfully:', createdIngredient);
+
+    // Handle initial stock for branch inventory
+    if (data.initialStock !== undefined && branchId) {
+      const stockValue = parseFloat(data.initialStock);
+
+      await db.branchInventory.create({
+        data: {
+          branchId,
+          ingredientId,
+          currentStock: stockValue,
+          lastRestockAt: new Date(),
+          lastModifiedAt: new Date(),
+        },
+      });
+    }
+  }
+
+  // Map temp ID to real ID for future operations
+  if (data.id && data.id.startsWith('temp-')) {
+    tempIdToRealIdMap.set(data.id, ingredientId);
+    console.log(`[BatchPush] Mapped temp ingredient ID ${data.id} to real ID ${ingredientId}`);
+  }
+}
+
+/**
+ * Update ingredient
+ */
+async function updateIngredient(data: any, branchId: string): Promise<void> {
+  await db.ingredient.update({
+    where: { id: data.id },
+    data: {
+      name: data.name,
+      unit: data.unit,
+      costPerUnit: parseFloat(data.costPerUnit),
+      reorderThreshold: parseFloat(data.reorderThreshold),
+      categoryId: data.categoryId || null,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Create menu item
+ */
+async function createMenuItem(data: any, branchId: string): Promise<void> {
+  // Check if menu item already exists by name
+  const existingItem = await db.menuItem.findFirst({
+    where: {
+      name: data.name,
+    },
+  });
+
+  let menuItemId: string;
+
+  if (existingItem) {
+    // Menu item exists, use their ID
+    menuItemId = existingItem.id;
+    console.log(`[BatchPush] Menu item with name ${data.name} already exists: ${menuItemId}`);
+  } else {
+    // Create new menu item
+    const menuItemData: any = {
+      name: data.name,
+      category: data.category || 'Other',
+      categoryId: data.categoryId || null,
+      price: parseFloat(data.price),
+      taxRate: data.taxRate !== undefined ? parseFloat(data.taxRate) : 0.14,
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      sortOrder: data.sortOrder !== undefined ? parseInt(data.sortOrder) : null,
+      hasVariants: data.hasVariants || false,
+    };
+
+    // Only use provided ID if it's not a temporary ID
+    if (data.id && !data.id.startsWith('temp-')) {
+      menuItemData.id = data.id;
+    }
+
+    const createdMenuItem = await db.menuItem.create({
+      data: menuItemData,
+    });
+
+    menuItemId = createdMenuItem.id;
+    console.log('[BatchPush] Menu item created successfully:', createdMenuItem);
+  }
+
+  // Map temp ID to real ID for future operations
+  if (data.id && data.id.startsWith('temp-')) {
+    tempIdToRealIdMap.set(data.id, menuItemId);
+    console.log(`[BatchPush] Mapped temp menu item ID ${data.id} to real ID ${menuItemId}`);
+  }
+}
+
+/**
+ * Update menu item
+ */
+async function updateMenuItem(data: any, branchId: string): Promise<void> {
+  await db.menuItem.update({
+    where: { id: data.id },
+    data: {
+      name: data.name,
+      category: data.category,
+      categoryId: data.categoryId || null,
+      price: parseFloat(data.price),
+      taxRate: data.taxRate !== undefined ? parseFloat(data.taxRate) : 0.14,
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      sortOrder: data.sortOrder !== undefined ? parseInt(data.sortOrder) : null,
+      hasVariants: data.hasVariants || false,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Create transfer
+ */
+async function createTransfer(data: any, branchId: string): Promise<void> {
+  // Handle fromBranchId and toBranchId - check if they're temp IDs
+  let fromBranchId = data.fromBranchId;
+  let toBranchId = data.toBranchId;
+
+  if (fromBranchId && fromBranchId.startsWith('temp-')) {
+    const realId = tempIdToRealIdMap.get(fromBranchId);
+    if (realId) {
+      fromBranchId = realId;
+    }
+  }
+
+  if (toBranchId && toBranchId.startsWith('temp-')) {
+    const realId = tempIdToRealIdMap.get(toBranchId);
+    if (realId) {
+      toBranchId = realId;
+    }
+  }
+
+  await db.transfer.create({
+    data: {
+      id: data.id,
+      fromBranchId,
+      toBranchId,
+      ingredientId: data.ingredientId,
+      quantity: parseFloat(data.quantity),
+      requestedBy: data.requestedBy,
+      approvedBy: data.approvedBy || null,
+      status: data.status || 'PENDING',
+      requestedAt: new Date(data.requestedAt || data.createdAt),
+      approvedAt: data.approvedAt ? new Date(data.approvedAt) : null,
+      notes: data.notes || null,
+      createdAt: new Date(data.createdAt),
+    },
+  });
+}
+
+/**
+ * Create purchase order
+ */
+async function createPurchaseOrder(data: any, branchId: string): Promise<void> {
+  // Handle supplierId - check if it's a temp ID
+  let supplierId = data.supplierId;
+  if (supplierId && supplierId.startsWith('temp-')) {
+    const realId = tempIdToRealIdMap.get(supplierId);
+    if (realId) {
+      supplierId = realId;
+    }
+  }
+
+  const purchaseOrderData: any = {
+    id: data.id,
+    branchId,
+    supplierId: supplierId || null,
+    orderNumber: data.orderNumber,
+    status: data.status || 'PENDING',
+    totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : 0,
+    expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : null,
+    notes: data.notes || null,
+    createdAt: new Date(data.createdAt),
+  };
+
+  const purchaseOrder = await db.purchaseOrder.create({
+    data: purchaseOrderData,
+  });
+
+  // Create purchase order items if provided
+  if (data.items && Array.isArray(data.items)) {
+    await db.purchaseOrderItem.createMany({
+      data: data.items.map((item: any) => ({
+        purchaseOrderId: purchaseOrder.id,
+        ingredientId: item.ingredientId,
+        quantity: parseFloat(item.quantity),
+        unitPrice: parseFloat(item.unitPrice),
+        receivedQuantity: item.receivedQuantity ? parseFloat(item.receivedQuantity) : 0,
+      })),
+    });
+  }
+}
+
+/**
+ * Update purchase order
+ */
+async function updatePurchaseOrder(data: any, branchId: string): Promise<void> {
+  await db.purchaseOrder.update({
+    where: { id: data.id },
+    data: {
+      status: data.status,
+      totalAmount: data.totalAmount ? parseFloat(data.totalAmount) : undefined,
+      expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : undefined,
+      actualDeliveryDate: data.actualDeliveryDate ? new Date(data.actualDeliveryDate) : undefined,
+      notes: data.notes || undefined,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Create receipt settings
+ */
+async function createReceiptSettings(data: any): Promise<void> {
+  await db.receiptSettings.create({
+    data: {
+      id: data.id || undefined,
+      storeName: data.storeName,
+      branchName: data.branchName,
+      headerText: data.headerText || null,
+      footerText: data.footerText || null,
+      thankYouMessage: data.thankYouMessage || null,
+      fontSize: data.fontSize || 'medium',
+      showLogo: data.showLogo || false,
+      showCashier: data.showCashier || false,
+      showDateTime: data.showDateTime || false,
+      showOrderType: data.showOrderType || false,
+      showCustomerInfo: data.showCustomerInfo || false,
+      openCashDrawer: data.openCashDrawer || false,
+      cutPaper: data.cutPaper || false,
+      cutType: data.cutType || 'full',
+      paperWidth: data.paperWidth || 80,
+    },
+  });
+}
+
+/**
+ * Update receipt settings
+ */
+async function updateReceiptSettings(data: any): Promise<void> {
+  await db.receiptSettings.update({
+    where: { id: data.id },
+    data: {
+      storeName: data.storeName,
+      branchName: data.branchName,
+      headerText: data.headerText || null,
+      footerText: data.footerText || null,
+      thankYouMessage: data.thankYouMessage || null,
+      fontSize: data.fontSize || 'medium',
+      showLogo: data.showLogo || false,
+      showCashier: data.showCashier || false,
+      showDateTime: data.showDateTime || false,
+      showOrderType: data.showOrderType || false,
+      showCustomerInfo: data.showCustomerInfo || false,
+      openCashDrawer: data.openCashDrawer || false,
+      cutPaper: data.cutPaper || false,
+      cutType: data.cutType || 'full',
+      paperWidth: data.paperWidth || 80,
+      updatedAt: new Date(),
+    },
+  });
+}
+

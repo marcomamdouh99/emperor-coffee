@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, RefreshCw, CheckCircle, AlertCircle, AlertTriangle, Info, X, Eye } from 'lucide-react';
+import { Clock, RefreshCw, CheckCircle, AlertCircle, AlertTriangle, Info, X, Eye, ShoppingCart, Edit3, UserPlus, User, Trash2, DollarSign, Tag, Gift, Star, LayoutGrid, Grid, Package } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 interface SyncOperation {

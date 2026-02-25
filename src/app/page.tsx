@@ -837,6 +837,11 @@ export default function POSDashboard() {
         </Tabs>
       </main>
 
+      <SyncOperationsViewer
+        open={showSyncViewer}
+        onOpenChange={setShowSyncViewer}
+      />
+
       {/* Footer */}
       <footer className="bg-white/80 backdrop-blur-md border-t border-slate-200/200 mt-auto">
         <div className="px-2 sm:px-4 py-3 sm:py-6">
@@ -858,16 +863,10 @@ function AccessDenied({ user }: { user: any }) {
         <Lock className="h-12 w-12 text-slate-400 mb-4" />
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Access Denied</h3>
         <p className="text-slate-600 dark:text-slate-400 text-center max-w-md">
-          Your role (<strong className="capitalize">{user.role.toLowerCase().replace('_', ' ')}</strong>) does not have permission to access this feature. 
+          Your role (<strong className="capitalize">{user.role.toLowerCase().replace('_', ' ')}</strong>) does not have permission to access this feature.
           Please contact an <strong>HQ Admin</strong> if you believe this is an error.
         </p>
       </CardContent>
     </Card>
   );
 }
-
-// Sync Operations Viewer
-<SyncOperationsViewer
-  open={showSyncViewer}
-  onOpenChange={setShowSyncViewer}
-/>

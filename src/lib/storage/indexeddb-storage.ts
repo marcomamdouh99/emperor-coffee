@@ -29,7 +29,7 @@ const STORES = [
   'promo_codes',
   'inventory',
   'temp_id_mappings',  // NEW: Store temporary ID to real ID mappings
-] as const const;
+] as const;
 
 // Operation types
 export enum OperationType {

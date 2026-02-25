@@ -181,6 +181,26 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
     });
     console.log('[Order] Operation queued for sync');
 
+    // Award loyalty points immediately (if customer linked and not refunded)
+    if (!orderData.isRefunded && orderData.customerId && !orderData.customerId.startsWith('temp-')) {
+      try {
+        // Import local loyalty manager
+        const { awardLoyaltyPointsOffline } = await import('@/lib/offline/local-loyalty');
+        const loyaltyResult = await awardLoyaltyPointsOffline(
+          orderData.customerId,
+          tempId, // Use the temp order ID
+          orderData.subtotal || 0  // Award based on subtotal (excludes delivery fees)
+        );
+
+        if (loyaltyResult.success) {
+          console.log('[Order] Loyalty points awarded immediately:', loyaltyResult.pointsEarned, 'points');
+        }
+      } catch (loyaltyError) {
+        console.error('[Order] Failed to award loyalty points offline:', loyaltyError);
+        // Don't fail the order if loyalty fails
+      }
+    }
+
     console.log('[Order] Order created offline successfully:', newOrder);
     return { order: newOrder, success: true };
   } catch (error) {

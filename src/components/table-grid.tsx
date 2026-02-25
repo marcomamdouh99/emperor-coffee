@@ -397,7 +397,7 @@ export function TableGrid({ branchId, onTableSelect, showAvailableOnly = false }
                               </div>
                               <div className="font-bold text-lg">{table.tableNumber}</div>
                             </div>
-                            <Badge className={getStatusColor(table.status)} className="text-xs font-semibold">
+                            <Badge className={`${getStatusColor(table.status)} text-xs font-semibold`}>
                               {table.status}
                             </Badge>
                           </div>
