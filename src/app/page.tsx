@@ -48,6 +48,7 @@ export default function POSDashboard() {
   const [userBranchName, setUserBranchName] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSyncViewer, setShowSyncViewer] = useState(false);
+  const [hasOpenShift, setHasOpenShift] = useState(false);
 
   // Register Service Worker for PWA
   useEffect(() => {
@@ -127,14 +128,7 @@ export default function POSDashboard() {
     fetchBranches();
   }, [user?.branchId]);
 
-  // Check authentication on mount
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-    }
-  }, [user, router]);
-
-  // For cashiers, check if they have an active shift and redirect to shifts tab if not
+  // For cashiers, check if they have an active shift and set hasOpenShift state
   useEffect(() => {
     if (user && user.role === 'CASHIER' && user.branchId) {
       const fetchCurrentShift = async () => {
@@ -148,20 +142,47 @@ export default function POSDashboard() {
           const data = await response.json();
 
           if (response.ok && data.shifts && data.shifts.length > 0) {
-            // Has open shift, stay on current tab
-            return;
+            // Has open shift
+            setHasOpenShift(true);
+          } else {
+            // No open shift
+            setHasOpenShift(false);
           }
-
-          // No open shift, redirect to shifts tab
-          setActiveTab('shifts');
         } catch (error) {
           console.error('Failed to fetch current shift:', error);
+          setHasOpenShift(false);
         }
       };
 
       fetchCurrentShift();
+
+      // Also refresh shift status when the active tab changes (in case user opened/closed shift in Shifts tab)
+      const refreshOnTabChange = () => {
+        fetchCurrentShift();
+      };
+
+      // Listen for custom event to refresh shift status
+      window.addEventListener('refreshShiftStatus', refreshOnTabChange);
+
+      return () => {
+        window.removeEventListener('refreshShiftStatus', refreshOnTabChange);
+      };
     }
-  }, [user]);
+  }, [user, activeTab]);
+
+  // For cashiers without an open shift, default to shifts tab if active tab is not accessible
+  useEffect(() => {
+    if (user && user.role === 'CASHIER' && !hasOpenShift && activeTab === 'pos') {
+      setActiveTab('shifts');
+    }
+  }, [activeTab, hasOpenShift, user]);
+
+  // Check authentication on mount
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+    }
+  }, [user, router]);
 
   // If no user, show loading
   if (!user) {
@@ -204,7 +225,9 @@ export default function POSDashboard() {
   // Check if user can access certain features
   const canAccessHQFeatures = user.role === 'ADMIN';
   const canAccessBranchFeatures = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
-  const canAccessPOS = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER' || user.role === 'CASHIER';
+  // Cashiers can only access POS if they have an open shift
+  const canAccessPOS = (user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER') ||
+                        (user.role === 'CASHIER' && hasOpenShift);
   const canAccessInventory = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
   const canAccessUsers = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
   const canAccessShifts = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER' || user.role === 'CASHIER';

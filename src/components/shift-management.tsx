@@ -876,6 +876,8 @@ export default function ShiftManagement() {
             setShiftNotes('');
             refetchShifts();
             fetchCurrentShift();
+            // Notify parent component to refresh shift status (for POS tab visibility)
+            window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
           } else {
             // API failed - check if it's a network error
             const isNetworkError = !response.ok && (
@@ -900,6 +902,8 @@ export default function ShiftManagement() {
                 setOpeningCash('');
                 setShiftNotes('');
                 fetchCurrentShift();
+                // Notify parent component to refresh shift status (for POS tab visibility)
+                window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
               } catch (offlineError) {
                 console.error('[Shift] Offline shift creation failed:', offlineError);
                 alert(`Failed to create shift offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
@@ -918,6 +922,8 @@ export default function ShiftManagement() {
             setOpeningCash('');
             setShiftNotes('');
             fetchCurrentShift();
+            // Notify parent component to refresh shift status (for POS tab visibility)
+            window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
           } catch (offlineError) {
             console.error('[Shift] Offline shift creation failed:', offlineError);
             alert(`Failed to create shift offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
@@ -957,6 +963,8 @@ export default function ShiftManagement() {
             setOpeningCash('');
             setShiftNotes('');
             fetchCurrentShift();
+            // Notify parent component to refresh shift status (for POS tab visibility)
+            window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
             return;
           } catch (offlineError) {
             console.error('[Shift] Offline shift creation also failed:', offlineError);
@@ -1165,6 +1173,8 @@ export default function ShiftManagement() {
           if (user?.role === 'CASHIER') {
             fetchCurrentShift();
           }
+          // Notify parent component to refresh shift status (for POS tab visibility)
+          window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
         } else {
           // API failed - check if it's a network error
           const isNetworkError = !response.ok && (
@@ -1204,6 +1214,8 @@ export default function ShiftManagement() {
               if (user?.role === 'CASHIER') {
                 fetchCurrentShift();
               }
+              // Notify parent component to refresh shift status (for POS tab visibility)
+              window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
             } catch (offlineError) {
               console.error('[Shift] Offline shift closing failed:', offlineError);
               alert(`Failed to close shift offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
@@ -1238,6 +1250,8 @@ export default function ShiftManagement() {
           if (user?.role === 'CASHIER') {
             fetchCurrentShift();
           }
+          // Notify parent component to refresh shift status (for POS tab visibility)
+          window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
         } catch (offlineError) {
           console.error('[Shift] Offline shift closing failed:', offlineError);
           alert(`Failed to close shift offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
