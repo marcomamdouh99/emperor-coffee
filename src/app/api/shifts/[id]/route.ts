@@ -204,6 +204,7 @@ async function closeShift(id: string, body: any) {
       closingLoyaltyDiscounts: loyaltyDiscounts,
       closingDailyExpenses: dailyExpenses,
       notes,
+      paymentBreakdown, // Save payment breakdown to database
     },
     include: {
       cashier: true,
