@@ -1200,7 +1200,7 @@ export default function POSInterface() {
     }
   };
 
-  const closeTableInDB = async () => {
+  const closeTableInDB = async (skipDeselect: boolean = false) => {
     if (!selectedTable) return;
 
     try {
@@ -1221,10 +1221,14 @@ export default function POSInterface() {
       });
 
       if (response.ok) {
-        // Clear table cart from localStorage
-        localStorage.removeItem(`table-cart-${selectedTable.id}`);
-        alert(`Table ${selectedTable.tableNumber} closed successfully`);
-        handleDeselectTable();
+        // Clear table cart from localStorage (only if not already cleared)
+        if (localStorage.getItem(`table-cart-${selectedTable.id}`)) {
+          localStorage.removeItem(`table-cart-${selectedTable.id}`);
+        }
+        if (!skipDeselect) {
+          alert(`Table ${selectedTable.tableNumber} closed successfully`);
+          handleDeselectTable();
+        }
       } else {
         const data = await response.json();
         alert(data.error || 'Failed to close table');
@@ -1301,8 +1305,12 @@ export default function POSInterface() {
         localStorage.removeItem(`table-cart-${selectedTable.id}`);
         setTableCart([]);
 
-        // Close the table in DB
-        await closeTableInDB();
+        // Close the table in DB (skip deselect to avoid re-saving cart)
+        await closeTableInDB(true);
+
+        // Manually deselect table and show table grid
+        setSelectedTable(null);
+        setShowTableGrid(true);
       } else {
         const errorMessage = data.error || data.details || 'Failed to create order';
         throw new Error(errorMessage);
@@ -1383,8 +1391,12 @@ export default function POSInterface() {
         localStorage.removeItem(`table-cart-${selectedTable.id}`);
         setTableCart([]);
 
-        // Close the table in DB
-        await closeTableInDB();
+        // Close the table in DB (skip deselect to avoid re-saving cart)
+        await closeTableInDB(true);
+
+        // Manually deselect table and show table grid
+        setSelectedTable(null);
+        setShowTableGrid(true);
       } else {
         const errorMessage = data.error || data.details || 'Failed to create order';
         throw new Error(errorMessage);
