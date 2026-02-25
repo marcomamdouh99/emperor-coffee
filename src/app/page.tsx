@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { ShoppingCart, LayoutDashboard, Utensils, Package, Store, BarChart3, Settings, Users, LogOut, Lock, Globe, Coffee, Clock, TrendingUp, MapPin, UserRound, DollarSign, AlertTriangle, ArrowRight, Trash2, Gift, RefreshCw, Menu, Receipt as ReceiptIcon, Building, Tag, LayoutGrid, FileText } from 'lucide-react';
+import { ShoppingCart, LayoutDashboard, Utensils, Package, Store, BarChart3, Settings, Users, LogOut, Lock, Globe, Coffee, Clock, TrendingUp, MapPin, UserRound, DollarSign, AlertTriangle, ArrowRight, Trash2, Gift, RefreshCw, Menu, Receipt as ReceiptIcon, Building, Tag, LayoutGrid, FileText, Eye } from 'lucide-react';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { useI18n, Language } from '@/lib/i18n-context';
 import MenuManagement from '@/components/menu-management';
@@ -34,6 +34,7 @@ import TableManagement from '@/components/table-management';
 import AuditLogs from '@/components/audit-logs';
 import { OfflineStatusIndicator } from '@/components/offline-status-indicator';
 import { PWAInstallPrompt } from '@/components/pwa-install-prompt';
+import { SyncOperationsViewer } from '@/components/sync-operations-viewer';
 import { offlineManager } from '@/lib/offline/offline-manager';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@/hooks/use-toast';
 
@@ -46,6 +47,7 @@ export default function POSDashboard() {
   const [branches, setBranches] = useState<any[]>([]);
   const [userBranchName, setUserBranchName] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showSyncViewer, setShowSyncViewer] = useState(false);
 
   // Register Service Worker for PWA
   useEffect(() => {
@@ -355,39 +357,50 @@ export default function POSDashboard() {
 
               {/* Sync Button - Only show on larger screens */}
               {user.branchId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const syncInfo = await offlineManager.getSyncInfo();
-                      await offlineManager.checkActualConnectivity();
-                      const isOnline = offlineManager.isCurrentlyOnline();
-                      if (isOnline) {
-                        const result = await offlineManager.forceSync();
-                        if (result.success) {
-                          showSuccessToast('Sync Complete', `Synced ${result.operationsProcessed} operations`);
-                          setTimeout(() => window.location.reload(), 1500);
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSyncViewer(true)}
+                    className="border-emerald-600 hover:bg-emerald-50 hover:text-emerald-900 mr-2"
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Queue
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const syncInfo = await offlineManager.getSyncInfo();
+                        await offlineManager.checkActualConnectivity();
+                        const isOnline = offlineManager.isCurrentlyOnline();
+                        if (isOnline) {
+                          const result = await offlineManager.forceSync();
+                          if (result.success) {
+                            showSuccessToast('Sync Complete', `Synced ${result.operationsProcessed} operations`);
+                            setTimeout(() => window.location.reload(), 1500);
+                          } else {
+                            showErrorToast('Sync Failed', result.errors.join(', '));
+                          }
                         } else {
-                          showErrorToast('Sync Failed', result.errors.join(', '));
+                          const lastSync = syncInfo.lastPushTimestamp || syncInfo.lastPullTimestamp;
+                          showWarningToast(
+                            'Offline Mode',
+                            `Pending: ${syncInfo.pendingOperations}. Last sync: ${lastSync ? new Date(lastSync).toLocaleString() : 'Never'}`
+                          );
                         }
-                      } else {
-                        const lastSync = syncInfo.lastPushTimestamp || syncInfo.lastPullTimestamp;
-                        showWarningToast(
-                          'Offline Mode',
-                          `Pending: ${syncInfo.pendingOperations}. Last sync: ${lastSync ? new Date(lastSync).toLocaleString() : 'Never'}`
-                        );
+                      } catch (err) {
+                        console.error('Manual sync error:', err);
+                        showErrorToast('Sync Error', 'Failed to check sync status');
                       }
-                    } catch (err) {
-                      console.error('Manual sync error:', err);
-                      showErrorToast('Sync Error', 'Failed to check sync status');
-                    }
-                  }}
-                  className="border-emerald-600 hover:bg-emerald-50 hover:text-emerald-900 hidden sm:flex"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Sync
-                </Button>
+                    }}
+                    className="border-emerald-600 hover:bg-emerald-50 hover:text-emerald-900 hidden sm:flex"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sync
+                  </Button>
+                </>
               )}
 
               {/* Language Selector - Compact on mobile */}
@@ -852,3 +865,9 @@ function AccessDenied({ user }: { user: any }) {
     </Card>
   );
 }
+
+// Sync Operations Viewer
+<SyncOperationsViewer
+  open={showSyncViewer}
+  onOpenChange={setShowSyncViewer}
+/>

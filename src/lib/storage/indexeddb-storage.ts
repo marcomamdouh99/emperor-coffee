@@ -6,7 +6,7 @@
 
 // Database configuration
 const DB_NAME = 'emperor-pos-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented from 1 to 2 for temp_id_mappings
 const STORES = [
   'sync_operations',
   'sync_state',
@@ -28,7 +28,8 @@ const STORES = [
   'daily_expenses',
   'promo_codes',
   'inventory',
-] as const;
+  'temp_id_mappings',  // NEW: Store temporary ID to real ID mappings
+] as const const;
 
 // Operation types
 export enum OperationType {
@@ -465,6 +466,55 @@ class IndexedDBStorage {
 
   async getAllInventory(): Promise<any[]> {
     return this.getAll('inventory');
+  }
+
+  async batchSavePromoCodes(items: any[]): Promise<void> {
+    await this.batchPut('promo_codes', items);
+  }
+
+  async getAllPromoCodes(): Promise<any[]> {
+    return this.getAll('promo_codes');
+  }
+
+  // ============================================
+  // TEMP ID MAPPINGS (PERSISTENT MAPPING)
+  // ============================================
+
+  /**
+   * Save a temporary ID to real ID mapping
+   * Used when syncing offline-created entities
+   */
+  async saveTempIdMapping(tempId: string, realId: string, entityType: string): Promise<void> {
+    const mapping = {
+      id: `mapping_${tempId}`,
+      tempId,
+      realId,
+      entityType,
+      timestamp: Date.now(),
+    };
+    await this.put('temp_id_mappings', mapping);
+  }
+
+  /**
+   * Get a real ID from a temporary ID
+   */
+  async getRealIdFromTemp(tempId: string): Promise<string | null> {
+    const mapping = await this.get('temp_id_mappings', `mapping_${tempId}`);
+    return mapping?.realId || null;
+  }
+
+  /**
+   * Get all temp ID mappings
+   */
+  async getAllTempIdMappings(): Promise<any[]> {
+    return this.getAll('temp_id_mappings');
+  }
+
+  /**
+   * Clear temp ID mappings (after successful sync)
+   */
+  async clearTempIdMappings(): Promise<void> {
+    await this.clearStore('temp_id_mappings');
   }
 
   // ============================================
