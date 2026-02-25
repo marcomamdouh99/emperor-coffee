@@ -260,7 +260,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: report
+      report
     });
   } catch (error: any) {
     console.error('[Shift Closing Report Error]', error);

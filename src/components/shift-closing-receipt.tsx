@@ -120,11 +120,11 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       const response = await fetch(`/api/shifts/${shiftId}/closing-report`);
       const result: ApiResponse = await response.json();
 
-      if (!result.success || !result.data) {
+      if (!result.success || !result.report) {
         throw new Error(result.error || 'Failed to fetch shift data');
       }
 
-      const report = result.data;
+      const report = result.report;
 
       // Save full report data for printing
       setFullReportData(report);
