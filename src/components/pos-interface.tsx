@@ -230,7 +230,13 @@ interface MenuItem {
   isActive: boolean;
   hasVariants: boolean;
   imagePath?: string;
+  sortOrder?: number | null;
   variants?: MenuItemVariant[];
+  categoryRel?: {
+    id: string;
+    name: string;
+    sortOrder: number;
+  };
 }
 
 interface Category {
@@ -711,15 +717,49 @@ export default function POSInterface() {
 
   // Filter menu items by category and search
   const filteredMenuItems = useMemo(() => {
-    return menuItems.filter((item) => {
-      const matchesCategory = selectedCategory === 'all' || 
+    let items = menuItems.filter((item) => {
+      const matchesCategory = selectedCategory === 'all' ||
                             item.categoryId === selectedCategory ||
                             item.category === selectedCategory;
-      const matchesSearch = searchQuery === '' || 
+      const matchesSearch = searchQuery === '' ||
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.category.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
+
+    // Sort items: when "All Products" is selected, sort by category sortOrder, then item sortOrder, then name
+    // When specific category is selected, sort by item sortOrder, then name
+    items = [...items].sort((a, b) => {
+      if (selectedCategory === 'all') {
+        // Sort by category sortOrder first
+        const categoryASortOrder = a.categoryRel?.sortOrder ?? 9999;
+        const categoryBSortOrder = b.categoryRel?.sortOrder ?? 9999;
+
+        if (categoryASortOrder !== categoryBSortOrder) {
+          return categoryASortOrder - categoryBSortOrder;
+        }
+
+        // Then by category name (as a tiebreaker for same sortOrder)
+        const categoryAName = a.category?.toLowerCase() || '';
+        const categoryBName = b.category?.toLowerCase() || '';
+        if (categoryAName !== categoryBName) {
+          return categoryAName.localeCompare(categoryBName);
+        }
+      }
+
+      // Sort by item sortOrder (null values go last)
+      const sortA = a.sortOrder ?? 9999;
+      const sortB = b.sortOrder ?? 9999;
+
+      if (sortA !== sortB) {
+        return sortA - sortB;
+      }
+
+      // Then by name
+      return a.name.localeCompare(b.name);
+    });
+
+    return items;
   }, [menuItems, selectedCategory, searchQuery]);
 
   const getCategoryColor = (categoryName: string): string => {
