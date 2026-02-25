@@ -720,6 +720,7 @@ model Shift {
   closingDailyExpenses    Float?    @default(0) // Total daily expenses during shift
   closingPromoDiscounts   Float?    @default(0) // Total promo discounts applied during shift
   isClosed                Boolean   @default(false)
+  paymentBreakdown         Json?   // Store payment breakdown as JSON (cash, card, instapay, wallet, other)
   notes                   String?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt

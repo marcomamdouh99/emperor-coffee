@@ -368,18 +368,16 @@ export default function ClosingDayReport({ open, onClose, report, currency, auto
                 </Card>
               )}
 
-              {/* Footer */}
-              <div className="text-center pt-6 pb-4 border-t border-slate-200 dark:border-slate-700">
-                <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-800/50 rounded-full border border-slate-200 dark:border-slate-700">
-                  <FileText className="h-4 w-4 text-slate-500" />
-                  <div className="text-sm">
-                    <p className="text-slate-600 dark:text-slate-400">Report generated on {new Date().toLocaleString()}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5 font-medium">Emperor Coffee POS System</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </ScrollArea>
+
+        {/* Fixed Footer - Outside ScrollArea */}
+        <div className="flex-shrink-0 px-6 pb-6 pt-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <div className="text-center">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
