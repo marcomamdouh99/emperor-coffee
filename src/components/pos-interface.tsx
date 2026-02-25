@@ -306,6 +306,9 @@ export default function POSInterface() {
   // Categories expanded state
   const [categoriesExpanded, setCategoriesExpanded] = useState(true);
 
+  // Search bar visibility state
+  const [searchExpanded, setSearchExpanded] = useState(false);
+
   // Variant selection dialog state
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
   const [selectedItemForVariant, setSelectedItemForVariant] = useState<MenuItem | null>(null);
@@ -2397,58 +2400,146 @@ export default function POSInterface() {
               )}
             </Button>
 
-            {/* Enhanced Search */}
-            <div className="flex-1 relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md" />
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-emerald-500 transition-colors z-10" />
-              <Input
-                type="text"
-                placeholder="Search products, categories..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-11 h-11 bg-slate-100/80 dark:bg-slate-800/80 border-0 focus:ring-2 focus:ring-emerald-500/50 rounded-xl transition-all relative z-0"
-              />
-            </div>
+            {/* Collapsible Search Toggle */}
+            {!searchExpanded ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSearchExpanded(true)}
+                className="h-11 w-11 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-200 border border-slate-200/50 dark:border-slate-700/50 relative"
+                title="Search products"
+              >
+                <Search className="h-4 w-4" />
+                {searchQuery && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-emerald-500 rounded-full flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white">●</span>
+                  </span>
+                )}
+              </Button>
+            ) : (
+              <div className="flex-1 max-w-md relative group">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-emerald-500 transition-colors z-10" />
+                <Input
+                  type="text"
+                  placeholder="Search products, categories..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-11 pr-12 h-12 bg-slate-100/80 dark:bg-slate-800/80 border-0 focus:ring-2 focus:ring-emerald-500/50 rounded-xl transition-all relative z-0"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setSearchExpanded(false);
+                    setSearchQuery('');
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
-            {/* Order Type Toggle - Pill Style (Desktop) */}
-            <div className="hidden md:flex bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl p-1.5 border border-slate-200/50 dark:border-slate-700/50">
+            {/* Modern Order Type Buttons (Desktop) */}
+            <div className="hidden md:flex items-center gap-3">
               {(['take-away', 'dine-in', 'delivery'] as const).map((type) => {
-                const icons = {
-                  'dine-in': <Utensils className="h-3.5 w-3.5" />,
-                  'take-away': <Package className="h-3.5 w-3.5" />,
-                  'delivery': <Truck className="h-3.5 w-3.5" />,
+                const configs = {
+                  'dine-in': {
+                    icon: <Utensils className="h-5 w-5" />,
+                    label: 'Dine In',
+                    gradient: 'from-purple-500 to-violet-600',
+                    bg: 'bg-purple-50 dark:bg-purple-950/30',
+                    border: 'border-purple-200 dark:border-purple-800',
+                    text: 'text-purple-600 dark:text-purple-400',
+                  },
+                  'take-away': {
+                    icon: <Package className="h-5 w-5" />,
+                    label: 'Take Away',
+                    gradient: 'from-amber-500 to-orange-600',
+                    bg: 'bg-amber-50 dark:bg-amber-950/30',
+                    border: 'border-amber-200 dark:border-amber-800',
+                    text: 'text-amber-600 dark:text-amber-400',
+                  },
+                  'delivery': {
+                    icon: <Truck className="h-5 w-5" />,
+                    label: 'Delivery',
+                    gradient: 'from-blue-500 to-cyan-600',
+                    bg: 'bg-blue-50 dark:bg-blue-950/30',
+                    border: 'border-blue-200 dark:border-blue-800',
+                    text: 'text-blue-600 dark:text-blue-400',
+                  },
                 };
+                const config = configs[type];
+                const isActive = orderType === type;
+
                 return (
                   <button
                     key={type}
                     onClick={() => setOrderType(type)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                      orderType === type
-                        ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-md'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
+                    className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold transition-all duration-300 shadow-sm hover:shadow-lg min-w-[140px] ${
+                      isActive
+                        ? `bg-gradient-to-r ${config.gradient} text-white shadow-lg shadow-${config.gradient.split('-')[1]}-500/30 transform scale-105`
+                        : `${config.bg} ${config.border} ${config.text} hover:scale-102 hover:shadow-md`
                     }`}
+                    aria-label={`Switch to ${config.label}`}
+                    aria-pressed={isActive}
                   >
-                    {icons[type]}
-                    {type === 'dine-in' && 'Dine In'}
-                    {type === 'take-away' && 'Take Away'}
-                    {type === 'delivery' && 'Delivery'}
+                    <span className={`flex items-center justify-center w-8 h-8 rounded-xl ${
+                      isActive ? 'bg-white/20' : 'bg-white/50 dark:bg-white/10'
+                    }`}>
+                      {config.icon}
+                    </span>
+                    <span>{config.label}</span>
                   </button>
                 );
               })}
             </div>
 
             {/* Mobile Order Type Selector */}
-            <div className="md:hidden">
-              <Select value={orderType} onValueChange={(value: any) => setOrderType(value)}>
-                <SelectTrigger className="w-24 h-11 bg-slate-100/80 dark:bg-slate-800/80 border-0 focus:ring-2 focus:ring-emerald-500/50 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="take-away">Take Away</SelectItem>
-                  <SelectItem value="dine-in">Dine In</SelectItem>
-                  <SelectItem value="delivery">Delivery</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="md:hidden flex items-center gap-2">
+              {(['take-away', 'dine-in', 'delivery'] as const).map((type) => {
+                const configs = {
+                  'dine-in': {
+                    icon: <Utensils className="h-4 w-4" />,
+                    gradient: 'from-purple-500 to-violet-600',
+                  },
+                  'take-away': {
+                    icon: <Package className="h-4 w-4" />,
+                    gradient: 'from-amber-500 to-orange-600',
+                  },
+                  'delivery': {
+                    icon: <Truck className="h-4 w-4" />,
+                    gradient: 'from-blue-500 to-cyan-600',
+                  },
+                };
+                const config = configs[type];
+                const isActive = orderType === type;
+
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setOrderType(type)}
+                    className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 ${
+                      isActive
+                        ? `bg-gradient-to-br ${config.gradient} text-white shadow-lg`
+                        : 'bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50'
+                    }`}
+                    aria-label={`Switch to ${type}`}
+                    aria-pressed={isActive}
+                  >
+                    <span className="flex items-center justify-center w-8 h-8 rounded-lg">
+                      {config.icon}
+                    </span>
+                    <span className="text-[10px] font-bold mt-1">
+                      {type === 'dine-in' && 'Dine In'}
+                      {type === 'take-away' && 'Take Away'}
+                      {type === 'delivery' && 'Delivery'}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Branch Selector for Admin */}
