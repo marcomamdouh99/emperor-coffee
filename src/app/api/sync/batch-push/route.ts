@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { SyncDirection, SyncStatus } from '@prisma/client';
 import { createSyncHistory } from '@/lib/sync-utils';
+import { conflictManager, ConflictType, ResolutionStrategy } from '@/lib/sync/conflict-manager';
 
 // Operation types
 const OperationType = {
@@ -100,6 +101,8 @@ export async function POST(request: NextRequest) {
       failed: 0,
       failedIds: [] as string[],
       errors: [] as string[],
+      conflictsDetected: 0,
+      conflictsResolved: 0,
     };
 
     // Process operations
@@ -118,6 +121,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Auto-resolve any conflicts that were detected
+    const autoResolvedConflicts = await conflictManager.autoResolveConflicts();
+    results.conflictsResolved = autoResolvedConflicts.length;
+    results.conflictsDetected = conflictManager.getAllConflicts().length;
+
     // Record sync history if any operations were processed
     if (results.processed > 0) {
       const syncHistoryId = await createSyncHistory(
@@ -125,15 +133,15 @@ export async function POST(request: NextRequest) {
         SyncDirection.UP,
         results.processed
       );
-      
+
       // Update sync history with completion details
-      if (results.failed > 0) {
+      if (results.failed > 0 || results.conflictsDetected > 0) {
         await db.syncHistory.update({
           where: { id: syncHistoryId },
           data: {
             syncCompletedAt: new Date(),
             status: results.failed === results.processed ? SyncStatus.FAILED : SyncStatus.PARTIAL,
-            errorDetails: results.errors.join('; ')
+            errorDetails: results.errors.join('; ') + (results.conflictsDetected > 0 ? ` | ${results.conflictsDetected} conflicts detected, ${results.conflictsResolved} resolved` : '')
           }
         });
       }
@@ -145,6 +153,9 @@ export async function POST(request: NextRequest) {
       failed: results.failed,
       failedIds: results.failedIds,
       errors: results.errors,
+      conflictsDetected: results.conflictsDetected,
+      conflictsResolved: results.conflictsResolved,
+      conflictStats: conflictManager.getConflictStats(),
     });
   } catch (error) {
     console.error('[BatchPush] Error:', error);
@@ -1207,6 +1218,38 @@ async function createInventoryTransaction(data: any, branchId: string): Promise<
  * Update customer
  */
 async function updateCustomer(data: any, branchId: string): Promise<void> {
+  // Get existing customer for conflict detection
+  const existingCustomer = await db.customer.findUnique({
+    where: { id: data.id },
+  });
+
+  if (existingCustomer) {
+    // Check for conflicts
+    const conflict = await conflictManager.detectConflict(
+      'Customer',
+      data.id,
+      data,
+      existingCustomer,
+      'UPDATE_CUSTOMER'
+    );
+
+    if (conflict) {
+      // Auto-resolve using default strategy (LAST_WRITE_WINS for updates)
+      const resolved = await conflictManager.resolveConflict(
+        conflict.id,
+        ResolutionStrategy.LAST_WRITE_WINS,
+        'auto-resolver'
+      );
+
+      console.log(`[BatchPush] Resolved conflict for customer ${data.id} using LAST_WRITE_WINS`);
+
+      // Use resolved data for the update
+      if (resolved.resolvedData) {
+        data = { ...data, ...resolved.resolvedData };
+      }
+    }
+  }
+
   await db.customer.update({
     where: { id: data.id },
     data: {
