@@ -19,7 +19,7 @@ import {
   TrendingUp, AlertTriangle, Grid, Filter, Menu as MenuIcon,
   Sparkles, Bell, Layers, Wallet, Calendar, Barcode, Receipt, Utensils,
   ChevronRight, Tag, Gift, ShoppingBag, RefreshCw, Check, Info,
-  PanelLeftClose, PanelLeftOpen, Users, MessageSquare, Edit3, Smartphone, Pause, Play, Calculator
+  PanelLeftClose, PanelLeftOpen, Users, MessageSquare, Edit3, Smartphone, Pause, Play, Calculator, ArrowRight
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
 import { formatCurrency } from '@/lib/utils';
@@ -332,6 +332,12 @@ export default function POSInterface() {
   const [showNumberPad, setShowNumberPad] = useState(false);
   const [numberPadValue, setNumberPadValue] = useState('');
   const [numberPadCallback, setNumberPadCallback] = useState<((value: string) => void) | null>(null);
+
+  // Table Item Transfer state
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [transferItems, setTransferItems] = useState<Record<string, number>>({});
+  const [targetTableId, setTargetTableId] = useState<string>('');
+  const [availableTables, setAvailableTables] = useState<any[]>([]);
 
   const { currency, t } = useI18n();
   const { data: categoriesData, loading: categoriesLoading } = useOfflineData(
@@ -1027,6 +1033,142 @@ export default function POSInterface() {
     setSelectedTable(null);
     setShowTableGrid(true);
     setTableCart([]);
+  };
+
+  // Transfer Items handlers
+  const handleOpenTransferDialog = async () => {
+    if (!selectedTable) return;
+
+    const branchId = user?.role === 'CASHIER' ? user?.branchId : selectedBranch;
+    if (!branchId) return;
+
+    try {
+      const response = await fetch(`/api/tables?branchId=${branchId}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter only OCCUPIED tables (excluding current table)
+        const occupiedTables = (data.tables || []).filter(
+          (t: any) => t.status === 'OCCUPIED' && t.id !== selectedTable.id
+        );
+        setAvailableTables(occupiedTables);
+
+        if (occupiedTables.length === 0) {
+          alert('No other occupied tables available for transfer');
+          return;
+        }
+
+        // Initialize transfer items with current quantities
+        const initialTransferItems: Record<string, number> = {};
+        tableCart.forEach(item => {
+          initialTransferItems[item.id] = 0;
+        });
+        setTransferItems(initialTransferItems);
+        setTargetTableId('');
+        setShowTransferDialog(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tables:', error);
+      alert('Failed to load available tables');
+    }
+  };
+
+  const handleTransferItems = () => {
+    if (!selectedTable || !targetTableId) {
+      alert('Please select a target table');
+      return;
+    }
+
+    // Validate at least one item is selected
+    const itemsToTransfer = Object.entries(transferItems).filter(([_, qty]) => qty > 0);
+    if (itemsToTransfer.length === 0) {
+      alert('Please select at least one item to transfer');
+      return;
+    }
+
+    // Validate quantities
+    for (const [itemId, qty] of itemsToTransfer) {
+      const item = tableCart.find(i => i.id === itemId);
+      if (!item || qty > item.quantity) {
+        alert(`Invalid quantity for ${item?.name || 'item'}`);
+        return;
+      }
+    }
+
+    if (!confirm(`Transfer ${itemsToTransfer.length} item(s) to Table ${availableTables.find(t => t.id === targetTableId)?.tableNumber}?`)) {
+      return;
+    }
+
+    // Perform transfer
+    try {
+      const sourceCart = [...tableCart];
+      const targetCartKey = `table-cart-${targetTableId}`;
+      const targetCartJson = localStorage.getItem(targetCartKey);
+      let targetCart: CartItem[] = targetCartJson ? JSON.parse(targetCartJson) : [];
+
+      itemsToTransfer.forEach(([itemId, qty]) => {
+        const sourceItem = sourceCart.find(i => i.id === itemId);
+        if (!sourceItem) return;
+
+        // Check if item exists in target cart
+        const targetItem = targetCart.find(t =>
+          t.menuItemId === sourceItem.menuItemId &&
+          t.variantId === sourceItem.variantId &&
+          t.note === sourceItem.note &&
+          t.customVariantValue === sourceItem.customVariantValue
+        );
+
+        if (targetItem) {
+          // Update existing item
+          targetItem.quantity += qty;
+        } else {
+          // Add new item
+          targetCart.push({
+            ...sourceItem,
+            quantity: qty,
+          });
+        }
+
+        // Update or remove from source cart
+        if (qty >= sourceItem.quantity) {
+          // Remove item completely
+          const idx = sourceCart.findIndex(i => i.id === itemId);
+          if (idx > -1) sourceCart.splice(idx, 1);
+        } else {
+          // Update quantity
+          sourceItem.quantity -= qty;
+        }
+      });
+
+      // Save both carts
+      setTableCart(sourceCart);
+      localStorage.setItem(`table-cart-${selectedTable.id}`, JSON.stringify(sourceCart));
+      localStorage.setItem(targetCartKey, JSON.stringify(targetCart));
+
+      setShowTransferDialog(false);
+      setTransferItems({});
+      setTargetTableId('');
+      alert('Items transferred successfully!');
+    } catch (error) {
+      console.error('Transfer failed:', error);
+      alert('Failed to transfer items');
+    }
+  };
+
+  const handleTransferQuantityChange = (itemId: string, value: number) => {
+    setTransferItems(prev => ({
+      ...prev,
+      [itemId]: Math.max(0, value),
+    }));
+  };
+
+  const handleSetMaxQuantity = (itemId: string) => {
+    const item = tableCart.find(i => i.id === itemId);
+    if (item) {
+      setTransferItems(prev => ({
+        ...prev,
+        [itemId]: item.quantity,
+      }));
+    }
   };
 
   const handleCloseTable = async () => {
@@ -2366,11 +2508,22 @@ export default function POSInterface() {
           )}
           {/* Held Orders Button */}
           <div className="mt-2 flex gap-2">
+            {orderType === 'dine-in' && selectedTable && tableCart.length > 0 && (
+              <Button
+                onClick={handleOpenTransferDialog}
+                size="sm"
+                variant="outline"
+                className="flex-1 h-9 text-xs border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/50"
+              >
+                <ArrowRight className="h-3.5 w-3.5 mr-2" />
+                Transfer Items
+              </Button>
+            )}
             <Button
               onClick={() => setShowHeldOrdersDialog(true)}
               size="sm"
               variant="outline"
-              className="flex-1 h-9 text-xs border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/50"
+              className={`h-9 text-xs border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 ${orderType === 'dine-in' && selectedTable && tableCart.length > 0 ? 'flex-1' : 'flex-1'}`}
             >
               <Clock className="h-3.5 w-3.5 mr-2" />
               Held Orders
@@ -4066,6 +4219,133 @@ export default function POSInterface() {
               className="flex-1 rounded-xl h-11 font-semibold"
             >
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Items Dialog */}
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent className="sm:max-w-2xl rounded-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-4 border-b">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+                <ArrowRight className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold">Transfer Items</DialogTitle>
+                <DialogDescription>
+                  From Table {selectedTable?.tableNumber} to another table
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1 py-4 px-2">
+            <div className="space-y-4">
+              {/* Target Table Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Target Table *</Label>
+                <Select value={targetTableId} onValueChange={setTargetTableId}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Select a table" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTables.map((table) => (
+                      <SelectItem key={table.id} value={table.id}>
+                        Table {table.tableNumber} {table.customer ? `- ${table.customer.name}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Items to Transfer */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Items to Transfer</Label>
+                <div className="space-y-3">
+                  {tableCart.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <h4 className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                            {item.name}
+                          </h4>
+                          {item.variantName && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.variantName}</p>
+                          )}
+                          {item.note && (
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 italic">"{item.note}"</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(item.price * item.quantity, currency)}
+                          </p>
+                          <p className="text-xs text-slate-500">Available: {item.quantity}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSetMaxQuantity(item.id)}
+                          className="h-8 text-xs"
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          All
+                        </Button>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={item.quantity}
+                          value={transferItems[item.id] || 0}
+                          onChange={(e) => handleTransferQuantityChange(item.id, parseInt(e.target.value) || 0)}
+                          className="h-8 text-center font-semibold"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTransferQuantityChange(item.id, Math.max(0, (transferItems[item.id] || 0) - 1))}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTransferQuantityChange(item.id, Math.min(item.quantity, (transferItems[item.id] || 0) + 1))}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="pt-4 border-t">
+            <Button
+              onClick={() => setShowTransferDialog(false)}
+              variant="outline"
+              className="flex-1 rounded-xl h-11 font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleTransferItems}
+              disabled={!targetTableId || Object.values(transferItems).every(qty => qty === 0)}
+              className="flex-1 rounded-xl h-11 font-semibold bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 shadow-lg shadow-blue-500/30"
+            >
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Transfer Items
             </Button>
           </DialogFooter>
         </DialogContent>
