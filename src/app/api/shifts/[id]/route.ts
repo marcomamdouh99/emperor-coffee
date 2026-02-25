@@ -44,21 +44,36 @@ async function closeShift(id: string, body: any) {
         select: {
           id: true,
           tableNumber: true,
+          status: true,
         },
       },
     },
   });
+
+  console.log('[closeShift] Active dine-in orders:', JSON.stringify(activeDineInOrders.map(o => ({
+    orderId: o.id,
+    tableNumber: o.table?.tableNumber,
+    tableStatus: o.table?.status,
+    totalAmount: o.totalAmount,
+    isRefunded: o.isRefunded,
+  })), null, 2));
 
   // Filter out orders that are fully refunded or don't have active tables
   const activeOrders = activeDineInOrders.filter(order => {
     // Check if the table is still occupied
     if (order.table) {
       const tableOrders = activeDineInOrders.filter(o => o.tableId === order.tableId);
-      // Only consider table active if there are non-refunded orders
-      return tableOrders.length > 0;
+      // Only consider table active if there are non-refunded orders AND table is OCCUPIED
+      return tableOrders.length > 0 && order.table.status === 'OCCUPIED';
     }
     return false;
   });
+
+  console.log('[closeShift] Filtered active orders:', JSON.stringify(activeOrders.map(o => ({
+    orderId: o.id,
+    tableNumber: o.table?.tableNumber,
+    tableStatus: o.table?.status,
+  })), null, 2));
 
   // Also check for tables with OCCUPIED status that have orders in this shift
   const occupiedTables = await db.table.findMany({
@@ -68,6 +83,12 @@ async function closeShift(id: string, body: any) {
       openedBy: shift.cashierId,
     },
   });
+
+  console.log('[closeShift] Occupied tables from DB:', JSON.stringify(occupiedTables.map(t => ({
+    tableNumber: t.tableNumber,
+    status: t.status,
+    openedBy: t.openedBy,
+  })), null, 2));
 
   // Combine both checks
   const openTables = new Set();
@@ -79,6 +100,8 @@ async function closeShift(id: string, body: any) {
   occupiedTables.forEach(table => {
     openTables.add(table.tableNumber);
   });
+
+  console.log('[closeShift] Combined openTables set:', Array.from(openTables));
 
   if (openTables.size > 0) {
     const tableNumbers = Array.from(openTables).sort((a, b) => a - b).join(', ');
