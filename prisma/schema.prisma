@@ -94,6 +94,7 @@ model Branch {
   promoBranchRestrictions PromotionBranch[]
   tables                  Table[]
   dailyExpenses           DailyExpense[]
+  menuItemAssignments     MenuItemBranch[]
 
   @@index([licenseKey])
   @@index([isActive])
@@ -197,12 +198,31 @@ model MenuItem {
   recipes     Recipe[]
   orderItems  OrderItem[]
   variants    MenuItemVariant[]
+  branchAssignments MenuItemBranch[]
 
   @@index([category])
   @@index([categoryId])
   @@index([isActive])
   @@index([version])
   @@index([hasVariants])
+}
+
+// ============================================
+// MENU ITEM BRANCH ASSIGNMENTS
+// ============================================
+
+model MenuItemBranch {
+  id         String   @id @default(cuid())
+  menuItemId String
+  branchId   String
+  createdAt  DateTime @default(now())
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  branch   Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, branchId])
+  @@index([menuItemId])
+  @@index([branchId])
 }
 
 model Recipe {

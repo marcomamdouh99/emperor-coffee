@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Pencil, Trash2, Coffee, DollarSign, Search, Folder, TrendingUp, Package, Layers, ChevronDown, ChevronUp, X, List } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
 import { formatCurrency } from '@/lib/utils';
@@ -30,6 +31,8 @@ interface MenuItem {
   profit?: number;
   profitMargin?: number;
   variants?: MenuItemVariant[];
+  branchIds?: string[];
+  availableToAllBranches?: boolean;
 }
 
 interface MenuItemVariant {
@@ -51,6 +54,12 @@ interface MenuItemVariant {
   productCost?: number;
   profit?: number;
   profitMargin?: number;
+}
+
+interface Branch {
+  id: string;
+  branchName: string;
+  isActive: boolean;
 }
 
 interface Category {
@@ -89,6 +98,8 @@ interface MenuItemFormData {
   isActive: boolean;
   hasVariants: boolean;
   sortOrder: string;
+  branchIds: string[];
+  availableToAllBranches: boolean;
 }
 
 interface CategoryFormData {
@@ -133,6 +144,8 @@ export default function MenuManagement() {
     isActive: true,
     hasVariants: false,
     sortOrder: '0',
+    branchIds: [],
+    availableToAllBranches: true,
   });
 
   // Variant Management State
@@ -151,6 +164,10 @@ export default function MenuManagement() {
     isActive: true,
     defaultVariantTypeId: '',
   });
+
+  // Branches State
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
 
   // Variants Tab State
   const [variantsVariantTypes, setVariantsVariantTypes] = useState<VariantType[]>([]);
@@ -195,6 +212,11 @@ export default function MenuManagement() {
   // Fetch menu items
   useEffect(() => {
     fetchMenuItems();
+  }, []);
+
+  // Fetch branches
+  useEffect(() => {
+    fetchBranches();
   }, []);
 
   const fetchVariantTypes = async () => {
@@ -245,6 +267,21 @@ export default function MenuManagement() {
       console.error('Failed to fetch menu items:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBranches = async () => {
+    setBranchesLoading(true);
+    try {
+      const response = await fetch('/api/branches?active=true');
+      const data = await response.json();
+      if (response.ok && data.branches) {
+        setBranches(data.branches);
+      }
+    } catch (error) {
+      console.error('Failed to fetch branches:', error);
+    } finally {
+      setBranchesLoading(false);
     }
   };
 
@@ -600,6 +637,25 @@ export default function MenuManagement() {
     try {
       let menuItemId: string | null = null;
 
+      // Prepare payload with branch information
+      const payload: any = {
+        name: itemFormData.name,
+        category: itemFormData.category,
+        categoryId: itemFormData.categoryId,
+        price: itemFormData.price,
+        taxRate: itemFormData.taxRate,
+        isActive: itemFormData.isActive,
+        hasVariants: itemFormData.hasVariants,
+        sortOrder: itemFormData.sortOrder,
+      };
+
+      // Handle branch assignment
+      if (itemFormData.availableToAllBranches) {
+        payload.branchIds = ['all']; // Available to all branches
+      } else {
+        payload.branchIds = itemFormData.branchIds; // Only available to selected branches
+      }
+
       if (editingItem) {
         menuItemId = editingItem.id;
         const response = await fetch('/api/menu-items', {
@@ -608,7 +664,7 @@ export default function MenuManagement() {
           body: JSON.stringify({
             _method: 'PATCH',
             id: menuItemId,
-            ...itemFormData,
+            ...payload,
           }),
         });
 
@@ -620,7 +676,7 @@ export default function MenuManagement() {
         const response = await fetch('/api/menu-items', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(itemFormData),
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
@@ -718,6 +774,8 @@ export default function MenuManagement() {
       isActive: item.isActive,
       hasVariants: item.hasVariants,
       sortOrder: (item.sortOrder ?? 0).toString(),
+      branchIds: item.branchIds || [],
+      availableToAllBranches: item.availableToAllBranches ?? true,
     });
 
     // Fetch variants if the item has them
@@ -767,6 +825,8 @@ export default function MenuManagement() {
       isActive: true,
       hasVariants: false,
       sortOrder: '0',
+      branchIds: [],
+      availableToAllBranches: true,
     });
     setItemVariants([]);
     setSelectedVariantType('');
@@ -967,6 +1027,87 @@ export default function MenuManagement() {
                               placeholder="0"
                               className="h-11"
                             />
+                          </div>
+                        </div>
+
+                        {/* Branch Selection */}
+                        <div className="border-t pt-4">
+                          <div className="space-y-1 mb-4">
+                            <Label className="flex items-center gap-2 text-base font-semibold">
+                              <Package className="h-4 w-4" />
+                              Branch Availability
+                            </Label>
+                            <p className="text-sm text-slate-500">
+                              Choose which branches can see this menu item
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3 p-3 border rounded-lg bg-slate-50">
+                              <Checkbox
+                                id="all-branches"
+                                checked={itemFormData.availableToAllBranches}
+                                onCheckedChange={(checked) => {
+                                  setItemFormData({
+                                    ...itemFormData,
+                                    availableToAllBranches: checked as boolean,
+                                    branchIds: checked ? [] : itemFormData.branchIds,
+                                  });
+                                }}
+                              />
+                              <div className="flex-1">
+                                <Label
+                                  htmlFor="all-branches"
+                                  className="cursor-pointer font-medium"
+                                >
+                                  Available to all branches
+                                </Label>
+                                <p className="text-xs text-slate-500">
+                                  This item will be visible in all branches (default)
+                                </p>
+                              </div>
+                            </div>
+
+                            {!itemFormData.availableToAllBranches && (
+                              <div className="space-y-2 pl-1">
+                                <Label className="text-sm font-medium">Select specific branches:</Label>
+                                {branchesLoading ? (
+                                  <div className="text-sm text-slate-500">Loading branches...</div>
+                                ) : branches.length === 0 ? (
+                                  <div className="text-sm text-slate-500">No branches available</div>
+                                ) : (
+                                  <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3 bg-slate-50">
+                                    {branches.map((branch) => (
+                                      <div key={branch.id} className="flex items-center gap-3">
+                                        <Checkbox
+                                          id={`branch-${branch.id}`}
+                                          checked={itemFormData.branchIds.includes(branch.id)}
+                                          onCheckedChange={(checked) => {
+                                            if (checked) {
+                                              setItemFormData({
+                                                ...itemFormData,
+                                                branchIds: [...itemFormData.branchIds, branch.id],
+                                              });
+                                            } else {
+                                              setItemFormData({
+                                                ...itemFormData,
+                                                branchIds: itemFormData.branchIds.filter(id => id !== branch.id),
+                                              });
+                                            }
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor={`branch-${branch.id}`}
+                                          className="flex-1 cursor-pointer text-sm"
+                                        >
+                                          {branch.branchName}
+                                        </Label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
 

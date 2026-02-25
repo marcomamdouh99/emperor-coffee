@@ -377,7 +377,7 @@ export default function POSInterface() {
   );
 
   const { data: menuItemsData, loading: menuItemsLoading, refetch: refetchMenuItems } = useOfflineData(
-    '/api/menu-items?active=true&includeVariants=true',
+    `/api/menu-items?active=true&includeVariants=true&branchId=${user?.branchId || ''}`,
     {
       fetchFromDB: offlineDataFetchers.menuItems,
     }

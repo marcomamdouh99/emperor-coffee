@@ -8,74 +8,158 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const active = searchParams.get('active');
     const includeVariants = searchParams.get('includeVariants') === 'true';
+    const branchId = searchParams.get('branchId');
 
     // Generate cache key based on query parameters
-    const cacheKey = `menu:items:${category || 'all'}:${active || 'all'}:${includeVariants ? 'variants' : 'no-variants'}`;
+    const cacheKey = `menu:items:${category || 'all'}:${active || 'all'}:${includeVariants ? 'variants' : 'no-variants'}:${branchId || 'all-branches'}`;
 
     const menuItems = await getCached(cacheKey, async () => {
-      return await db.menuItem.findMany({
-        where: {
-          ...(category && category !== 'all' ? { category } : {}),
-          ...(active !== null ? { isActive: active === 'true' } : {}),
-        },
-        orderBy: [
-          { sortOrder: 'asc' },
-          { name: 'asc' },
-        ],
-        include: {
-          recipes: {
-            include: {
-              ingredient: {
-                select: {
-                  id: true,
-                  name: true,
-                  costPerUnit: true,
-                  unit: true,
+      // Build where clause
+      const whereClause: any = {
+        ...(category && category !== 'all' ? { category } : {}),
+        ...(active !== null ? { isActive: active === 'true' } : {}),
+      };
+
+      // If branchId is provided, filter menu items by branch
+      // Items are available if they have NO branch assignments (all branches) OR have an assignment to this branch
+      if (branchId) {
+        // This is a complex filter - we'll get items and filter in code for simplicity
+        // Or use a more sophisticated Prisma query
+        const allMenuItems = await db.menuItem.findMany({
+          where: whereClause,
+          orderBy: [
+            { sortOrder: 'asc' },
+            { name: 'asc' },
+          ],
+          include: {
+            branchAssignments: true,
+            recipes: {
+              include: {
+                ingredient: {
+                  select: {
+                    id: true,
+                    name: true,
+                    costPerUnit: true,
+                    unit: true,
+                  },
                 },
               },
             },
-          },
-          categoryRel: {
-            select: {
-              id: true,
-              name: true,
-              sortOrder: true,
+            categoryRel: {
+              select: {
+                id: true,
+                name: true,
+                sortOrder: true,
+              },
             },
-          },
-          ...(includeVariants ? {
-            variants: {
-              include: {
-                variantType: {
-                  select: {
-                    id: true,
-                    name: true,
-                    isCustomInput: true,
+            ...(includeVariants ? {
+              variants: {
+                include: {
+                  variantType: {
+                    select: {
+                      id: true,
+                      name: true,
+                      isCustomInput: true,
+                    },
                   },
-                },
-                variantOption: {
-                  select: {
-                    id: true,
-                    name: true,
+                  variantOption: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
                   },
-                },
-                recipes: {
-                  include: {
-                    ingredient: {
-                      select: {
-                        id: true,
-                        name: true,
-                        costPerUnit: true,
-                        unit: true,
+                  recipes: {
+                    include: {
+                      ingredient: {
+                        select: {
+                          id: true,
+                          name: true,
+                          costPerUnit: true,
+                          unit: true,
+                        },
                       },
                     },
                   },
                 },
+                orderBy: { sortOrder: 'asc' },
               },
-              orderBy: { sortOrder: 'asc' },
+            } : {}),
+          },
+        });
+
+        // Filter by branch: item is available if it has NO assignments OR has assignment to this branch
+        return allMenuItems.filter(item => {
+          // If no branch assignments, item is available to all branches
+          if (!item.branchAssignments || item.branchAssignments.length === 0) {
+            return true;
+          }
+          // If has assignments, check if any is for this branch
+          return item.branchAssignments.some(ba => ba.branchId === branchId);
+        });
+      } else {
+        // No branch filter, return all items
+        return await db.menuItem.findMany({
+          where: whereClause,
+          orderBy: [
+            { sortOrder: 'asc' },
+            { name: 'asc' },
+          ],
+          include: {
+            branchAssignments: true,
+            recipes: {
+              include: {
+                ingredient: {
+                  select: {
+                    id: true,
+                    name: true,
+                    costPerUnit: true,
+                    unit: true,
+                  },
+                },
+              },
             },
-          } : {}),
-        },
-      });
+            categoryRel: {
+              select: {
+                id: true,
+                name: true,
+                sortOrder: true,
+              },
+            },
+            ...(includeVariants ? {
+              variants: {
+                include: {
+                  variantType: {
+                    select: {
+                      id: true,
+                      name: true,
+                      isCustomInput: true,
+                    },
+                  },
+                  variantOption: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
+                  recipes: {
+                    include: {
+                      ingredient: {
+                        select: {
+                          id: true,
+                          name: true,
+                          costPerUnit: true,
+                          unit: true,
+                        },
+                      },
+                    },
+                  },
+                },
+                orderBy: { sortOrder: 'asc' },
+              },
+            } : {}),
+          },
+        });
+      }
     }, 300000); // 5 minute cache
 
     // Calculate dynamic product cost for each menu item and its variants
@@ -118,12 +202,18 @@ export async function GET(request: NextRequest) {
         };
       }) || [];
 
+      // Extract branch IDs from assignments
+      const assignedBranchIds = item.branchAssignments?.map(ba => ba.branchId) || [];
+      const isAvailableToAllBranches = assignedBranchIds.length === 0;
+
       return {
         ...item,
         productCost: parseFloat(baseProductCost.toFixed(2)),
         profit: parseFloat(profit.toFixed(2)),
         profitMargin: parseFloat(profitMargin.toFixed(2)),
         variants: variantsWithCost,
+        branchIds: assignedBranchIds,
+        availableToAllBranches: isAvailableToAllBranches,
       };
     });
 
@@ -143,72 +233,11 @@ export async function POST(request: NextRequest) {
     
     // Check if this is a PATCH override for updates
     if (body._method === 'PATCH') {
-      const { id, name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants } = body;
-
-      if (!id) {
-        return NextResponse.json(
-          { error: 'Menu item ID is required' },
-          { status: 400 }
-        );
-      }
-
-      // Check if menu item exists
-      const existingItem = await db.menuItem.findUnique({
-        where: { id },
-      });
-
-      if (!existingItem) {
-        return NextResponse.json(
-          { error: 'Menu item not found' },
-          { status: 404 }
-        );
-      }
-
-      // Validate categoryId if provided and not empty
-      if (categoryId && categoryId.trim() !== '') {
-        const cat = await db.category.findUnique({ where: { id: categoryId } });
-        if (!cat) {
-          return NextResponse.json(
-            { error: 'Category not found' },
-            { status: 404 }
-          );
-        }
-      }
-
-      // Build update data with proper validation
-      const updateData: any = {};
-      if (name && name.trim() !== '') updateData.name = name.trim();
-      if (category && category.trim() !== '') updateData.category = category.trim();
-      if (categoryId && categoryId.trim() !== '') updateData.categoryId = categoryId.trim();
-      if (price !== undefined && price !== '' && !isNaN(parseFloat(price))) {
-        updateData.price = parseFloat(price);
-      }
-      if (taxRate !== undefined && taxRate !== '' && !isNaN(parseFloat(taxRate))) {
-        updateData.taxRate = parseFloat(taxRate);
-      }
-      if (isActive !== undefined) updateData.isActive = isActive;
-      if (sortOrder !== undefined && sortOrder !== '' && !isNaN(parseInt(sortOrder))) {
-        updateData.sortOrder = parseInt(sortOrder);
-      }
-      if (hasVariants !== undefined) updateData.hasVariants = hasVariants;
-
-      // Update menu item
-      const menuItem = await db.menuItem.update({
-        where: { id },
-        data: updateData,
-      });
-
-      // Invalidate menu items cache
-      invalidateCachePattern('^menu:items:');
-
-      return NextResponse.json({
-        success: true,
-        menuItem,
-      });
+      return await handleUpdate(body);
     }
 
     // Original POST logic for creating new items
-    const { name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants } = body;
+    const { name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants, branchIds } = body;
 
     if (!name || !price) {
       return NextResponse.json(
@@ -230,6 +259,21 @@ export async function POST(request: NextRequest) {
       validCategoryId = categoryId;
     }
 
+    // Validate branchIds if provided
+    let validBranchIds: string[] = [];
+    if (branchIds && Array.isArray(branchIds) && branchIds.length > 0) {
+      // Check if "all" is selected (special case)
+      if (!branchIds.includes('all')) {
+        // Validate each branch ID
+        const branches = await db.branch.findMany({
+          where: { id: { in: branchIds } },
+          select: { id: true },
+        });
+        validBranchIds = branches.map(b => b.id);
+      }
+      // If "all" is in the array, we leave validBranchIds empty (means available to all)
+    }
+
     // Create menu item
     const menuItem = await db.menuItem.create({
       data: {
@@ -243,6 +287,17 @@ export async function POST(request: NextRequest) {
         hasVariants: hasVariants !== undefined ? hasVariants : false,
       },
     });
+
+    // Create branch assignments if specific branches are selected
+    if (validBranchIds.length > 0) {
+      await db.menuItemBranch.createMany({
+        data: validBranchIds.map(branchId => ({
+          menuItemId: menuItem.id,
+          branchId,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     // Invalidate menu items cache
     invalidateCachePattern('^menu:items:');
@@ -260,71 +315,105 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { id, name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants } = body;
+async function handleUpdate(body: any) {
+  const { id, name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants, branchIds } = body;
 
-    if (!id) {
+  if (!id) {
+    return NextResponse.json(
+      { error: 'Menu item ID is required' },
+      { status: 400 }
+    );
+  }
+
+  // Check if menu item exists
+  const existingItem = await db.menuItem.findUnique({
+    where: { id },
+  });
+
+  if (!existingItem) {
+    return NextResponse.json(
+      { error: 'Menu item not found' },
+      { status: 404 }
+    );
+  }
+
+  // Validate categoryId if provided and not empty
+  if (categoryId && categoryId.trim() !== '') {
+    const cat = await db.category.findUnique({ where: { id: categoryId } });
+    if (!cat) {
       return NextResponse.json(
-        { error: 'Menu item ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if menu item exists
-    const existingItem = await db.menuItem.findUnique({
-      where: { id },
-    });
-
-    if (!existingItem) {
-      return NextResponse.json(
-        { error: 'Menu item not found' },
+        { error: 'Category not found' },
         { status: 404 }
       );
     }
+  }
 
-    // Validate categoryId if provided and not empty
-    if (categoryId && categoryId.trim() !== '') {
-      const cat = await db.category.findUnique({ where: { id: categoryId } });
-      if (!cat) {
-        return NextResponse.json(
-          { error: 'Category not found' },
-          { status: 404 }
-        );
+  // Build update data with proper validation
+  const updateData: any = {};
+  if (name && name.trim() !== '') updateData.name = name.trim();
+  if (category && category.trim() !== '') updateData.category = category.trim();
+  if (categoryId && categoryId.trim() !== '') updateData.categoryId = categoryId.trim();
+  if (price !== undefined && price !== '' && !isNaN(parseFloat(price))) {
+    updateData.price = parseFloat(price);
+  }
+  if (taxRate !== undefined && taxRate !== '' && !isNaN(parseFloat(taxRate))) {
+    updateData.taxRate = parseFloat(taxRate);
+  }
+  if (isActive !== undefined) updateData.isActive = isActive;
+  if (sortOrder !== undefined && sortOrder !== '' && !isNaN(parseInt(sortOrder))) {
+    updateData.sortOrder = parseInt(sortOrder);
+  }
+  if (hasVariants !== undefined) updateData.hasVariants = hasVariants;
+
+  // Update menu item
+  const menuItem = await db.menuItem.update({
+    where: { id },
+    data: updateData,
+  });
+
+  // Handle branch assignments if provided
+  if (branchIds !== undefined) {
+    // Delete existing branch assignments
+    await db.menuItemBranch.deleteMany({
+      where: { menuItemId: id },
+    });
+
+    // Create new assignments if specific branches are selected
+    if (branchIds && Array.isArray(branchIds) && branchIds.length > 0 && !branchIds.includes('all')) {
+      // Validate branch IDs
+      const branches = await db.branch.findMany({
+        where: { id: { in: branchIds } },
+        select: { id: true },
+      });
+      
+      const validBranchIds = branches.map(b => b.id);
+      
+      if (validBranchIds.length > 0) {
+        await db.menuItemBranch.createMany({
+          data: validBranchIds.map(branchId => ({
+            menuItemId: id,
+            branchId,
+          })),
+          skipDuplicates: true,
+        });
       }
     }
+    // If branchIds is empty or contains "all", don't create any assignments (available to all)
+  }
 
-    // Build update data with proper validation
-    const updateData: any = {};
-    if (name && name.trim() !== '') updateData.name = name.trim();
-    if (category && category.trim() !== '') updateData.category = category.trim();
-    if (categoryId && categoryId.trim() !== '') updateData.categoryId = categoryId.trim();
-    if (price !== undefined && price !== '' && !isNaN(parseFloat(price))) {
-      updateData.price = parseFloat(price);
-    }
-    if (taxRate !== undefined && taxRate !== '' && !isNaN(parseFloat(taxRate))) {
-      updateData.taxRate = parseFloat(taxRate);
-    }
-    if (isActive !== undefined) updateData.isActive = isActive;
-    if (sortOrder !== undefined && sortOrder !== '' && !isNaN(parseInt(sortOrder))) {
-      updateData.sortOrder = parseInt(sortOrder);
-    }
-    if (hasVariants !== undefined) updateData.hasVariants = hasVariants;
+  // Invalidate menu items cache
+  invalidateCachePattern('^menu:items:');
 
-    // Update menu item
-    const menuItem = await db.menuItem.update({
-      where: { id },
-      data: updateData,
-    });
+  return NextResponse.json({
+    success: true,
+    menuItem,
+  });
+}
 
-    // Invalidate menu items cache
-    invalidateCachePattern('^menu:items:');
-
-    return NextResponse.json({
-      success: true,
-      menuItem,
-    });
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    return await handleUpdate(body);
   } catch (error: any) {
     console.error('Update menu item error:', error);
     return NextResponse.json(
@@ -358,7 +447,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete menu item (will cascade to order items and recipes)
+    // Delete menu item (will cascade to order items and recipes and branch assignments)
     await db.menuItem.delete({
       where: { id },
     });
