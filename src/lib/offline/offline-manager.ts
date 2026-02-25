@@ -6,6 +6,7 @@
  */
 
 import { getIndexedDBStorage, OperationType, SyncOperation, SyncState } from '../storage/indexeddb-storage';
+import { dataExpirationService } from './data-expiration';
 
 const storageService = getIndexedDBStorage();
 
@@ -620,6 +621,7 @@ class OfflineManager {
    */
   async clearAllData(): Promise<void> {
     await storageService.clearAllData();
+    await dataExpirationService.clearAll();
     await storageService.updateSyncState({
       branchId: this.branchId,
       isOnline: this.isOnline,
@@ -628,6 +630,27 @@ class OfflineManager {
       pendingOperations: 0,
     });
     console.log('[OfflineManager] All data cached');
+  }
+
+  /**
+   * Perform cleanup of expired data
+   */
+  async performCleanup(): Promise<{
+    expiredRemoved: number;
+    totalEntries: number;
+    totalSize: number;
+  }> {
+    console.log('[OfflineManager] Performing data cleanup...');
+    const cleanupResult = await dataExpirationService.cleanup();
+    console.log('[OfflineManager] Cleanup completed:', cleanupResult);
+    return cleanupResult;
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return dataExpirationService.getStats();
   }
 
   /**
@@ -642,6 +665,7 @@ class OfflineManager {
     if (this.retryTimeout) {
       clearTimeout(this.retryTimeout);
     }
+    dataExpirationService.stopCleanupInterval();
     this.listeners = [];
     this.initialized = false;
   }
