@@ -1297,16 +1297,28 @@ export default function POSInterface() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Show receipt
-        setReceiptData(data.order);
-        setShowReceipt(true);
-
-        // Clear table cart and close table
+        // Clear table cart from localStorage first
         localStorage.removeItem(`table-cart-${selectedTable.id}`);
         setTableCart([]);
 
-        // Close the table in DB (skip deselect to avoid re-saving cart)
-        await closeTableInDB(true);
+        // Close the table in DB BEFORE showing receipt
+        const closeResponse = await fetch(`/api/tables/${selectedTable.id}/close`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cashierId: user?.id,
+          }),
+        });
+
+        if (!closeResponse.ok) {
+          console.error('Failed to close table in database');
+          const errorData = await closeResponse.json();
+          alert(`Order created but failed to close table: ${errorData.error || 'Unknown error'}. Please close the table manually.`);
+        }
+
+        // Show receipt
+        setReceiptData(data.order);
+        setShowReceipt(true);
 
         // Manually deselect table and show table grid
         setSelectedTable(null);
@@ -1383,16 +1395,28 @@ export default function POSInterface() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Show receipt
-        setReceiptData(data.order);
-        setShowReceipt(true);
-
-        // Clear table cart and close table
+        // Clear table cart from localStorage first
         localStorage.removeItem(`table-cart-${selectedTable.id}`);
         setTableCart([]);
 
-        // Close the table in DB (skip deselect to avoid re-saving cart)
-        await closeTableInDB(true);
+        // Close the table in DB BEFORE showing receipt
+        const closeResponse = await fetch(`/api/tables/${selectedTable.id}/close`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cashierId: user?.id,
+          }),
+        });
+
+        if (!closeResponse.ok) {
+          console.error('Failed to close table in database');
+          const errorData = await closeResponse.json();
+          alert(`Order created but failed to close table: ${errorData.error || 'Unknown error'}. Please close the table manually.`);
+        }
+
+        // Show receipt
+        setReceiptData(data.order);
+        setShowReceipt(true);
 
         // Manually deselect table and show table grid
         setSelectedTable(null);
