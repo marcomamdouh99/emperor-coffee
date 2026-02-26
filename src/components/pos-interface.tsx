@@ -2620,6 +2620,11 @@ export default function POSInterface() {
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
               {filteredMenuItems.map((item) => {
                 const categoryColor = getCategoryColor(item.category);
+                // Find the category for this item to get its image as fallback
+                const itemCategory = categories.find(c => c.id === item.categoryId || c.name === item.category);
+                const fallbackCategoryImage = itemCategory?.imagePath;
+                const displayImage = item.imagePath || fallbackCategoryImage;
+
                 return (
                   <Card
                     key={item.id}
@@ -2628,10 +2633,10 @@ export default function POSInterface() {
                   >
                     {/* Premium Product Card with Full-Bleed Image */}
                     <div className="aspect-[4/5] bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 relative overflow-hidden">
-                      {/* Menu Item Image - Full Bleed */}
-                      {item.imagePath ? (
+                      {/* Menu Item Image - Full Bleed (with category fallback) */}
+                      {displayImage ? (
                         <img
-                          src={item.imagePath}
+                          src={displayImage}
                           alt={item.name}
                           className="absolute inset-0 w-full h-full object-cover"
                           onError={(e) => {
