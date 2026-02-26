@@ -266,6 +266,7 @@ interface Category {
   sortOrder: number;
   isActive: boolean;
   defaultVariantTypeId?: string | null;
+  imagePath?: string | null;
 }
 
 export default function POSInterface() {
@@ -830,6 +831,7 @@ export default function POSInterface() {
         id: cat.id,
         name: cat.name,
         color: getCategoryColor(cat.name),
+        imagePath: cat.imagePath,
       }))
     ];
     return cats;
@@ -2332,18 +2334,35 @@ export default function POSInterface() {
 
                         <div className="relative flex items-center justify-between">
                           <div className="flex-1 min-w-0">
-                            <span className={`font-semibold text-sm block truncate transition-colors ${
-                              isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                            }`}>
-                              {category.name}
-                            </span>
-                            {category.id !== 'all' && (
-                              <span className={`text-xs mt-1 block font-medium transition-colors ${
-                                isActive ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
-                              }`}>
-                                {menuItems.filter(m => m.categoryId === category.id || m.category === categories.find(c => c.id === category.id)?.name).length} items
-                              </span>
-                            )}
+                            <div className="flex items-center gap-3">
+                              {/* Category Image or Fallback Icon */}
+                              {category.imagePath ? (
+                                <img
+                                  src={category.imagePath}
+                                  alt={category.name}
+                                  className="w-16 h-16 object-cover rounded-lg mb-2"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <Coffee className={`w-12 h-12 mb-2 ${isActive ? 'text-white/80' : 'text-slate-400'}`} />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <span className={`font-semibold text-sm block truncate transition-colors ${
+                                  isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
+                                }`}>
+                                  {category.name}
+                                </span>
+                                {category.id !== 'all' && (
+                                  <span className={`text-xs mt-1 block font-medium transition-colors ${
+                                    isActive ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
+                                  }`}>
+                                    {menuItems.filter(m => m.categoryId === category.id || m.category === categories.find(c => c.id === category.id)?.name).length} items
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
 
                           {isActive ? (
@@ -2593,19 +2612,33 @@ export default function POSInterface() {
                   >
                     {/* Modern Product Image/Icon Section */}
                     <div className="aspect-[4/3] bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 to-slate-850 relative overflow-hidden">
-                      {/* Animated Gradient Background */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${categoryColor} opacity-0 group-hover:opacity-10 transition-all duration-500`} />
-                      
-                      {/* Decorative Pattern */}
-                      <div className="absolute inset-0 opacity-5">
-                        <div className="absolute top-4 right-4 w-20 h-20 border-2 border-slate-300 dark:border-slate-600 rounded-full" />
-                        <div className="absolute bottom-4 left-4 w-16 h-16 border-2 border-slate-300 dark:border-slate-600 rounded-full" />
-                      </div>
+                      {/* Menu Item Image or Fallback Icon */}
+                      {item.imagePath ? (
+                        <img
+                          src={item.imagePath}
+                          alt={item.name}
+                          className="w-full h-24 sm:h-32 object-cover rounded-t-lg"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <>
+                          {/* Animated Gradient Background */}
+                          <div className={`absolute inset-0 bg-gradient-to-br ${categoryColor} opacity-0 group-hover:opacity-10 transition-all duration-500`} />
+                          
+                          {/* Decorative Pattern */}
+                          <div className="absolute inset-0 opacity-5">
+                            <div className="absolute top-4 right-4 w-20 h-20 border-2 border-slate-300 dark:border-slate-600 rounded-full" />
+                            <div className="absolute bottom-4 left-4 w-16 h-16 border-2 border-slate-300 dark:border-slate-600 rounded-full" />
+                          </div>
 
-                      {/* Icon */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Coffee className="h-16 w-16 text-slate-200 dark:text-slate-700 group-hover:scale-110 transition-transform duration-500" />
-                      </div>
+                          {/* Fallback Icon */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Coffee className="w-12 h-12 text-slate-300 mx-auto mt-4 group-hover:scale-110 transition-transform duration-500" />
+                          </div>
+                        </>
+                      )}
                       
                       {/* Category Tag */}
                       <div className="absolute top-3 left-3">

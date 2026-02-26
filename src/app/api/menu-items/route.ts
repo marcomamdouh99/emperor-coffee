@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Original POST logic for creating new items
-    const { name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants, branchIds } = body;
+    const { name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants, branchIds, imagePath } = body;
 
     if (!name || !price) {
       return NextResponse.json(
@@ -285,6 +285,7 @@ export async function POST(request: NextRequest) {
         isActive: isActive !== undefined ? isActive : true,
         sortOrder: sortOrder !== undefined && sortOrder !== '' ? parseInt(sortOrder) : null,
         hasVariants: hasVariants !== undefined ? hasVariants : false,
+        imagePath: imagePath || null,
       },
     });
 
@@ -316,7 +317,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleUpdate(body: any) {
-  const { id, name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants, branchIds } = body;
+  const { id, name, category, categoryId, price, taxRate, isActive, sortOrder, hasVariants, branchIds, imagePath } = body;
 
   if (!id) {
     return NextResponse.json(
@@ -364,6 +365,7 @@ async function handleUpdate(body: any) {
     updateData.sortOrder = parseInt(sortOrder);
   }
   if (hasVariants !== undefined) updateData.hasVariants = hasVariants;
+  if (imagePath !== undefined) updateData.imagePath = imagePath;
 
   // Update menu item
   const menuItem = await db.menuItem.update({

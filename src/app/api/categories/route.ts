@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, sortOrder, isActive } = body;
+    const { name, description, sortOrder, isActive, defaultVariantTypeId, imagePath } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
         description: description || null,
         sortOrder: sortOrder !== undefined ? sortOrder : 0,
         isActive: isActive !== undefined ? isActive : true,
+        defaultVariantTypeId: defaultVariantTypeId || null,
+        imagePath: imagePath || null,
       },
     });
 

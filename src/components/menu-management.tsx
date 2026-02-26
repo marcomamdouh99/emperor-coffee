@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Coffee, DollarSign, Search, Folder, TrendingUp, Package, Layers, ChevronDown, ChevronUp, X, List } from 'lucide-react';
+import { Plus, Pencil, Trash2, Coffee, DollarSign, Search, Folder, TrendingUp, Package, Layers, ChevronDown, ChevronUp, X, List, Image as ImageIcon, Upload } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
 import { formatCurrency } from '@/lib/utils';
 
@@ -33,6 +33,7 @@ interface MenuItem {
   variants?: MenuItemVariant[];
   branchIds?: string[];
   availableToAllBranches?: boolean;
+  imagePath?: string | null;
 }
 
 interface MenuItemVariant {
@@ -69,6 +70,7 @@ interface Category {
   sortOrder: number;
   isActive: boolean;
   defaultVariantTypeId?: string | null;
+  imagePath?: string | null;
   _count?: { menuItems: number };
 }
 
@@ -100,6 +102,7 @@ interface MenuItemFormData {
   sortOrder: string;
   branchIds: string[];
   availableToAllBranches: boolean;
+  imagePath: string;
 }
 
 interface CategoryFormData {
@@ -108,6 +111,7 @@ interface CategoryFormData {
   sortOrder: string;
   isActive: boolean;
   defaultVariantTypeId: string;
+  imagePath: string;
 }
 
 interface VariantTypeFormData {
@@ -146,6 +150,7 @@ export default function MenuManagement() {
     sortOrder: '0',
     branchIds: [],
     availableToAllBranches: true,
+    imagePath: '',
   });
 
   // Variant Management State
@@ -163,6 +168,7 @@ export default function MenuManagement() {
     sortOrder: '0',
     isActive: true,
     defaultVariantTypeId: '',
+    imagePath: '',
   });
 
   // Branches State
@@ -193,6 +199,8 @@ export default function MenuManagement() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [itemUploading, setItemUploading] = useState(false);
+  const [categoryUploading, setCategoryUploading] = useState(false);
 
   // Fetch categories
   useEffect(() => {
@@ -312,6 +320,10 @@ export default function MenuManagement() {
         isActive: categoryFormData.isActive,
       };
 
+      if (categoryFormData.imagePath) {
+        payload.imagePath = categoryFormData.imagePath;
+      }
+
       if (categoryFormData.defaultVariantTypeId) {
         payload.defaultVariantTypeId = categoryFormData.defaultVariantTypeId;
       }
@@ -349,6 +361,7 @@ export default function MenuManagement() {
       sortOrder: category.sortOrder.toString(),
       isActive: category.isActive,
       defaultVariantTypeId: category.defaultVariantTypeId || '',
+      imagePath: category.imagePath || '',
     });
     setCategoryDialogOpen(true);
     setMessage(null);
@@ -379,7 +392,9 @@ export default function MenuManagement() {
       sortOrder: '0',
       isActive: true,
       defaultVariantTypeId: '',
+      imagePath: '',
     });
+    setCategoryUploading(false);
     setMessage(null);
   };
 
@@ -649,6 +664,10 @@ export default function MenuManagement() {
         sortOrder: itemFormData.sortOrder,
       };
 
+      if (itemFormData.imagePath) {
+        payload.imagePath = itemFormData.imagePath;
+      }
+
       // Handle branch assignment
       if (itemFormData.availableToAllBranches) {
         payload.branchIds = ['all']; // Available to all branches
@@ -776,6 +795,7 @@ export default function MenuManagement() {
       sortOrder: (item.sortOrder ?? 0).toString(),
       branchIds: item.branchIds || [],
       availableToAllBranches: item.availableToAllBranches ?? true,
+      imagePath: item.imagePath || '',
     });
 
     // Fetch variants if the item has them
@@ -827,9 +847,11 @@ export default function MenuManagement() {
       sortOrder: '0',
       branchIds: [],
       availableToAllBranches: true,
+      imagePath: '',
     });
     setItemVariants([]);
     setSelectedVariantType('');
+    setItemUploading(false);
     setMessage(null);
   };
 
@@ -851,6 +873,31 @@ export default function MenuManagement() {
 
   const getVariantPrice = (basePrice: number, priceModifier: number) => {
     return basePrice + priceModifier;
+  };
+
+  const handleImageUpload = async (file: File, type: 'category' | 'menu-item'): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to upload image' });
+        return null;
+      }
+
+      return data.path;
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to upload image' });
+      return null;
+    }
   };
 
   return (
@@ -931,6 +978,63 @@ export default function MenuManagement() {
                             required
                             className="h-11"
                           />
+                        </div>
+                        
+                        {/* Image Upload for Menu Item */}
+                        <div className="space-y-2">
+                          <Label>Item Image</Label>
+                          <div className="flex gap-4">
+                            {itemFormData.imagePath && (
+                              <img
+                                src={itemFormData.imagePath}
+                                alt="Item preview"
+                                className="w-24 h-24 object-cover rounded-lg border"
+                              />
+                            )}
+                            <div className="flex flex-col gap-2">
+                              <div className="relative">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    setItemUploading(true);
+                                    const imagePath = await handleImageUpload(file, 'menu-item');
+                                    if (imagePath) {
+                                      setItemFormData({ ...itemFormData, imagePath });
+                                    }
+                                    setItemUploading(false);
+                                  }}
+                                  className="hidden"
+                                  id="itemImageUpload"
+                                  disabled={itemUploading}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  onClick={() => document.getElementById('itemImageUpload')?.click()}
+                                  disabled={itemUploading}
+                                  className="h-11 min-h-[44px]"
+                                >
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  {itemUploading ? 'Uploading...' : 'Upload Image'}
+                                </Button>
+                              </div>
+                              {itemFormData.imagePath && (
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => setItemFormData({ ...itemFormData, imagePath: '' })}
+                                  className="h-9"
+                                >
+                                  <X className="h-4 w-4 mr-1" />
+                                  Remove Image
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
@@ -1463,6 +1567,63 @@ export default function MenuManagement() {
                             placeholder="Optional description"
                             className="h-11"
                           />
+                        </div>
+                        
+                        {/* Image Upload for Category */}
+                        <div className="space-y-2">
+                          <Label>Category Image</Label>
+                          <div className="flex gap-4">
+                            {categoryFormData.imagePath && (
+                              <img
+                                src={categoryFormData.imagePath}
+                                alt="Category preview"
+                                className="w-24 h-24 object-cover rounded-lg border"
+                              />
+                            )}
+                            <div className="flex flex-col gap-2">
+                              <div className="relative">
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    setCategoryUploading(true);
+                                    const imagePath = await handleImageUpload(file, 'category');
+                                    if (imagePath) {
+                                      setCategoryFormData({ ...categoryFormData, imagePath });
+                                    }
+                                    setCategoryUploading(false);
+                                  }}
+                                  className="hidden"
+                                  id="categoryImageUpload"
+                                  disabled={categoryUploading}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  onClick={() => document.getElementById('categoryImageUpload')?.click()}
+                                  disabled={categoryUploading}
+                                  className="h-11 min-h-[44px]"
+                                >
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  {categoryUploading ? 'Uploading...' : 'Upload Image'}
+                                </Button>
+                              </div>
+                              {categoryFormData.imagePath && (
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => setCategoryFormData({ ...categoryFormData, imagePath: '' })}
+                                  className="h-9"
+                                >
+                                  <X className="h-4 w-4 mr-1" />
+                                  Remove Image
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">

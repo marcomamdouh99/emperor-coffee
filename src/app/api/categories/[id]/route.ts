@@ -8,9 +8,9 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, description, sortOrder, isActive, defaultVariantTypeId } = body;
+    const { name, description, sortOrder, isActive, defaultVariantTypeId, imagePath } = body;
 
-    console.log('[Category Update] Received data:', { id, name, description, sortOrder, isActive, defaultVariantTypeId });
+    console.log('[Category Update] Received data:', { id, name, description, sortOrder, isActive, defaultVariantTypeId, imagePath });
 
     // Check if category exists
     const existingCategory = await db.category.findUnique({
@@ -46,6 +46,7 @@ export async function PATCH(
         ...(sortOrder !== undefined && { sortOrder }),
         ...(isActive !== undefined && { isActive }),
         ...(defaultVariantTypeId !== undefined && { defaultVariantTypeId }),
+        ...(imagePath !== undefined && { imagePath }),
       },
     });
 

@@ -168,6 +168,7 @@ model Category {
   sortOrder            Int      @default(0)
   isActive             Boolean  @default(true)
   defaultVariantTypeId String?
+  imagePath            String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
