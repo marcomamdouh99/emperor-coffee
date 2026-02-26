@@ -2263,9 +2263,10 @@ export default function POSInterface() {
     <div className="flex flex-col md:flex-row h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 overflow-hidden">
       {/* Mobile Categories - Horizontal Scroll Bar */}
       <div className="md:hidden flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-4 py-3">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
           {allCategories.map((category) => {
             const isActive = selectedCategory === category.id;
+            const categoryColor = getCategoryColor(category.name);
             return (
               <button
                 key={category.id}
@@ -2273,13 +2274,28 @@ export default function POSInterface() {
                   setSelectedCategory(category.id);
                   setSearchQuery('');
                 }}
-                className={`flex-shrink-0 px-4 h-11 rounded-full text-xs font-bold transition-all duration-300 border ${
+                className={`flex-shrink-0 flex items-center gap-2 px-4 h-14 rounded-2xl text-xs font-bold transition-all duration-300 border ${
                   isActive
-                    ? 'from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-500/50'
+                    ? `bg-gradient-to-r shadow-lg shadow-emerald-500/30 ring-1 ring-emerald-500/50 ${categoryColor} text-white`
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-                } ${isActive ? 'bg-gradient-to-r' : ''}`}
+                }`}
               >
-                {category.name}
+                {/* Category Image or Icon on Mobile */}
+                <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white/20">
+                  {category.imagePath ? (
+                    <img
+                      src={category.imagePath}
+                      alt={category.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Coffee className="w-5 h-5" />
+                  )}
+                </div>
+                <span className="whitespace-nowrap">{category.name}</span>
               </button>
             );
           })}
@@ -2323,7 +2339,7 @@ export default function POSInterface() {
                           setSelectedCategory(category.id);
                           setSearchQuery('');
                         }}
-                        className={`w-full group relative overflow-hidden rounded-2xl p-4 text-left transition-all duration-300 ${
+                        className={`w-full group relative overflow-hidden rounded-2xl p-0 text-left transition-all duration-300 ${
                           isActive
                             ? 'bg-gradient-to-r shadow-lg shadow-emerald-500/20 ring-1 ring-emerald-500/30'
                             : 'hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700'
@@ -2332,45 +2348,45 @@ export default function POSInterface() {
                       >
                         <div className={`bg-gradient-to-r ${category.color} absolute inset-0 opacity-0 ${isActive ? 'opacity-100' : ''} transition-opacity duration-300`} />
 
-                        <div className="relative flex items-center justify-between">
+                        <div className="relative flex items-center gap-4 p-4">
+                          {/* Category Image or Fallback Icon - Premium Look */}
+                          <div className={`w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center ${isActive ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                            {category.imagePath ? (
+                              <img
+                                src={category.imagePath}
+                                alt={category.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.currentTarget as HTMLElement).innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="coffee-icon"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>';
+                                }}
+                              />
+                            ) : (
+                              <Coffee className={`w-8 h-8 ${isActive ? 'text-white/80' : 'text-slate-400'}`} />
+                            )}
+                          </div>
+
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3">
-                              {/* Category Image or Fallback Icon */}
-                              {category.imagePath ? (
-                                <img
-                                  src={category.imagePath}
-                                  alt={category.name}
-                                  className="w-16 h-16 object-cover rounded-lg mb-2"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                  }}
-                                />
-                              ) : (
-                                <Coffee className={`w-12 h-12 mb-2 ${isActive ? 'text-white/80' : 'text-slate-400'}`} />
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <span className={`font-semibold text-sm block truncate transition-colors ${
-                                  isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                                }`}>
-                                  {category.name}
-                                </span>
-                                {category.id !== 'all' && (
-                                  <span className={`text-xs mt-1 block font-medium transition-colors ${
-                                    isActive ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
-                                  }`}>
-                                    {menuItems.filter(m => m.categoryId === category.id || m.category === categories.find(c => c.id === category.id)?.name).length} items
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                            <span className={`font-bold text-base block truncate transition-colors ${
+                              isActive ? 'text-white' : 'text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'
+                            }`}>
+                              {category.name}
+                            </span>
+                            {category.id !== 'all' && (
+                              <span className={`text-xs mt-1 block font-medium transition-colors ${
+                                isActive ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
+                              }`}>
+                                {menuItems.filter(m => m.categoryId === category.id || m.category === categories.find(c => c.id === category.id)?.name).length} items
+                              </span>
+                            )}
                           </div>
 
                           {isActive ? (
-                            <div className="w-6 h-6 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0 ml-2">
-                              <CheckCircle className="h-3.5 w-3.5 text-white" />
+                            <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center flex-shrink-0">
+                              <CheckCircle className="h-5 w-5 text-white" />
                             </div>
                           ) : (
-                            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors flex-shrink-0 ml-2" />
+                            <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors flex-shrink-0" />
                           )}
                         </div>
                       </button>
@@ -2608,16 +2624,16 @@ export default function POSInterface() {
                   <Card
                     key={item.id}
                     onClick={() => handleItemClick(item)}
-                    className="group cursor-pointer border-0 bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-500 transform hover:-translate-y-1"
+                    className="group cursor-pointer border-0 bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-emerald-500/20 transition-all duration-500 transform hover:-translate-y-2"
                   >
-                    {/* Modern Product Image/Icon Section */}
-                    <div className="aspect-[4/3] bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 to-slate-850 relative overflow-hidden">
-                      {/* Menu Item Image or Fallback Icon */}
+                    {/* Premium Product Card with Full-Bleed Image */}
+                    <div className="aspect-[4/5] bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 relative overflow-hidden">
+                      {/* Menu Item Image - Full Bleed */}
                       {item.imagePath ? (
                         <img
                           src={item.imagePath}
                           alt={item.name}
-                          className="w-full h-24 sm:h-32 object-cover rounded-t-lg"
+                          className="absolute inset-0 w-full h-full object-cover"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                           }}
@@ -2625,72 +2641,67 @@ export default function POSInterface() {
                       ) : (
                         <>
                           {/* Animated Gradient Background */}
-                          <div className={`absolute inset-0 bg-gradient-to-br ${categoryColor} opacity-0 group-hover:opacity-10 transition-all duration-500`} />
+                          <div className={`absolute inset-0 bg-gradient-to-br ${categoryColor} opacity-5 group-hover:opacity-10 transition-all duration-500`} />
                           
                           {/* Decorative Pattern */}
                           <div className="absolute inset-0 opacity-5">
-                            <div className="absolute top-4 right-4 w-20 h-20 border-2 border-slate-300 dark:border-slate-600 rounded-full" />
-                            <div className="absolute bottom-4 left-4 w-16 h-16 border-2 border-slate-300 dark:border-slate-600 rounded-full" />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 border-4 border-slate-300 dark:border-slate-600 rounded-full" />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-4 border-slate-300 dark:border-slate-600 rounded-full" />
                           </div>
 
                           {/* Fallback Icon */}
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <Coffee className="w-12 h-12 text-slate-300 mx-auto mt-4 group-hover:scale-110 transition-transform duration-500" />
+                            <Coffee className="w-20 h-20 text-slate-200 dark:text-slate-700 group-hover:scale-110 transition-transform duration-500" />
                           </div>
                         </>
                       )}
-                      
-                      {/* Category Tag */}
+
+                      {/* Gradient Overlay for Better Text Readability */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent" />
+
+                      {/* Category Tag - Top Left */}
                       <div className="absolute top-3 left-3">
                         <Badge 
                           variant="secondary" 
-                          className="bg-white/95 dark:bg-slate-700/95 backdrop-blur-sm text-xs font-semibold px-3 py-1.5 rounded-full shadow-md border border-slate-100 dark:border-slate-600"
+                          className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md text-xs font-bold px-3 py-1.5 rounded-full shadow-lg border border-white/20"
                         >
                           {item.category}
                         </Badge>
                       </div>
 
-                      {/* Variants Badge */}
+                      {/* Variants Badge - Top Right */}
                       {item.hasVariants && (
                         <div className="absolute top-3 right-3">
-                          <div className={`bg-gradient-to-br ${categoryColor} text-white text-xs font-bold px-2.5 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}>
+                          <div className={`bg-gradient-to-br ${categoryColor} text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}>
                             <Layers className="h-3 w-3" />
                             <span>{item.variants?.length || 0}</span>
                           </div>
                         </div>
                       )}
 
-                      {/* Add Button - Modern Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-end pb-6">
-                        <Button 
-                          className={`bg-gradient-to-r ${categoryColor} hover:opacity-90 text-white rounded-full px-6 py-2.5 shadow-xl shadow-emerald-500/30 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 font-semibold`}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add to Order
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* Product Info */}
-                    <CardContent className="p-4 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      {/* Product Info Overlay - Bottom */}
+                      <div className="absolute bottom-0 left-0 right-0 p-4 pt-12">
+                        {/* Product Name */}
+                        <h3 className="font-bold text-lg text-white leading-tight line-clamp-2 mb-2 drop-shadow-lg">
                           {item.name}
                         </h3>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                        
+                        {/* Price and Add Button */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-2xl font-bold text-white drop-shadow-lg">
                             {formatCurrency(item.price, currency)}
                           </span>
-                        </div>
-                        <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500">
-                          <Tag className="h-3 w-3" />
-                          <span className="text-xs font-medium">ID: {item.id.slice(0, 6)}</span>
+                          
+                          {/* Quick Add Button */}
+                          <div className={`w-12 h-12 rounded-full bg-gradient-to-r ${categoryColor} flex items-center justify-center shadow-xl transform group-hover:scale-110 transition-all duration-300`}>
+                            <Plus className="h-6 w-6 text-white" />
+                          </div>
                         </div>
                       </div>
-                    </CardContent>
+
+                      {/* Hover Effect - Full Screen Overlay */}
+                      <div className="absolute inset-0 bg-emerald-500/0 group-hover:bg-emerald-500/10 transition-all duration-500" />
+                    </div>
                   </Card>
                 );
               })}
