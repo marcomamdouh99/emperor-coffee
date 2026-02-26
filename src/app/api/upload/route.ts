@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,36 +36,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Read file as array buffer
+    // Read file as array buffer and convert to base64
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const base64 = buffer.toString('base64');
 
-    // Create unique filename
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 9);
-    const extension = file.name.split('.').pop() || 'jpg';
-    const filename = `${type}-${timestamp}-${random}.${extension}`;
-
-    // Create upload directory if it doesn't exist
-    const uploadDir = join(process.cwd(), 'public', 'uploads', type);
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Write file to disk
-    const filePath = join(uploadDir, filename);
-    await writeFile(filePath, buffer);
-
-    // Return the public URL path
-    const publicPath = `/uploads/${type}/${filename}`;
+    // Create data URL (this is what we'll store in the database)
+    const dataUrl = `data:${file.type};base64,${base64}`;
 
     return NextResponse.json({
       success: true,
       data: {
-        path: publicPath,
-        filename,
+        path: dataUrl,
         size: file.size,
         type: file.type,
+        isBase64: true,
       },
     });
   } catch (error: any) {
