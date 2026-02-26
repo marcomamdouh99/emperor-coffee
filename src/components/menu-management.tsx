@@ -202,6 +202,15 @@ export default function MenuManagement() {
   const [itemUploading, setItemUploading] = useState(false);
   const [categoryUploading, setCategoryUploading] = useState(false);
 
+  // Debug: Log when imagePath changes
+  useEffect(() => {
+    console.log('[Debug] itemFormData.imagePath changed:', itemFormData.imagePath ? itemFormData.imagePath.substring(0, 50) + '...' : 'null');
+  }, [itemFormData.imagePath]);
+
+  useEffect(() => {
+    console.log('[Debug] categoryFormData.imagePath changed:', categoryFormData.imagePath ? categoryFormData.imagePath.substring(0, 50) + '...' : 'null');
+  }, [categoryFormData.imagePath]);
+
   // Fetch categories
   useEffect(() => {
     fetchCategories();
@@ -877,6 +886,8 @@ export default function MenuManagement() {
 
   const handleImageUpload = async (file: File, type: 'category' | 'menu-item'): Promise<string | null> => {
     try {
+      console.log('[Image Upload] Starting upload:', { fileName: file.name, fileSize: file.size, fileType: file.type, type });
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', type);
@@ -887,15 +898,25 @@ export default function MenuManagement() {
       });
 
       const data = await response.json();
+      console.log('[Image Upload] Response:', data);
 
       if (!response.ok || !data.success) {
+        console.error('[Image Upload] Upload failed:', data);
         setMessage({ type: 'error', text: data.error || 'Failed to upload image' });
         return null;
       }
 
-      return data.path;
+      if (!data.data || !data.data.path) {
+        console.error('[Image Upload] Invalid response structure:', data);
+        setMessage({ type: 'error', text: 'Invalid response from server' });
+        return null;
+      }
+
+      console.log('[Image Upload] Success, image path:', data.data.path);
+      return data.data.path;
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to upload image' });
+      console.error('[Image Upload] Exception:', error);
+      setMessage({ type: 'error', text: 'Failed to upload image: ' + (error instanceof Error ? error.message : 'Unknown error') });
       return null;
     }
   };
@@ -999,12 +1020,23 @@ export default function MenuManagement() {
                                   onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
+                                    
+                                    console.log('[Menu Item] File selected:', file.name);
                                     setItemUploading(true);
+                                    
                                     const imagePath = await handleImageUpload(file, 'menu-item');
+                                    console.log('[Menu Item] Image path returned:', imagePath);
+                                    
                                     if (imagePath) {
+                                      console.log('[Menu Item] Setting imagePath in formData:', imagePath.substring(0, 50) + '...');
                                       setItemFormData({ ...itemFormData, imagePath });
+                                    } else {
+                                      console.error('[Menu Item] Upload failed, no path returned');
                                     }
+                                    
                                     setItemUploading(false);
+                                    // Reset the file input
+                                    e.target.value = '';
                                   }}
                                   className="hidden"
                                   id="itemImageUpload"
@@ -1588,12 +1620,23 @@ export default function MenuManagement() {
                                   onChange={async (e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
+                                    
+                                    console.log('[Category] File selected:', file.name);
                                     setCategoryUploading(true);
+                                    
                                     const imagePath = await handleImageUpload(file, 'category');
+                                    console.log('[Category] Image path returned:', imagePath);
+                                    
                                     if (imagePath) {
+                                      console.log('[Category] Setting imagePath in formData:', imagePath.substring(0, 50) + '...');
                                       setCategoryFormData({ ...categoryFormData, imagePath });
+                                    } else {
+                                      console.error('[Category] Upload failed, no path returned');
                                     }
+                                    
                                     setCategoryUploading(false);
+                                    // Reset the file input
+                                    e.target.value = '';
                                   }}
                                   className="hidden"
                                   id="categoryImageUpload"
