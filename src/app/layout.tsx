@@ -1,7 +1,11 @@
-import type { Metadata } from "next";
+import { type Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/lib/auth-context";
+import { I18nProvider } from "@/lib/i18n-context";
+import { LanguageStateProvider } from "@/components/language-state-provider";
+import { PWAProvider } from "@/components/pwa-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,24 +18,31 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "Emperor Coffee POS - Multi-Branch Point of Sale",
+  description: "Professional multi-branch coffee shop franchise management system with centralized control and offline support",
+  keywords: ["POS", "Coffee", "Franchise", "Multi-branch", "Emperor Coffee", "Offline", "PWA"],
+  authors: [{ name: "Emperor Coffee" }],
+  manifest: "/manifest.json",
+  themeColor: "#059669",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Emperor POS",
+  },
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: ["/icon-192.svg", "/icon-512.svg"],
+    apple: "/icon-192.svg",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "Emperor Coffee POS",
+    description: "Multi-branch coffee shop management system with offline support",
     type: "website",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
   },
 };
 
@@ -41,13 +52,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
-        {children}
-        <Toaster />
-      </body>
+    <html lang="en" dir="ltr" suppressHydrationWarning>
+      <LanguageStateProvider>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        >
+          <PWAProvider>
+            <I18nProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+              <Toaster />
+            </I18nProvider>
+          </PWAProvider>
+        </body>
+      </LanguageStateProvider>
     </html>
   );
 }

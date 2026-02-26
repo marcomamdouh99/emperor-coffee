@@ -1,0 +1,923 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/lib/utils';
+import { type DayClosingReportData, type DayClosingShiftData } from '@/lib/escpos-encoder';
+import { Printer, X, Loader2, AlertCircle, FileText, DollarSign, Users, Clock } from 'lucide-react';
+
+interface DayClosingReceiptProps {
+  businessDayId: string;
+  open: boolean;
+  onClose: () => void;
+}
+
+export function DayClosingReceipt({ businessDayId, open, onClose }: DayClosingReceiptProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<DayClosingReportData | null>(null);
+
+  // Fetch closing report data when dialog opens
+  useEffect(() => {
+    console.log('[Day Closing Receipt] Dialog open:', open, 'businessDayId:', businessDayId);
+    if (open && businessDayId) {
+      fetchClosingReport();
+    }
+  }, [open, businessDayId]);
+
+  // Auto-print all papers when data is loaded
+  useEffect(() => {
+    if (data && open && data.shifts && data.shifts.length > 0) {
+      console.log('[Day Closing] Auto-printing day closing receipt...');
+      console.log('[Day Closing] Number of shifts to print:', data.shifts.length);
+      
+      // Small delay to ensure the dialog is rendered
+      const initialDelay = 1000;
+      
+      // Create print queue
+      const printQueue: Array<() => void> = [];
+      
+      // Add Paper 1 for each shift
+      data.shifts.forEach((shift, index) => {
+        printQueue.push(() => {
+          console.log(`[Day Closing] Printing Paper 1 for Shift ${shift.shiftNumber}...`);
+          printShiftPaper(shift);
+        });
+      });
+      
+      // Add Paper 2 (Item Summary) after all shift papers
+      printQueue.push(() => {
+        console.log('[Day Closing] Printing Paper 2 (Item Summary)...');
+        printItemSummary();
+      });
+      
+      // Execute print queue with delays
+      printQueue.forEach((printFn, index) => {
+        const delay = initialDelay + (index * 3500); // 3.5 second delay between each print
+        setTimeout(() => {
+          printFn();
+        }, delay);
+      });
+    } else if (data && open) {
+      console.log('[Day Closing] Data loaded but no shifts in data, data:', data);
+    }
+  }, [data, open]);
+
+  const fetchClosingReport = async () => {
+    console.log('[Day Closing Receipt] Fetching closing report for businessDayId:', businessDayId);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/business-days/closing-report?businessDayId=${businessDayId}`);
+      console.log('[Day Closing Receipt] Response status:', response.status);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch closing report: ${response.statusText}`);
+      }
+      const result = await response.json();
+      console.log('[Day Closing Receipt] Response data:', result);
+      
+      // The API returns { success: true, report: DayClosingReportData, legacyReport: ... }
+      if (result.success && result.report) {
+        console.log('[Day Closing Receipt] Report loaded successfully, shifts count:', result.report.shifts?.length);
+        setData(result.report);
+      } else {
+        console.error('[Day Closing Receipt] API returned no success or report:', result);
+        throw new Error(result.error || 'Failed to fetch closing report');
+      }
+    } catch (err) {
+      console.error('[Day Closing Receipt] Fetch error:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrintShiftPaper1 = (shift: DayClosingShiftData, index: number) => {
+    printShiftPaper(shift);
+  };
+
+  const handlePrintItemSummary = () => {
+    if (!data) return;
+    printItemSummary();
+  };
+
+  const printShiftPaper = (shift: DayClosingShiftData) => {
+    if (!data) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const cashierName = shift.cashier?.name || shift.cashier?.username || 'Unknown';
+    const dateStr = new Date(shift.startTime).toLocaleDateString();
+    const timeStr = `${new Date(shift.startTime).toLocaleTimeString()} - ${new Date(shift.endTime).toLocaleTimeString()}`;
+
+    // Order type breakdown data
+    const takeAway = shift.orderTypeBreakdown?.['take-away'] || { value: 0, discounts: 0, total: 0 };
+    const dineIn = shift.orderTypeBreakdown?.['dine-in'] || { value: 0, discounts: 0, total: 0 };
+    const delivery = shift.orderTypeBreakdown?.['delivery'] || { value: 0, discounts: 0, total: 0 };
+
+    // Financial summary data
+    const totalSales = shift.totals?.sales || 0;
+    const totalDiscounts = shift.totals?.discounts || 0;
+    const totalDeliveryFees = shift.totals?.deliveryFees || 0;
+    const totalRefunds = shift.totals?.refunds || 0;
+    const totalCard = shift.totals?.card || 0;
+    const totalInstapay = shift.totals?.instapay || 0;
+    const totalWallet = shift.totals?.wallet || 0;
+    const totalCash = shift.totals?.cash || 0;
+    const totalDailyExpenses = shift.totals?.dailyExpenses || 0;
+    const openingBalance = shift.totals?.openingCashBalance || 0;
+    const expectedCash = shift.totals?.expectedCash || 0;
+    const closingBalance = shift.totals?.closingCashBalance || 0;
+    const overShort = shift.totals?.overShort || 0;
+
+    const content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Shift Closing - Shift ${shift.shiftNumber}</title>
+  <style>
+    @page {
+      size: 80mm auto;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      color: #000 !important;
+    }
+
+    @media print {
+      @page {
+        margin: 0;
+        padding: 0;
+        size: 80mm auto;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      html, body {
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: auto;
+      width: 80mm;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      max-width: 80mm;
+      margin: 0 auto;
+      padding: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      background: white;
+      color: #000;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px dashed #000;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 0;
+      color: #000;
+    }
+
+    .header div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
+    .section-title {
+      font-weight: bold;
+      margin: 10px 0 5px 0;
+      padding: 0;
+      text-decoration: underline;
+    }
+
+    .info {
+      margin-bottom: 10px;
+      font-size: 12px;
+      padding: 0;
+    }
+
+    .info div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
+    .order-type {
+      margin-bottom: 10px;
+      padding: 5px;
+      border: 1px solid #000;
+    }
+
+    .order-type-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .order-type-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 2px 0;
+    }
+
+    .order-type-row span {
+      color: #000 !important;
+    }
+
+    .totals {
+      border-top: 2px dashed #000;
+      padding-top: 8px;
+      margin-top: 5px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0;
+      padding: 0;
+    }
+
+    .total-row span {
+      color: #000 !important;
+    }
+
+    .total-row.grand-total {
+      font-weight: bold;
+      font-size: 14px;
+      margin-top: 8px;
+      padding-top: 5px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 2px dashed #000;
+      font-size: 10px;
+      padding-bottom: 0;
+      color: #000;
+    }
+
+    .notes-section {
+      margin-top: 10px;
+      padding: 5px;
+      border: 1px solid #000;
+    }
+
+    .notes-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .notes-content {
+      font-size: 11px;
+      line-height: 1.3;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Emperor Coffee</h1>
+    <div>${data?.branchName || 'Emperor Coffee'}</div>
+    <div>Shift Closing #${shift.shiftNumber}</div>
+  </div>
+
+  <div class="info">
+    <div>Date: ${dateStr}</div>
+    <div>Time: ${timeStr}</div>
+    <div>Cashier: ${cashierName}</div>
+  </div>
+
+  <div class="section-title">Order Type Breakdown</div>
+
+  <div class="order-type">
+    <div class="order-type-title">Take Away</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(takeAway.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(takeAway.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(takeAway.total)}</span>
+    </div>
+  </div>
+
+  <div class="order-type">
+    <div class="order-type-title">Dine In</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(dineIn.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(dineIn.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(dineIn.total)}</span>
+    </div>
+  </div>
+
+  <div class="order-type">
+    <div class="order-type-title">Delivery</div>
+    <div class="order-type-row">
+      <span>Value:</span>
+      <span>${formatCurrency(delivery.value)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Discounts:</span>
+      <span>-${formatCurrency(delivery.discounts)}</span>
+    </div>
+    <div class="order-type-row">
+      <span>Total:</span>
+      <span>${formatCurrency(delivery.total)}</span>
+    </div>
+  </div>
+
+  <div class="section-title">Financial Summary</div>
+
+  <div class="totals">
+    <div class="total-row">
+      <span>Total Sales:</span>
+      <span>${formatCurrency(totalSales)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Discounts:</span>
+      <span>${formatCurrency(totalDiscounts)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Delivery Fees:</span>
+      <span>${formatCurrency(totalDeliveryFees)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Refunds:</span>
+      <span>${formatCurrency(totalRefunds)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Card:</span>
+      <span>${formatCurrency(totalCard)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total InstaPay:</span>
+      <span>${formatCurrency(totalInstapay)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Wallet:</span>
+      <span>${formatCurrency(totalWallet)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Cash:</span>
+      <span>${formatCurrency(totalCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Daily Expenses:</span>
+      <span>-${formatCurrency(totalDailyExpenses)}</span>
+    </div>
+    <div class="total-row">
+      <span>Opening Cash Balance:</span>
+      <span>${formatCurrency(openingBalance)}</span>
+    </div>
+    <div class="total-row">
+      <span>Expected Cash:</span>
+      <span>${formatCurrency(expectedCash)}</span>
+    </div>
+    <div class="total-row">
+      <span>Closing Cash Balance:</span>
+      <span>${formatCurrency(closingBalance)}</span>
+    </div>
+    <div class="total-row grand-total">
+      <span>Over/Short:</span>
+      <span>${formatCurrency(overShort)}</span>
+    </div>
+  </div>
+
+  ${data?.notes ? `
+  <div class="notes-section">
+    <div class="notes-title">Day Notes:</div>
+    <div class="notes-content">${data.notes}</div>
+  </div>
+  ` : ''}
+
+  <div class="footer">
+    <div>Emperor Coffee Franchise</div>
+  </div>
+</body>
+</html>`;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+  };
+
+  const printItemSummary = () => {
+    if (!data) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const dateStr = new Date(data.date).toLocaleDateString();
+
+    let itemsHtml = '';
+    data.categoryBreakdown?.forEach(category => {
+      itemsHtml += `
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: bold; margin-bottom: 3px;">${category.categoryName}</div>
+      `;
+
+      category.items?.forEach(item => {
+        itemsHtml += `
+          <div style="display: flex; justify-content: space-between; margin: 2px 0;">
+            <span style="flex: 0 0 30px; text-align: left; font-weight: bold;">${item.quantity}x</span>
+            <span style="flex: 1; text-align: left;">${item.itemName}</span>
+            <span style="flex: 0 0 80px; text-align: right;">${item.totalPrice.toFixed(2)}</span>
+          </div>
+        `;
+      });
+
+      itemsHtml += `
+        <div style="border-top: 2px dashed #000; margin: 8px 0;"></div>
+        </div>
+      `;
+    });
+
+    const content = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Day Closing - Item Summary</title>
+  <style>
+    @page {
+      size: 80mm auto;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      color: #000 !important;
+    }
+
+    @media print {
+      @page {
+        margin: 0;
+        padding: 0;
+        size: 80mm auto;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      html, body {
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: auto;
+      width: 80mm;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      max-width: 80mm;
+      margin: 0 auto;
+      padding: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      background: white;
+      color: #000;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px dashed #000;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 0;
+      color: #000;
+    }
+
+    .header div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
+    .info {
+      margin-bottom: 10px;
+      font-size: 12px;
+      padding: 0;
+    }
+
+    .info div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 2px dashed #000;
+      font-size: 10px;
+      padding-bottom: 0;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Emperor Coffee</h1>
+    <div>${data?.branchName || 'Emperor Coffee'}</div>
+    <div>Day Closing - Item Summary</div>
+  </div>
+
+  <div class="info">
+    <div>Date: ${dateStr}</div>
+  </div>
+
+  <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+
+  ${itemsHtml}
+
+  <div class="footer">
+    <div>Emperor Coffee Franchise</div>
+  </div>
+</body>
+</html>`;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+  };
+
+  const sendToThermalPrinter = (encoderData: Uint8Array) => {
+    // This function is no longer used - replaced with browser print
+  };
+
+  const handleStandardPrint = () => {
+    if (!data) return;
+    window.print();
+  };
+
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-2xl">
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Loading closing report...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (error) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Error</DialogTitle>
+            <DialogDescription>
+              Failed to load closing report
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <p>{error}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={fetchClosingReport}>
+              Retry
+            </Button>
+            <Button onClick={onClose}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Day Closing Receipt
+          </DialogTitle>
+          <DialogDescription>
+            {data.storeName} - {data.branchName} | {new Date(data.date).toLocaleDateString()}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          <Tabs defaultValue="shifts" className="w-full flex flex-col min-h-0">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="shifts" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Shifts ({data.shifts?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="items" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Item Summary
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Shift Summaries Tab */}
+            <TabsContent value="shifts" className="space-y-4 flex-1 overflow-y-auto pr-2">
+              {data.shifts?.map((shift, index) => (
+                <ShiftSummaryCard
+                  key={shift.shiftNumber}
+                  shift={shift}
+                  index={index}
+                  totalShifts={data.shifts?.length || 1}
+                  onPrint={() => handlePrintShiftPaper1(shift, index)}
+                />
+              ))}
+            </TabsContent>
+
+            {/* Item Summary Tab */}
+            <TabsContent value="items" className="flex-1 overflow-y-auto pr-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Item Breakdown
+                  </CardTitle>
+                  <CardDescription>
+                    All items sold on {new Date(data.date).toLocaleDateString()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {data.categoryBreakdown?.map((category) => (
+                      <div key={category.categoryName}>
+                        <div className="mb-3 flex items-center justify-between">
+                          <h4 className="font-semibold">{category.categoryName}</h4>
+                          <Badge variant="secondary">{formatCurrency(category.totalSales)}</Badge>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-2 px-2">Item</th>
+                                <th className="text-right py-2 px-2">Qty</th>
+                                <th className="text-right py-2 px-2">Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {category.items?.map((item, idx) => (
+                                <tr key={idx} className="border-b border-border/50">
+                                  <td className="py-2 px-2">{item.itemName}</td>
+                                  <td className="text-right py-2 px-2">{item.quantity}</td>
+                                  <td className="text-right py-2 px-2">{formatCurrency(item.totalPrice)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            onClick={handleStandardPrint}
+            className="flex items-center gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Standard Print
+          </Button>
+          <Button
+            onClick={handlePrintItemSummary}
+            className="flex items-center gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Print Item Summary (Paper 2)
+          </Button>
+          <DialogClose asChild>
+            <Button variant="ghost" className="flex items-center gap-2">
+              <X className="h-4 w-4" />
+              Close
+            </Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface ShiftSummaryCardProps {
+  shift: DayClosingShiftData;
+  index: number;
+  totalShifts: number;
+  onPrint: () => void;
+}
+
+function ShiftSummaryCard({ shift, index, totalShifts, onPrint }: ShiftSummaryCardProps) {
+  const cashierName = shift.cashier?.name || shift.cashier?.username || 'Unknown';
+
+  // Calculate totals
+  const totalSales = shift.totals?.sales || 0;
+  const totalDiscounts = shift.totals?.discounts || 0;
+  const totalDeliveryFees = shift.totals?.deliveryFees || 0;
+  const totalRefunds = shift.totals?.refunds || 0;
+  const totalCard = shift.totals?.card || 0;
+  const totalInstapay = shift.totals?.instapay || 0;
+  const totalWallet = shift.totals?.wallet || 0;
+  const totalCash = shift.totals?.cash || 0;
+  const totalDailyExpenses = shift.totals?.dailyExpenses || 0;
+  const openingBalance = shift.totals?.openingCashBalance || 0;
+  const expectedCash = shift.totals?.expectedCash || 0;
+  const closingBalance = shift.totals?.closingCashBalance || 0;
+  const overShort = shift.totals?.overShort || 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Shift {shift.shiftNumber} of {totalShifts}
+            </CardTitle>
+            <CardDescription>
+              {cashierName} | {new Date(shift.startTime).toLocaleTimeString()} - {new Date(shift.endTime).toLocaleTimeString()}
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onPrint}
+            className="flex items-center gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Print Paper 1
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Order Type Breakdown */}
+          <div className="space-y-2">
+            <h4 className="font-semibold">Order Type Breakdown</h4>
+            <div className="grid gap-2 md:grid-cols-3">
+              <OrderTypeCard
+                label="Take Away"
+                value={shift.orderTypeBreakdown['take-away']?.value || 0}
+                discounts={shift.orderTypeBreakdown['take-away']?.discounts || 0}
+                total={shift.orderTypeBreakdown['take-away']?.total || 0}
+              />
+              <OrderTypeCard
+                label="Dine In"
+                value={shift.orderTypeBreakdown['dine-in']?.value || 0}
+                discounts={shift.orderTypeBreakdown['dine-in']?.discounts || 0}
+                total={shift.orderTypeBreakdown['dine-in']?.total || 0}
+              />
+              <OrderTypeCard
+                label="Delivery"
+                value={shift.orderTypeBreakdown['delivery']?.value || 0}
+                discounts={shift.orderTypeBreakdown['delivery']?.discounts || 0}
+                total={shift.orderTypeBreakdown['delivery']?.total || 0}
+              />
+            </div>
+          </div>
+
+          {/* Financial Summary */}
+          <div className="space-y-2">
+            <h4 className="font-semibold">Financial Summary</h4>
+            <div className="grid gap-2 md:grid-cols-2">
+              <SummaryRow label="Total Sales" value={totalSales} highlight />
+              <SummaryRow label="Total Discounts" value={totalDiscounts} />
+              <SummaryRow label="Total Delivery Fees" value={totalDeliveryFees} />
+              <SummaryRow label="Total Refunds" value={totalRefunds} />
+              <SummaryRow label="Total Card" value={totalCard} />
+              <SummaryRow label="Total InstaPay" value={totalInstapay} />
+              <SummaryRow label="Total Wallet" value={totalWallet} />
+              <SummaryRow label="Total Cash" value={totalCash} highlight />
+              <SummaryRow label="Total Daily Expenses" value={totalDailyExpenses} variant="negative" />
+              <SummaryRow label="Opening Cash Balance" value={openingBalance} />
+              <SummaryRow label="Expected Cash" value={expectedCash} highlight />
+              <SummaryRow label="Closing Cash Balance" value={closingBalance} />
+              <SummaryRow
+                label="Over/Short"
+                value={overShort}
+                variant={overShort < 0 ? 'negative' : overShort > 0 ? 'positive' : 'neutral'}
+                highlight
+              />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface OrderTypeCardProps {
+  label: string;
+  value: number;
+  discounts: number;
+  total: number;
+}
+
+function OrderTypeCard({ label, value, discounts, total }: OrderTypeCardProps) {
+  return (
+    <div className="rounded-lg border p-3">
+      <h5 className="font-medium text-sm mb-2">{label}</h5>
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Value:</span>
+          <span>{formatCurrency(value)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Discounts:</span>
+          <span className="text-destructive">-{formatCurrency(discounts)}</span>
+        </div>
+        <div className="flex justify-between font-semibold pt-1 border-t">
+          <span>Total:</span>
+          <span>{formatCurrency(total)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SummaryRowProps {
+  label: string;
+  value: number;
+  variant?: 'positive' | 'negative' | 'neutral';
+  highlight?: boolean;
+}
+
+function SummaryRow({ label, value, variant = 'neutral', highlight }: SummaryRowProps) {
+  const valueColor = variant === 'positive' ? 'text-green-600' : variant === 'negative' ? 'text-red-600' : '';
+
+  return (
+    <div className={`flex justify-between py-1 ${highlight ? 'font-semibold bg-muted/50 px-2 rounded' : ''}`}>
+      <span>{label}:</span>
+      <span className={valueColor}>{formatCurrency(value)}</span>
+    </div>
+  );
+}

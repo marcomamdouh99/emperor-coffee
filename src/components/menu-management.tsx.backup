@@ -1,0 +1,1982 @@
+'use client';
+
+import { useState, useEffect, Fragment } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Pencil, Trash2, Coffee, DollarSign, Search, Folder, TrendingUp, Package, Layers, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { useI18n } from '@/lib/i18n-context';
+import { formatCurrency } from '@/lib/utils';
+
+interface MenuItem {
+  id: string;
+  name: string;
+  category: string;
+  categoryId?: string | null;
+  price: number;
+  taxRate: number;
+  isActive: boolean;
+  sortOrder?: number;
+  hasVariants: boolean;
+  productCost?: number;
+  profit?: number;
+  profitMargin?: number;
+  variants?: MenuItemVariant[];
+}
+
+interface MenuItemVariant {
+  id: string;
+  menuItemId: string;
+  variantTypeId: string;
+  variantOptionId: string;
+  priceModifier: number;
+  sortOrder: number;
+  isActive: boolean;
+  variantType: {
+    id: string;
+    name: string;
+  };
+  variantOption: {
+    id: string;
+    name: string;
+  };
+}
+
+interface Category {
+  id: string;
+  name: string;
+  description?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  defaultVariantTypeId?: string | null;
+  _count?: { menuItems: number };
+}
+
+interface VariantType {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  options: VariantOption[];
+}
+
+interface VariantOption {
+  id: string;
+  name: string;
+  description?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+interface MenuItemFormData {
+  name: string;
+  category: string;
+  categoryId: string;
+  price: string;
+  taxRate: string;
+  isActive: boolean;
+  hasVariants: boolean;
+}
+
+interface CategoryFormData {
+  name: string;
+  description: string;
+  sortOrder: string;
+  isActive: boolean;
+  defaultVariantTypeId: string;
+}
+
+interface VariantTypeFormData {
+  name: string;
+  description: string;
+  isActive: boolean;
+}
+
+interface VariantOptionFormData {
+  name: string;
+  description: string;
+  sortOrder: string;
+  isActive: boolean;
+  variantTypeId: string;
+}
+
+export default function MenuManagement() {
+  const { currency } = useI18n();
+  const [activeTab, setActiveTab] = useState('items');
+  
+  // Menu Items State
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [itemFormData, setItemFormData] = useState<MenuItemFormData>({
+    name: '',
+    category: '',
+    categoryId: '',
+    price: '',
+    taxRate: '0.14',
+    isActive: true,
+    hasVariants: false,
+  });
+
+  // Variant Management State
+  const [variantTypes, setVariantTypes] = useState<VariantType[]>([]);
+  const [selectedVariantType, setSelectedVariantType] = useState<string>('');
+  const [itemVariants, setItemVariants] = useState<Array<{ variantOptionId: string; priceModifier: string }>>([]);
+
+  // Categories State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
+    name: '',
+    description: '',
+    sortOrder: '0',
+    isActive: true,
+    defaultVariantTypeId: '',
+  });
+
+  // Variants Tab State
+  const [variantsVariantTypes, setVariantsVariantTypes] = useState<VariantType[]>([]);
+  const [selectedVariantTypeForOptions, setSelectedVariantTypeForOptions] = useState<VariantType | null>(null);
+  const [variantTypeDialogOpen, setVariantTypeDialogOpen] = useState(false);
+  const [variantOptionDialogOpen, setVariantOptionDialogOpen] = useState(false);
+  const [editingVariantType, setEditingVariantType] = useState<VariantType | null>(null);
+  const [editingVariantOption, setEditingVariantOption] = useState<VariantOption | null>(null);
+  const [variantTypeFormData, setVariantTypeFormData] = useState<VariantTypeFormData>({
+    name: '',
+    description: '',
+    isActive: true,
+  });
+  const [variantOptionFormData, setVariantOptionFormData] = useState<VariantOptionFormData>({
+    name: '',
+    description: '',
+    sortOrder: '0',
+    isActive: true,
+    variantTypeId: '',
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  // Fetch categories
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Fetch variant types
+  useEffect(() => {
+    fetchVariantTypes();
+  }, []);
+
+  // Fetch variant types for Variants tab
+  useEffect(() => {
+    fetchVariantTypesForVariantsTab();
+  }, []);
+
+  // Fetch menu items
+  useEffect(() => {
+    fetchMenuItems();
+  }, []);
+
+  const fetchVariantTypes = async () => {
+    try {
+      const response = await fetch('/api/variant-types?active=true&includeOptions=true');
+      const data = await response.json();
+      if (response.ok && data.variantTypes) {
+        setVariantTypes(data.variantTypes);
+      }
+    } catch (error) {
+      console.error('Failed to fetch variant types:', error);
+    }
+  };
+
+  const fetchVariantTypesForVariantsTab = async () => {
+    try {
+      const response = await fetch('/api/variant-types?active=true&includeOptions=true');
+      const data = await response.json();
+      if (response.ok && data.variantTypes) {
+        setVariantsVariantTypes(data.variantTypes);
+      }
+    } catch (error) {
+      console.error('Failed to fetch variant types:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories?active=true');
+      const data = await response.json();
+      if (response.ok && data.categories) {
+        setCategories(data.categories);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  };
+
+  const fetchMenuItems = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/menu-items?active=true&includeVariants=true');
+      const data = await response.json();
+      if (response.ok && data.menuItems) {
+        setMenuItems(data.menuItems);
+      }
+    } catch (error) {
+      console.error('Failed to fetch menu items:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleRowExpand = (itemId: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(itemId)) {
+      newExpanded.delete(itemId);
+    } else {
+      newExpanded.add(itemId);
+    }
+    setExpandedRows(newExpanded);
+  };
+
+  // Category Management
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const url = editingCategory ? `/api/categories/${editingCategory.id}` : '/api/categories';
+      const method = editingCategory ? 'PATCH' : 'POST';
+
+      const payload: any = {
+        name: categoryFormData.name,
+        description: categoryFormData.description,
+        sortOrder: parseInt(categoryFormData.sortOrder),
+        isActive: categoryFormData.isActive,
+      };
+
+      if (categoryFormData.defaultVariantTypeId) {
+        payload.defaultVariantTypeId = categoryFormData.defaultVariantTypeId;
+      }
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to save category' });
+        return;
+      }
+
+      setCategoryDialogOpen(false);
+      resetCategoryForm();
+      await fetchCategories();
+      setMessage({ type: 'success', text: editingCategory ? 'Category updated!' : 'Category created!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save category' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category);
+    setCategoryFormData({
+      name: category.name,
+      description: category.description || '',
+      sortOrder: category.sortOrder.toString(),
+      isActive: category.isActive,
+      defaultVariantTypeId: category.defaultVariantTypeId || '',
+    });
+    setCategoryDialogOpen(true);
+    setMessage(null);
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    const response = await fetch(`/api/categories/${categoryId}`, {
+      method: 'DELETE',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      setMessage({ type: 'error', text: data.error || 'Failed to delete category' });
+      return;
+    }
+
+    await fetchCategories();
+    setMessage({ type: 'success', text: 'Category deleted!' });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const resetCategoryForm = () => {
+    setEditingCategory(null);
+    setCategoryFormData({
+      name: '',
+      description: '',
+      sortOrder: '0',
+      isActive: true,
+      defaultVariantTypeId: '',
+    });
+    setMessage(null);
+  };
+
+  // Variant Management
+  const handleAddVariant = () => {
+    if (!selectedVariantType) return;
+    setItemVariants([...itemVariants, { variantOptionId: '', priceModifier: '0' }]);
+  };
+
+  const handleRemoveVariant = (index: number) => {
+    setItemVariants(itemVariants.filter((_, i) => i !== index));
+  };
+
+  const handleVariantChange = (index: number, field: string, value: string) => {
+    const newVariants = [...itemVariants];
+    newVariants[index] = { ...newVariants[index], [field]: value };
+    setItemVariants(newVariants);
+  };
+
+  const handleDeleteVariant = async (variantId: string) => {
+    if (!confirm('Are you sure you want to delete this variant?')) return;
+    
+    try {
+      const response = await fetch(`/api/menu-item-variants/${variantId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete variant' });
+        return;
+      }
+
+      await fetchMenuItems();
+      if (editingItem) {
+        await fetchItemVariants(editingItem.id);
+      }
+      setMessage({ type: 'success', text: 'Variant deleted!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to delete variant' });
+    }
+  };
+
+  const fetchItemVariants = async (menuItemId: string) => {
+    try {
+      const response = await fetch(`/api/menu-item-variants?menuItemId=${menuItemId}`);
+      const data = await response.json();
+      if (response.ok && data.variants) {
+        const variants = data.variants.map((v: MenuItemVariant) => ({
+          variantOptionId: v.variantOptionId,
+          priceModifier: v.priceModifier.toString(),
+        }));
+        setItemVariants(variants);
+        if (variants.length > 0) {
+          setSelectedVariantType(variants[0].variantTypeId || '');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch item variants:', error);
+    }
+  };
+
+  // Variant Type Management (Variants Tab)
+  const handleVariantTypeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const url = editingVariantType ? `/api/variant-types/${editingVariantType.id}` : '/api/variant-types';
+      const method = editingVariantType ? 'PATCH' : 'POST';
+
+      const payload: any = {
+        name: variantTypeFormData.name,
+        description: variantTypeFormData.description,
+        isActive: variantTypeFormData.isActive,
+      };
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to save variant type' });
+        return;
+      }
+
+      setVariantTypeDialogOpen(false);
+      resetVariantTypeForm();
+      await fetchVariantTypes();
+      await fetchVariantTypesForVariantsTab();
+      setMessage({ type: 'success', text: editingVariantType ? 'Variant type updated!' : 'Variant type created!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save variant type' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditVariantType = (variantType: VariantType) => {
+    setEditingVariantType(variantType);
+    setVariantTypeFormData({
+      name: variantType.name,
+      description: variantType.description || '',
+      isActive: variantType.isActive,
+    });
+    setVariantTypeDialogOpen(true);
+    setMessage(null);
+  };
+
+  const handleDeleteVariantType = async (variantTypeId: string) => {
+    if (!confirm('Are you sure you want to delete this variant type? All its options will also be deleted.')) return;
+
+    try {
+      const response = await fetch(`/api/variant-types/${variantTypeId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete variant type' });
+        return;
+      }
+
+      await fetchVariantTypes();
+      await fetchVariantTypesForVariantsTab();
+      setMessage({ type: 'success', text: 'Variant type deleted!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to delete variant type' });
+    }
+  };
+
+  const resetVariantTypeForm = () => {
+    setEditingVariantType(null);
+    setVariantTypeFormData({
+      name: '',
+      description: '',
+      isActive: true,
+    });
+    setMessage(null);
+  };
+
+  // Variant Option Management (Variants Tab)
+  const handleVariantOptionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const url = editingVariantOption ? `/api/variant-options/${editingVariantOption.id}` : '/api/variant-options';
+      const method = editingVariantOption ? 'PATCH' : 'POST';
+
+      const payload: any = {
+        name: variantOptionFormData.name,
+        description: variantOptionFormData.description,
+        sortOrder: parseInt(variantOptionFormData.sortOrder),
+        isActive: variantOptionFormData.isActive,
+        variantTypeId: editingVariantOption ? undefined : variantOptionFormData.variantTypeId,
+      };
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to save variant option' });
+        return;
+      }
+
+      setVariantOptionDialogOpen(false);
+      resetVariantOptionForm();
+      await fetchVariantTypes();
+      await fetchVariantTypesForVariantsTab();
+      setMessage({ type: 'success', text: editingVariantOption ? 'Variant option updated!' : 'Variant option created!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save variant option' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditVariantOption = (variantOption: VariantOption, variantTypeId: string) => {
+    setEditingVariantOption(variantOption);
+    setVariantOptionFormData({
+      name: variantOption.name,
+      description: variantOption.description || '',
+      sortOrder: variantOption.sortOrder.toString(),
+      isActive: variantOption.isActive,
+      variantTypeId,
+    });
+    setVariantOptionDialogOpen(true);
+    setMessage(null);
+  };
+
+  const handleDeleteVariantOption = async (variantOptionId: string) => {
+    if (!confirm('Are you sure you want to delete this variant option?')) return;
+
+    try {
+      const response = await fetch(`/api/variant-options/${variantOptionId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete variant option' });
+        return;
+      }
+
+      await fetchVariantTypes();
+      await fetchVariantTypesForVariantsTab();
+      setMessage({ type: 'success', text: 'Variant option deleted!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to delete variant option' });
+    }
+  };
+
+  const resetVariantOptionForm = () => {
+    setEditingVariantOption(null);
+    setVariantOptionFormData({
+      name: '',
+      description: '',
+      sortOrder: '0',
+      isActive: true,
+      variantTypeId: '',
+    });
+    setMessage(null);
+  };
+
+  // Menu Item Management
+  const handleItemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      let menuItemId: string | null = null;
+
+      if (editingItem) {
+        menuItemId = editingItem.id;
+        const response = await fetch('/api/menu-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            _method: 'PATCH',
+            id: menuItemId,
+            ...itemFormData,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to update menu item');
+        }
+      } else {
+        const response = await fetch('/api/menu-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(itemFormData),
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to create menu item');
+        }
+
+        menuItemId = data.menuItem.id;
+      }
+
+      // Save variants if enabled
+      if (itemFormData.hasVariants && menuItemId) {
+        for (const variant of itemVariants) {
+          if (variant.variantOptionId) {
+            const response = await fetch('/api/menu-item-variants', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                menuItemId,
+                variantTypeId: selectedVariantType,
+                variantOptionId: variant.variantOptionId,
+                priceModifier: parseFloat(variant.priceModifier),
+              }),
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+              throw new Error(data.error || 'Failed to create variant');
+            }
+          }
+        }
+      }
+
+      setItemDialogOpen(false);
+      resetItemForm();
+      await fetchMenuItems();
+      setMessage({ type: 'success', text: editingItem ? 'Item updated!' : 'Item created!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to save item' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditItem = async (item: MenuItem) => {
+    setEditingItem(item);
+    setItemFormData({
+      name: item.name,
+      category: item.category,
+      categoryId: item.categoryId || '',
+      price: item.price.toString(),
+      taxRate: item.taxRate.toString(),
+      isActive: item.isActive,
+      hasVariants: item.hasVariants,
+    });
+
+    // Fetch variants if the item has them
+    if (item.hasVariants) {
+      await fetchItemVariants(item.id);
+    } else {
+      setItemVariants([]);
+      setSelectedVariantType('');
+    }
+
+    setItemDialogOpen(true);
+    setMessage(null);
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!confirm('Are you sure you want to delete this menu item?')) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/menu-items?id=${itemId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete menu item');
+      }
+
+      await fetchMenuItems();
+      setMessage({ type: 'success', text: 'Item deleted!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to delete item' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetItemForm = () => {
+    setEditingItem(null);
+    setItemFormData({
+      name: '',
+      category: '',
+      categoryId: '',
+      price: '',
+      taxRate: '0.14',
+      isActive: true,
+      hasVariants: false,
+    });
+    setItemVariants([]);
+    setSelectedVariantType('');
+    setMessage(null);
+  };
+
+  const filteredItems = menuItems.filter((item) => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || 
+                          item.categoryId === selectedCategory ||
+                          item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const getProfitMarginColor = (margin?: number) => {
+    if (!margin) return 'text-slate-600';
+    if (margin >= 80) return 'text-emerald-600';
+    if (margin >= 50) return 'text-blue-600';
+    if (margin >= 30) return 'text-amber-600';
+    return 'text-red-600';
+  };
+
+  const getVariantPrice = (basePrice: number, priceModifier: number) => {
+    return basePrice + priceModifier;
+  };
+
+  return (
+    <div className="space-y-6">
+      {message && (
+        <div className={`p-4 rounded-lg border ${
+          message.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800'
+            : 'bg-red-50 border-red-200 text-red-800'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Coffee className="h-6 w-6" />
+            Menu Management
+          </CardTitle>
+          <CardDescription>
+            Manage menu categories, items, and variants. Categories organize menu items for POS filtering.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="items">Menu Items</TabsTrigger>
+              <TabsTrigger value="categories">Categories</TabsTrigger>
+              <TabsTrigger value="variants">Variants</TabsTrigger>
+            </TabsList>
+
+            {/* Menu Items Tab */}
+            <TabsContent value="items" className="space-y-4 mt-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search menu items..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="md:w-[200px]">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name} ({cat._count?.menuItems || 0})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={resetItemForm}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                    <form onSubmit={handleItemSubmit}>
+                      <DialogHeader>
+                        <DialogTitle>{editingItem ? 'Edit Menu Item' : 'Add Menu Item'}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="itemName">Item Name *</Label>
+                          <Input
+                            id="itemName"
+                            value={itemFormData.name}
+                            onChange={(e) => setItemFormData({ ...itemFormData, name: e.target.value })}
+                            placeholder="e.g., Caramel Latte"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="category">Category *</Label>
+                            <Select
+                              value={itemFormData.categoryId}
+                              onValueChange={(value) => {
+                                const cat = categories.find(c => c.id === value);
+                                setItemFormData({ 
+                                  ...itemFormData, 
+                                  categoryId: value,
+                                  category: cat?.name || ''
+                                });
+                                // Auto-set variant type if category has default
+                                if (cat?.defaultVariantTypeId) {
+                                  setSelectedVariantType(cat.defaultVariantTypeId);
+                                  setItemFormData(prev => ({ ...prev, hasVariants: true }));
+                                }
+                              }}
+                            >
+                              <SelectTrigger id="category">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {categories.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                    {cat.defaultVariantTypeId && (
+                                      <Badge className="ml-2 text-xs">Variants</Badge>
+                                    )}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="price">Base Price ({currency}) *</Label>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input
+                                id="price"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={itemFormData.price}
+                                onChange={(e) => setItemFormData({ ...itemFormData, price: e.target.value })}
+                                placeholder="0.00"
+                                className="pl-10"
+                                required
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="taxRate">Tax Rate</Label>
+                            <Input
+                              id="taxRate"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="1"
+                              value={itemFormData.taxRate}
+                              onChange={(e) => setItemFormData({ ...itemFormData, taxRate: e.target.value })}
+                              placeholder="0.14"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="active">Status</Label>
+                            <Select
+                              value={itemFormData.isActive.toString()}
+                              onValueChange={(value) => setItemFormData({ ...itemFormData, isActive: value === 'true' })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">Active</SelectItem>
+                                <SelectItem value="false">Inactive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Variants Section */}
+                        <div className="border-t pt-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="space-y-1">
+                              <Label className="flex items-center gap-2">
+                                <Layers className="h-4 w-4" />
+                                Enable Variants
+                              </Label>
+                              <p className="text-sm text-slate-500">
+                                Allow different sizes/weights with custom pricing
+                              </p>
+                            </div>
+                            <Switch
+                              checked={itemFormData.hasVariants}
+                              onCheckedChange={(checked) => {
+                                setItemFormData({ ...itemFormData, hasVariants: checked });
+                                if (checked && !selectedVariantType) {
+                                  const cat = categories.find(c => c.id === itemFormData.categoryId);
+                                  if (cat?.defaultVariantTypeId) {
+                                    setSelectedVariantType(cat.defaultVariantTypeId);
+                                  }
+                                }
+                              }}
+                            />
+                          </div>
+
+                          {itemFormData.hasVariants && (
+                            <div className="space-y-4 border rounded-lg p-4 bg-slate-50">
+                              <div className="space-y-2">
+                                <Label>Variant Type *</Label>
+                                <Select
+                                  value={selectedVariantType}
+                                  onValueChange={setSelectedVariantType}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select variant type (e.g., Size, Weight)" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {variantTypes.map((vt) => (
+                                      <SelectItem key={vt.id} value={vt.id}>
+                                        {vt.name} {vt.description && `(${vt.description})`}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {selectedVariantType && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <Label>Variants</Label>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={handleAddVariant}
+                                    >
+                                      <Plus className="h-4 w-4 mr-1" />
+                                      Add Variant
+                                    </Button>
+                                  </div>
+
+                                  {itemVariants.length === 0 && (
+                                    <p className="text-sm text-slate-500 italic">
+                                      No variants added yet. Click "Add Variant" to add options.
+                                    </p>
+                                  )}
+
+                                  {itemVariants.map((variant, index) => {
+                                    const selectedType = variantTypes.find(vt => vt.id === selectedVariantType);
+                                    return (
+                                      <div key={index} className="flex gap-2 items-start">
+                                        <div className="flex-1 space-y-2">
+                                          <Select
+                                            value={variant.variantOptionId}
+                                            onValueChange={(value) => handleVariantChange(index, 'variantOptionId', value)}
+                                          >
+                                            <SelectTrigger>
+                                              <SelectValue placeholder="Select option" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {selectedType?.options.map((option) => (
+                                                <SelectItem key={option.id} value={option.id}>
+                                                  {option.name}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                          <div className="flex items-center gap-2">
+                                            <Label className="text-xs">Price Modifier:</Label>
+                                            <Input
+                                              type="number"
+                                              step="0.01"
+                                              value={variant.priceModifier}
+                                              onChange={(e) => handleVariantChange(index, 'priceModifier', e.target.value)}
+                                              placeholder="+0.00"
+                                              className="h-8"
+                                            />
+                                            <span className="text-xs text-slate-500">
+                                              Final: {formatCurrency(
+                                                getVariantPrice(parseFloat(itemFormData.price || '0'), parseFloat(variant.priceModifier || '0')),
+                                                currency
+                                              )}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleRemoveVariant(index)}
+                                        >
+                                          <X className="h-4 w-4 text-red-600" />
+                                        </Button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setItemDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                          {loading ? 'Saving...' : editingItem ? 'Update' : 'Add'} Item
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <ScrollArea className="h-[600px] border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px]"></TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Base Price</TableHead>
+                      <TableHead>Product Cost</TableHead>
+                      <TableHead>Profit</TableHead>
+                      <TableHead>Margin</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow key="loading">
+                        <TableCell colSpan={9} className="text-center py-8">Loading...</TableCell>
+                      </TableRow>
+                    ) : filteredItems.length === 0 ? (
+                      <TableRow key="empty">
+                        <TableCell colSpan={9} className="text-center py-8 text-slate-500">
+                          No menu items found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredItems.map((item) => (
+                        <Fragment key={item.id}>
+                          <TableRow className={item.hasVariants ? 'cursor-pointer hover:bg-slate-50' : ''}>
+                            <TableCell className="w-[40px]">
+                              {item.hasVariants && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => toggleRowExpand(item.id)}
+                                >
+                                  {expandedRows.has(item.id) ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {item.name}
+                                {item.hasVariants && (
+                                  <Badge variant="outline" className="text-xs">
+                                    <Layers className="h-3 w-3 mr-1" />
+                                    Variants
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{item.category}</TableCell>
+                            <TableCell className="font-bold text-emerald-700">
+                              {formatCurrency(item.price, currency)}
+                            </TableCell>
+                            <TableCell className="text-red-600">
+                              {item.productCost !== undefined ? formatCurrency(item.productCost, currency) : '-'}
+                            </TableCell>
+                            <TableCell className="text-blue-600">
+                              {item.profit !== undefined ? formatCurrency(item.profit, currency) : '-'}
+                            </TableCell>
+                            <TableCell className={getProfitMarginColor(item.profitMargin)}>
+                              {item.profitMargin !== undefined ? `${item.profitMargin.toFixed(1)}%` : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={item.isActive ? 'default' : 'secondary'}>
+                                {item.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditItem(item)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {item.hasVariants && expandedRows.has(item.id) && (
+                            <TableRow>
+                              <TableCell colSpan={9} className="p-0">
+                                <div className="bg-slate-50 p-4 border-l-4 border-emerald-500">
+                                  <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                                    <Layers className="h-4 w-4" />
+                                    Variants
+                                  </h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {item.variants?.map((variant) => (
+                                      <div key={variant.id} className="bg-white p-3 rounded border flex justify-between items-center">
+                                        <div>
+                                          <div className="font-medium text-sm">
+                                            {variant.variantType.name}: {variant.variantOption.name}
+                                          </div>
+                                          <div className="text-xs text-slate-500">
+                                            Price: {formatCurrency(getVariantPrice(item.price, variant.priceModifier), currency)}
+                                            {variant.priceModifier !== 0 && (
+                                              <span className={`ml-2 ${variant.priceModifier > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                ({variant.priceModifier > 0 ? '+' : ''}{formatCurrency(variant.priceModifier, currency)})
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 text-red-600"
+                                          onClick={() => handleDeleteVariant(variant.id)}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {(!item.variants || item.variants.length === 0) && (
+                                    <p className="text-sm text-slate-500 italic">No variants configured</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </TabsContent>
+
+
+
+            {/* Variants Tab */}
+            <TabsContent value="variants" className="space-y-4 mt-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">Variant Types & Options</h3>
+                  <p className="text-sm text-slate-500">
+                    Manage variant types (e.g., Size, Weight) and their options
+                  </p>
+                </div>
+                <Dialog open={variantTypeDialogOpen} onOpenChange={setVariantTypeDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={resetVariantTypeForm}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Type
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <form onSubmit={handleVariantTypeSubmit}>
+                      <DialogHeader>
+                        <DialogTitle>{editingVariantType ? 'Edit Variant Type' : 'Add Variant Type'}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="variantTypeName">Type Name *</Label>
+                          <Input
+                            id="variantTypeName"
+                            value={variantTypeFormData.name}
+                            onChange={(e) => setVariantTypeFormData({ ...variantTypeFormData, name: e.target.value })}
+                            placeholder="e.g., Size, Weight, Type"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="variantTypeDescription">Description</Label>
+                          <Input
+                            id="variantTypeDescription"
+                            value={variantTypeFormData.description}
+                            onChange={(e) => setVariantTypeFormData({ ...variantTypeFormData, description: e.target.value })}
+                            placeholder="Optional description"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="variantTypeStatus">Status</Label>
+                          <Select
+                            value={variantTypeFormData.isActive.toString()}
+                            onValueChange={(value) => setVariantTypeFormData({ ...variantTypeFormData, isActive: value === 'true' })}
+                          >
+                            <SelectTrigger id="variantTypeStatus">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Active</SelectItem>
+                              <SelectItem value="false">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setVariantTypeDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                          {loading ? 'Saving...' : editingVariantType ? 'Update' : 'Add'} Type
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column: Variant Types List */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-3 border-b">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <List className="h-4 w-4" />
+                      Variant Types
+                    </h4>
+                  </div>
+                  <ScrollArea className="h-[500px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Type Name</TableHead>
+                          <TableHead>Options</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {variantsVariantTypes.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-8 text-slate-500">
+                              No variant types found. Click "Add Type" to create one.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          variantsVariantTypes.map((variantType) => (
+                            <TableRow
+                              key={variantType.id}
+                              className={selectedVariantTypeForOptions?.id === variantType.id ? 'bg-slate-100 cursor-pointer' : 'cursor-pointer'}
+                              onClick={() => setSelectedVariantTypeForOptions(variantType)}
+                            >
+                              <TableCell className="font-medium">
+                                {variantType.name}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{variantType.options.length}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={variantType.isActive ? 'default' : 'secondary'}>
+                                  {variantType.isActive ? 'Active' : 'Inactive'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleEditVariantType(variantType)}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-600 hover:text-red-700"
+                                    onClick={() => handleDeleteVariantType(variantType.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
+
+                {/* Right Column: Variant Options Panel */}
+                <div className="border rounded-lg overflow-hidden">
+                  {selectedVariantTypeForOptions ? (
+                    <>
+                      <div className="bg-slate-50 px-4 py-3 border-b flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold">{selectedVariantTypeForOptions.name}</h4>
+                          <p className="text-sm text-slate-500">
+                            {selectedVariantTypeForOptions.description || 'No description'}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedVariantTypeForOptions(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="px-4 py-3 border-b">
+                        <Dialog open={variantOptionDialogOpen} onOpenChange={setVariantOptionDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button onClick={resetVariantOptionForm} size="sm">
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add Option
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[500px]">
+                            <form onSubmit={handleVariantOptionSubmit}>
+                              <DialogHeader>
+                                <DialogTitle>{editingVariantOption ? 'Edit Option' : 'Add Option'}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="optionName">Option Name *</Label>
+                                  <Input
+                                    id="optionName"
+                                    value={variantOptionFormData.name}
+                                    onChange={(e) => setVariantOptionFormData({ ...variantOptionFormData, name: e.target.value })}
+                                    placeholder="e.g., Small, Medium, Large"
+                                    required
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label htmlFor="optionDescription">Description</Label>
+                                  <Input
+                                    id="optionDescription"
+                                    value={variantOptionFormData.description}
+                                    onChange={(e) => setVariantOptionFormData({ ...variantOptionFormData, description: e.target.value })}
+                                    placeholder="Optional description"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="optionSortOrder">Sort Order</Label>
+                                    <Input
+                                      id="optionSortOrder"
+                                      type="number"
+                                      min="0"
+                                      value={variantOptionFormData.sortOrder}
+                                      onChange={(e) => setVariantOptionFormData({ ...variantOptionFormData, sortOrder: e.target.value })}
+                                      placeholder="0"
+                                      required
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="optionStatus">Status</Label>
+                                    <Select
+                                      value={variantOptionFormData.isActive.toString()}
+                                      onValueChange={(value) => setVariantOptionFormData({ ...variantOptionFormData, isActive: value === 'true' })}
+                                    >
+                                      <SelectTrigger id="optionStatus">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="true">Active</SelectItem>
+                                        <SelectItem value="false">Inactive</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                              </div>
+                              <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setVariantOptionDialogOpen(false)}>
+                                  Cancel
+                                </Button>
+                                <Button type="submit" disabled={loading}>
+                                  {loading ? 'Saving...' : editingVariantOption ? 'Update' : 'Add'} Option
+                                </Button>
+                              </DialogFooter>
+                            </form>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      <ScrollArea className="h-[400px]">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Option Name</TableHead>
+                              <TableHead>Sort Order</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {selectedVariantTypeForOptions.options.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={4} className="text-center py-8 text-slate-500">
+                                  No options found. Click "Add Option" to create one.
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              selectedVariantTypeForOptions.options
+                                .sort((a, b) => a.sortOrder - b.sortOrder)
+                                .map((option) => (
+                                  <TableRow key={option.id}>
+                                    <TableCell className="font-medium">
+                                      {option.name}
+                                      {option.description && (
+                                        <div className="text-xs text-slate-500">{option.description}</div>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>{option.sortOrder}</TableCell>
+                                    <TableCell>
+                                      <Badge variant={option.isActive ? 'default' : 'secondary'}>
+                                        {option.isActive ? 'Active' : 'Inactive'}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex justify-end gap-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8"
+                                          onClick={() => handleEditVariantOption(option)}
+                                        >
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                                          onClick={() => handleDeleteVariantOption(option.id)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-[600px] text-slate-500">
+                      <List className="h-12 w-12 mb-4 text-slate-300" />
+                      <p className="text-lg">Select a variant type to view and manage options</p>
+                      <p className="text-sm mt-2">Click on a variant type from the list on the left</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>            {/* Categories Tab */}
+            <TabsContent value="categories" className="space-y-4 mt-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">Menu Categories</h3>
+                  <p className="text-sm text-slate-500">
+                    Categories organize menu items and can have default variant types
+                  </p>
+                </div>
+                <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button onClick={resetCategoryForm}>
+                      <Folder className="h-4 w-4 mr-2" />
+                      Add Category
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <form onSubmit={handleCategorySubmit}>
+                      <DialogHeader>
+                        <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="catName">Category Name *</Label>
+                          <Input
+                            id="catName"
+                            value={categoryFormData.name}
+                            onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                            placeholder="e.g., Coffee"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="catDescription">Description</Label>
+                          <Input
+                            id="catDescription"
+                            value={categoryFormData.description}
+                            onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                            placeholder="Optional description"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="catSortOrder">Sort Order</Label>
+                            <Input
+                              id="catSortOrder"
+                              type="number"
+                              min="0"
+                              value={categoryFormData.sortOrder}
+                              onChange={(e) => setCategoryFormData({ ...categoryFormData, sortOrder: e.target.value })}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="catActive">Status</Label>
+                            <Select
+                              value={categoryFormData.isActive.toString()}
+                              onValueChange={(value) => setCategoryFormData({ ...categoryFormData, isActive: value === 'true' })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">Active</SelectItem>
+                                <SelectItem value="false">Inactive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="catDefaultVariant">Default Variant Type</Label>
+                          <Select
+                            value={categoryFormData.defaultVariantTypeId}
+                            onValueChange={setCategoryFormData}
+                          >
+                            <SelectTrigger id="catDefaultVariant">
+                              <SelectValue placeholder="Optional: Select default variant type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {variantTypes.map((vt) => (
+                                <SelectItem key={vt.id} value={vt.id}>
+                                  {vt.name} {vt.description && `(${vt.description})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-slate-500">
+                            Items in this category will automatically use this variant type
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                          {loading ? 'Saving...' : editingCategory ? 'Update' : 'Add'} Category
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {categories.map((category) => (
+                  <Card key={category.id} className="border-slate-200">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <Folder className="h-5 w-5 text-emerald-600" />
+                          <CardTitle className="text-base">{category.name}</CardTitle>
+                        </div>
+                        <Badge variant={category.isActive ? 'default' : 'secondary'}>
+                          {category.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      {category.description && (
+                        <CardDescription className="text-xs">{category.description}</CardDescription>
+                      )}
+                      {category.defaultVariantTypeId && (
+                        <Badge variant="outline" className="mt-2 text-xs">
+                          <Layers className="h-3 w-3 mr-1" />
+                          Default: {variantTypes.find(vt => vt.id === category.defaultVariantTypeId)?.name}
+                        </Badge>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-500">
+                          <Package className="inline h-3 w-3 mr-1" />
+                          {category._count?.menuItems || 0} items
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEditCategory(category)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this category?')) {
+                                handleDeleteCategory(category.id);
+                              }
+                            }}
+                            disabled={(category._count?.menuItems || 0) > 0}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
+            {/* Variants Tab */}
+            <TabsContent value="variants" className="space-y-6 mt-4">
+              {/* Variant Types Section */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Variant Types</h3>
+                    <p className="text-sm text-slate-500">
+                      Define variant types like Size, Weight, or Material
+                    </p>
+                  </div>
+                  <Dialog open={variantTypeDialogOpen} onOpenChange={setVariantTypeDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button onClick={resetVariantTypeForm}>
+                        <Layers className="h-4 w-4 mr-2" />
+                        Add Variant Type
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                      <form onSubmit={handleVariantTypeSubmit}>
+                        <DialogHeader>
+                          <DialogTitle>{editingVariantType ? 'Edit Variant Type' : 'Add Variant Type'}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="variantTypeName">Type Name *</Label>
+                            <Input
+                              id="variantTypeName"
+                              value={variantTypeFormData.name}
+                              onChange={(e) => setVariantTypeFormData({ ...variantTypeFormData, name: e.target.value })}
+                              placeholder="e.g., Size, Weight, Material"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="variantTypeDescription">Description</Label>
+                            <Input
+                              id="variantTypeDescription"
+                              value={variantTypeFormData.description}
+                              onChange={(e) => setVariantTypeFormData({ ...variantTypeFormData, description: e.target.value })}
+                              placeholder="Optional description"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="variantTypeActive">Status</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-slate-600">Inactive</span>
+                              <Switch
+                                id="variantTypeActive"
+                                checked={variantTypeFormData.isActive}
+                                onCheckedChange={(checked) => setVariantTypeFormData({ ...variantTypeFormData, isActive: checked })}
+                              />
+                              <span className="text-sm text-slate-600">Active</span>
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setVariantTypeDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" disabled={loading}>
+                            {loading ? 'Saving...' : editingVariantType ? 'Update' : 'Add'} Variant Type
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {variantsVariantTypes.map((variantType) => (
+                    <Card key={variantType.id} className="border-slate-200">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <Layers className="h-5 w-5 text-blue-600" />
+                            <CardTitle className="text-base">{variantType.name}</CardTitle>
+                          </div>
+                          <Badge variant={variantType.isActive ? 'default' : 'secondary'}>
+                            {variantType.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                        {variantType.description && (
+                          <CardDescription className="text-xs">{variantType.description}</CardDescription>
+                        )}
+                        {variantType.options && variantType.options.length > 0 && (
+                          <Badge variant="outline" className="mt-2 text-xs">
+                            <Package className="h-3 w-3 mr-1" />
+                            {variantType.options.length} option{variantType.options.length !== 1 ? 's' : ''}
+                          </Badge>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">
+                            {variantType.options?.length || 0} option{variantType.options?.length !== 1 ? 's' : ''}
+                          </span>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleEditVariantType(variantType)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteVariantType(variantType.id)}
+                              disabled={variantType.options && variantType.options.length > 0}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {variantsVariantTypes.length === 0 && (
+                    <div className="col-span-full text-center py-8 text-slate-500 border rounded-lg bg-slate-50">
+                      No variant types found. Click "Add Variant Type" to create one.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Variant Options Section */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Variant Options</h3>
+                    <p className="text-sm text-slate-500">
+                      Create options for each variant type (e.g., Small, Medium, Large for Size)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-4 p-4 bg-slate-50 rounded-lg">
+                  <div className="flex-1">
+                    <Label htmlFor="variantTypeFilter" className="mb-2 block">Select Variant Type</Label>
+                    <Select
+                      value={selectedVariantTypeForOptions?.id || ''}
+                      onValueChange={(value) => {
+                        const variantType = variantsVariantTypes.find(vt => vt.id === value);
+                        setSelectedVariantTypeForOptions(variantType || null);
+                      }}
+                    >
+                      <SelectTrigger id="variantTypeFilter">
+                        <SelectValue placeholder="Choose a variant type to see options" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {variantsVariantTypes.map((vt) => (
+                          <SelectItem key={vt.id} value={vt.id}>
+                            {vt.name} {vt.description && `(${vt.description})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Dialog open={variantOptionDialogOpen} onOpenChange={setVariantOptionDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          onClick={() => {
+                            resetVariantOptionForm();
+                            if (selectedVariantTypeForOptions) {
+                              setVariantOptionFormData(prev => ({
+                                ...prev,
+                                variantTypeId: selectedVariantTypeForOptions.id
+                              }));
+                            }
+                          }}
+                          disabled={!selectedVariantTypeForOptions}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Option
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[500px]">
+                        <form onSubmit={handleVariantOptionSubmit}>
+                          <DialogHeader>
+                            <DialogTitle>{editingVariantOption ? 'Edit Variant Option' : 'Add Variant Option'}</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="optionVariantType">Variant Type *</Label>
+                              <Select
+                                value={variantOptionFormData.variantTypeId}
+                                onValueChange={(value) => setVariantOptionFormData({ ...variantOptionFormData, variantTypeId: value })}
+                                disabled={!!editingVariantOption}
+                              >
+                                <SelectTrigger id="optionVariantType">
+                                  <SelectValue placeholder="Select variant type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {variantsVariantTypes.map((vt) => (
+                                    <SelectItem key={vt.id} value={vt.id}>
+                                      {vt.name} {vt.description && `(${vt.description})`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="optionName">Option Name *</Label>
+                              <Input
+                                id="optionName"
+                                value={variantOptionFormData.name}
+                                onChange={(e) => setVariantOptionFormData({ ...variantOptionFormData, name: e.target.value })}
+                                placeholder="e.g., Small, Medium, Large"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="optionDescription">Description</Label>
+                              <Input
+                                id="optionDescription"
+                                value={variantOptionFormData.description}
+                                onChange={(e) => setVariantOptionFormData({ ...variantOptionFormData, description: e.target.value })}
+                                placeholder="Optional description"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="optionSortOrder">Sort Order</Label>
+                              <Input
+                                id="optionSortOrder"
+                                type="number"
+                                min="0"
+                                value={variantOptionFormData.sortOrder}
+                                onChange={(e) => setVariantOptionFormData({ ...variantOptionFormData, sortOrder: e.target.value })}
+                                placeholder="0"
+                              />
+                              <p className="text-xs text-slate-500">Lower numbers appear first</p>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="optionActive">Status</Label>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-600">Inactive</span>
+                                <Switch
+                                  id="optionActive"
+                                  checked={variantOptionFormData.isActive}
+                                  onCheckedChange={(checked) => setVariantOptionFormData({ ...variantOptionFormData, isActive: checked })}
+                                />
+                                <span className="text-sm text-slate-600">Active</span>
+                              </div>
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setVariantOptionDialogOpen(false)}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" disabled={loading}>
+                              {loading ? 'Saving...' : editingVariantOption ? 'Update' : 'Add'} Option
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+
+                {!selectedVariantTypeForOptions ? (
+                  <div className="text-center py-12 text-slate-500 border rounded-lg bg-slate-50">
+                    <Layers className="h-12 w-12 mx-auto mb-3 text-slate-400" />
+                    <p className="text-sm">Please select a variant type above to view and manage its options</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {(selectedVariantTypeForOptions.options || []).map((option) => (
+                      <Card key={option.id} className="border-slate-200">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-5 w-5 text-purple-600" />
+                              <CardTitle className="text-base">{option.name}</CardTitle>
+                            </div>
+                            <Badge variant={option.isActive ? 'default' : 'secondary'}>
+                              {option.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                          {option.description && (
+                            <CardDescription className="text-xs">{option.description}</CardDescription>
+                          )}
+                          <Badge variant="outline" className="mt-2 text-xs">
+                            <Layers className="h-3 w-3 mr-1" />
+                            {selectedVariantTypeForOptions.name}
+                          </Badge>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-500">
+                              Order: {option.sortOrder}
+                            </span>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEditVariantOption(option, selectedVariantTypeForOptions.id)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteVariantOption(option.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {(selectedVariantTypeForOptions.options || []).length === 0 && (
+                      <div className="col-span-full text-center py-8 text-slate-500 border rounded-lg bg-slate-50">
+                        No options found for "{selectedVariantTypeForOptions.name}". Click "Add Option" to create one.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
