@@ -70,7 +70,7 @@ const ENTITY_STORAGE_MAP: Record<string, {
   },
   delivery_areas: {
     getAll: () => indexedDBStorage.getAllDeliveryAreas(),
-    batchSave: (items) indexedDBStorage.batchSaveDeliveryAreas(items),
+    batchSave: (items) => indexedDBStorage.batchSaveDeliveryAreas(items),
   },
   customers: {
     getAll: () => indexedDBStorage.getAllCustomers(),
@@ -94,7 +94,7 @@ const ENTITY_STORAGE_MAP: Record<string, {
   },
   promo_codes: {
     getAll: () => indexedDBStorage.getAllPromoCodes(),
-    batchSave: (items) indexedDBStorage.batchSavePromoCodes(items),
+    batchSave: (items) => indexedDBStorage.batchSavePromoCodes(items),
   },
   inventory: {
     getAll: () => indexedDBStorage.getAllInventory(),

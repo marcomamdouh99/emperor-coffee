@@ -53,6 +53,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
+      <head>
+        <script
+          src="/sw-loader.js"
+          async
+        />
+      </head>
       <LanguageStateProvider>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}

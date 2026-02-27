@@ -17,14 +17,14 @@ interface ServiceWorkerState {
 }
 
 export function useServiceWorker() {
-  const [state, setState] = useState<ServiceWorkerState>({
-    isSupported: false,
+  const [state, setState] = useState<ServiceWorkerState>(() => ({
+    isSupported: typeof window !== 'undefined' && 'serviceWorker' in navigator,
     isInstalled: false,
     isReady: false,
     canInstall: false,
     updateAvailable: false,
-    isOffline: !navigator.onLine,
-  });
+    isOffline: typeof window !== 'undefined' ? !navigator.onLine : true,
+  }));
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -34,7 +34,6 @@ export function useServiceWorker() {
 
     if (!isSupported) {
       console.warn('[PWA] Service workers not supported');
-      setState((prev) => ({ ...prev, isSupported: false }));
       return;
     }
 

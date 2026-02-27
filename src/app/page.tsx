@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,14 @@ export default function POSDashboard() {
   const router = useRouter();
   const { user, logout, isOnline } = useAuth();
   const { language, setLanguage, currency, t } = useI18n();
-  const [activeTab, setActiveTab] = useState('pos');
+  const [activeTab, setActiveTab] = useState<'pos' | string>(() => {
+    // Initialize tab based on user role
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('activeTab');
+      if (savedTab) return savedTab;
+    }
+    return 'pos';
+  });
   const [currentShift, setCurrentShift] = useState<any>(null);
   const [branches, setBranches] = useState<any[]>([]);
   const [userBranchName, setUserBranchName] = useState<string>('');
@@ -55,19 +62,6 @@ export default function POSDashboard() {
   const [storageAlert, setStorageAlert] = useState<any>(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [syncConflicts, setSyncConflicts] = useState<any[]>([]);
-
-  // Register Service Worker for PWA
-  useEffect(() => {
-    if ('serviceWorker' in navigator && typeof window !== 'undefined') {
-      navigator.serviceWorker.register('/sw.js')
-        .then((registration) => {
-          console.log('[PWA] Service Worker registered:', registration.scope);
-        })
-        .catch((error) => {
-          console.log('[PWA] Service Worker registration failed:', error);
-        });
-    }
-  }, []);
 
   // Start storage monitoring
   useEffect(() => {
@@ -286,10 +280,18 @@ export default function POSDashboard() {
           } else {
             // No open shift
             setHasOpenShift(false);
+            // Auto-redirect to shifts tab if currently on POS
+            if (activeTab === 'pos') {
+              setActiveTab('shifts');
+            }
           }
         } catch (error) {
           console.error('Failed to fetch current shift:', error);
           setHasOpenShift(false);
+          // Auto-redirect to shifts tab if currently on POS
+          if (activeTab === 'pos') {
+            setActiveTab('shifts');
+          }
         }
       };
 
@@ -309,12 +311,12 @@ export default function POSDashboard() {
     }
   }, [user, activeTab]);
 
-  // For cashiers without an open shift, default to shifts tab if active tab is not accessible
+  // Save activeTab to localStorage when it changes
   useEffect(() => {
-    if (user && user.role === 'CASHIER' && !hasOpenShift && activeTab === 'pos') {
-      setActiveTab('shifts');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeTab', activeTab);
     }
-  }, [activeTab, hasOpenShift, user]);
+  }, [activeTab]);
 
   // Check authentication on mount
   useEffect(() => {

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,30 +23,42 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(() => {
+    // Lazy initialization - check if already installed or dismissed
+    if (typeof window !== 'undefined') {
+      const isAlreadyInstalled = window.matchMedia('(display-mode: standalone)').matches;
+      const wasDismissed = sessionStorage.getItem('pwa-prompt-dismissed');
+      return !isAlreadyInstalled && !wasDismissed;
+    }
+    return false;
+  });
+  const [isInstalled, setIsInstalled] = useState(() => {
+    // Lazy initialization
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(display-mode: standalone)').matches;
+    }
+    return false;
+  });
+  const [isIOS, setIsIOS] = useState(() => {
+    // Lazy initialization
+    if (typeof window !== 'undefined') {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    }
+    return false;
+  });
 
   useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
-      return;
-    }
-
-    // Check if iOS
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    setIsIOS(isIOSDevice);
-
     // Listen for beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
 
-      // Show prompt after 2 seconds
-      setTimeout(() => {
-        setShowPrompt(true);
-      }, 2000);
+      // Show prompt after 2 seconds if not dismissed
+      if (!sessionStorage.getItem('pwa-prompt-dismissed')) {
+        setTimeout(() => {
+          setShowPrompt(true);
+        }, 2000);
+      }
     };
 
     // Listen for appinstalled event
@@ -95,13 +107,6 @@ export function PWAInstallPrompt() {
     // Don't show again for this session
     sessionStorage.setItem('pwa-prompt-dismissed', 'true');
   };
-
-  // Don't show if already dismissed in this session
-  useEffect(() => {
-    if (sessionStorage.getItem('pwa-prompt-dismissed')) {
-      setShowPrompt(false);
-    }
-  }, []);
 
   if (isInstalled) {
     return null;

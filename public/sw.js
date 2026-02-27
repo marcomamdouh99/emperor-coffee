@@ -1,10 +1,10 @@
 /**
  * Service Worker for Emperor Coffee POS
  * Enables offline functionality with improved caching strategies
- * Version: v4 - Fixed response cloning issue
+ * Version: v5 - Enhanced offline support with comprehensive asset caching
  */
 
-const CACHE_NAME = 'emperor-pos-v4';
+const CACHE_NAME = 'emperor-pos-v5';
 const CACHE_PREFIX = 'emperor-pos-';
 
 // Routes to skip (API calls - handled differently)
@@ -12,7 +12,7 @@ const SKIP_ROUTES = ['/api/'];
 
 // Cache strategies
 const CACHE_STRATEGIES = {
-  // Static assets - cache first, network fallback
+  // Static assets - cache first, network fallback (expanded list)
   STATIC: [
     '/',
     '/login',
@@ -20,6 +20,8 @@ const CACHE_STRATEGIES = {
     '/icon-512.svg',
     '/logo.svg',
     '/manifest.json',
+    '/sw.js',
+    '/sw-loader.js',
   ],
   // API endpoints - network first, cache fallback
   API: [
@@ -48,15 +50,39 @@ const CACHE_STRATEGIES = {
   ],
 };
 
-// Install event - cache static assets
+// Runtime cache for dynamic assets
+const RUNTIME_CACHE = 'emperor-pos-runtime-v5';
+
+// Install event - cache static assets and app shell
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing v4...');
+  console.log('[Service Worker] Installing v5...');
 
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching app shell and static assets');
-      return cache.addAll(CACHE_STRATEGIES.STATIC);
-    })
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        console.log('[Service Worker] Caching app shell and static assets');
+
+        // Cache static routes
+        await cache.addAll(CACHE_STRATEGIES.STATIC.map(url => new Request(url, { cache: 'reload' })));
+
+        // Also cache the current page as a fallback
+        const pages = await self.clients.matchAll({ type: 'window' });
+        if (pages.length > 0) {
+          const pageUrl = pages[0].url;
+          try {
+            await cache.add(new Request(pageUrl, { cache: 'reload' }));
+            console.log('[Service Worker] Cached current page:', pageUrl);
+          } catch (e) {
+            console.log('[Service Worker] Could not cache current page, will use fallback');
+          }
+        }
+
+        console.log('[Service Worker] Installation complete');
+      } catch (error) {
+        console.error('[Service Worker] Installation error:', error);
+      }
+    })()
   );
 
   // Force the waiting service worker to become active
@@ -65,27 +91,31 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating v4...');
+  console.log('[Service Worker] Activating v5...');
 
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    (async () => {
+      // Clean up old caches
+      const cacheNames = await caches.keys();
+      await Promise.all(
         cacheNames
           .filter((cacheName) => {
             return (
               cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME
             );
           })
-          .map((cacheName) => {
+          .map(async (cacheName) => {
             console.log('[Service Worker] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+            await caches.delete(cacheName);
           })
       );
-    })
-  );
 
-  // Take control of all pages immediately
-  return self.clients.claim();
+      // Take control of all pages immediately
+      await self.clients.claim();
+
+      console.log('[Service Worker] Activation complete');
+    })()
+  );
 });
 
 // Fetch event - handle network requests with caching strategies
@@ -150,7 +180,19 @@ function getCacheStrategy(url) {
     return 'STATIC';
   }
 
-  // Default
+  // Static assets (JS, CSS, images, fonts)
+  if (
+    pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)
+  ) {
+    return 'STATIC';
+  }
+
+  // Next.js static assets
+  if (pathname.startsWith('/_next/static/')) {
+    return 'STATIC';
+  }
+
+  // Default: stale-while-revalidate for other requests
   return 'STALE_WHILE_REVALIDATE';
 }
 
@@ -261,12 +303,21 @@ function handleStaticRequest(event, request) {
         });
 
         return networkResponse;
-      }).catch(() => {
+      }).catch(async () => {
         // Network failed - try to return cached root
         console.log('[Service Worker] Network failed for static asset:', request.url);
-        return caches.match('/').then((rootResponse) => {
-          return rootResponse || getOfflineFallback();
-        });
+
+        // For HTML requests, return the offline fallback
+        if (request.headers.get('accept')?.includes('text/html')) {
+          const rootResponse = await caches.match('/');
+          if (rootResponse) {
+            return rootResponse;
+          }
+          return getOfflineFallback();
+        }
+
+        // For other assets, just fail
+        throw new Error('Network request failed and no cache available');
       });
     })
   );
@@ -277,17 +328,17 @@ function handleStaticRequest(event, request) {
  */
 function handleStaleWhileRevalidate(event, request) {
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cachedResponse = await cache.match(request);
+
       // Cache hit - return immediately and update in background
-      const fetchPromise = fetch(request).then((networkResponse) => {
+      const fetchPromise = fetch(request).then(async (networkResponse) => {
         // Clone immediately before returning to avoid body already used error
         const clonedResponse = networkResponse.clone();
 
         if (networkResponse && networkResponse.status === 200) {
-          caches.open(CACHE_NAME).then((cache) => {
-            // Use the cloned response for caching
-            cache.put(request, clonedResponse);
-          });
+          await cache.put(request, clonedResponse);
         }
         // Return the original response
         return networkResponse;
@@ -297,7 +348,7 @@ function handleStaleWhileRevalidate(event, request) {
 
       // Return cached version immediately, or wait for network
       return cachedResponse || fetchPromise;
-    })
+    })()
   );
 }
 
@@ -361,13 +412,10 @@ function getOfflineFallback() {
         button:hover {
           transform: scale(1.05);
         }
-        .spinning {
-          animation: spin 1s linear infinite;
-          display: inline-block;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        .info {
+          margin-top: 2rem;
+          font-size: 14px;
+          opacity: 0.8;
         }
       </style>
     </head>
@@ -377,17 +425,28 @@ function getOfflineFallback() {
         <h1>You're Offline</h1>
         <p>The Emperor Coffee POS app is currently offline. Your data is saved locally and will sync automatically when you reconnect.</p>
         <div class="status">
-          <span class="spinning">⟳</span> Checking for connection...
+          <strong>Status:</strong> Offline Mode Active
         </div>
-        <button onclick="location.reload()">Try Again</button>
+        <button onclick="location.reload()">Refresh When Online</button>
+        <div class="info">
+          Your orders and data are being saved locally. <br>
+          They will sync when internet is available.
+        </div>
       </div>
       <script>
-        // Auto-retry connection
+        // Listen for online event to reload page
+        window.addEventListener('online', () => {
+          console.log('[Offline Fallback] Connection restored, reloading...');
+          setTimeout(() => location.reload(), 500);
+        });
+
+        // Check connection periodically (every 30 seconds, not 5 seconds)
         setInterval(() => {
-          fetch('/api/health', { method: 'HEAD', cache: 'no-store' })
-            .then(() => location.reload())
-            .catch(() => {});
-        }, 5000);
+          if (navigator.onLine) {
+            console.log('[Offline Fallback] Online detected, reloading...');
+            location.reload();
+          }
+        }, 30000);
       </script>
     </body>
     </html>`,
