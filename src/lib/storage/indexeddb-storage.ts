@@ -6,7 +6,7 @@
 
 // Database configuration
 const DB_NAME = 'emperor-pos-db';
-const DB_VERSION = 2; // Incremented from 1 to 2 for temp_id_mappings
+const DB_VERSION = 3; // Incremented to 3 for idempotencyKey index
 const STORES = [
   'sync_operations',
   'sync_state',
@@ -69,6 +69,7 @@ export interface SyncOperation {
   branchId: string;
   timestamp: number;
   retryCount: number;
+  idempotencyKey: string; // Unique key to prevent duplicate operations
 }
 
 export interface SyncState {
@@ -124,6 +125,7 @@ class IndexedDBStorage {
                 store.createIndex('branchId', 'branchId', { unique: false });
                 store.createIndex('timestamp', 'timestamp', { unique: false });
                 store.createIndex('type', 'type', { unique: false });
+                store.createIndex('idempotencyKey', 'idempotencyKey', { unique: false }); // For duplicate detection
               } else if (storeName === 'orders') {
                 store.createIndex('branchId', 'branchId', { unique: false });
                 store.createIndex('orderNumber', 'orderNumber', { unique: false });
@@ -283,13 +285,70 @@ class IndexedDBStorage {
   // SYNC OPERATIONS QUEUE
   // ============================================
 
-  async addOperation(operation: Omit<SyncOperation, 'id' | 'timestamp' | 'retryCount'>): Promise<void> {
+  /**
+   * Generate a unique idempotency key for an operation
+   * This prevents the same operation from being processed multiple times
+   */
+  private generateIdempotencyKey(type: OperationType, branchId: string, data: any): string {
+    // Extract unique identifier from data based on operation type
+    let uniqueId = '';
+
+    switch (type) {
+      case OperationType.CREATE_ORDER:
+        uniqueId = data.orderNumber || data.id || '';
+        break;
+      case OperationType.UPDATE_ORDER:
+        uniqueId = data.id || data.orderNumber || '';
+        break;
+      case OperationType.CREATE_SHIFT:
+        uniqueId = `${data.cashierId}_${data.startTime || Date.now()}`;
+        break;
+      case OperationType.CLOSE_SHIFT:
+        uniqueId = `${data.id || data.shiftId}_${data.endTime || Date.now()}`;
+        break;
+      case OperationType.CREATE_CUSTOMER:
+        uniqueId = data.phone || data.email || data.id || '';
+        break;
+      case OperationType.UPDATE_CUSTOMER:
+        uniqueId = data.id || data.phone || '';
+        break;
+      case OperationType.USE_PROMO_CODE:
+        uniqueId = `${data.code}_${data.orderId || data.orderNumber || ''}`;
+        break;
+      case OperationType.CREATE_LOYALTY_TRANSACTION:
+        uniqueId = `${data.customerId}_${data.orderId || ''}_${data.points || ''}`;
+        break;
+      case OperationType.CREATE_VOIDED_ITEM:
+        uniqueId = `${data.orderId || data.orderNumber || ''}_${data.menuItemId}_${data.timestamp || Date.now()}`;
+        break;
+      default:
+        // For other operations, use a combination of type and timestamp
+        uniqueId = `${type}_${Date.now()}`;
+    }
+
+    // Create hash-like key: type_branch_uniqueId
+    const key = `${type}_${branchId}_${uniqueId}`;
+
+    // Remove any spaces and special characters
+    return key.replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+
+  async addOperation(operation: Omit<SyncOperation, 'id' | 'timestamp' | 'retryCount' | 'idempotencyKey'>): Promise<void> {
+    const idempotencyKey = this.generateIdempotencyKey(
+      operation.type,
+      operation.branchId,
+      operation.data
+    );
+
     const newOperation: SyncOperation = {
       ...operation,
       id: `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: Date.now(),
       retryCount: 0,
+      idempotencyKey,
     };
+
+    console.log(`[IndexedDBStorage] Adding operation with idempotencyKey: ${idempotencyKey}`);
     await this.put('sync_operations', newOperation);
   }
 

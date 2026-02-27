@@ -700,6 +700,18 @@ enum ConflictResolution {
   MANUAL_MERGE
 }
 
+// Idempotency Keys for preventing duplicate sync operations
+model IdempotencyKey {
+  id        String   @id @default(cuid())
+  key       String   @unique // The idempotency key from the operation
+  branchId  String   // The branch that sent the operation
+  processedAt DateTime @default(now())
+
+  @@index([branchId])
+  @@index([processedAt])
+  @@index([key, branchId])
+}
+
 model AuditLog {
   id           String   @id @default(cuid())
   timestamp    DateTime @default(now())

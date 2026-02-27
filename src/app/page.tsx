@@ -36,6 +36,7 @@ import { OfflineStatusIndicator } from '@/components/offline-status-indicator';
 import { PWAInstallPrompt } from '@/components/pwa-install-prompt';
 import { SyncOperationsViewer } from '@/components/sync-operations-viewer';
 import { offlineManager } from '@/lib/offline/offline-manager';
+import storageMonitor from '@/lib/storage/storage-monitor';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@/hooks/use-toast';
 
 export default function POSDashboard() {
@@ -49,6 +50,7 @@ export default function POSDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSyncViewer, setShowSyncViewer] = useState(false);
   const [hasOpenShift, setHasOpenShift] = useState(false);
+  const [storageAlert, setStorageAlert] = useState<any>(null);
 
   // Register Service Worker for PWA
   useEffect(() => {
@@ -62,6 +64,35 @@ export default function POSDashboard() {
         });
     }
   }, []);
+
+  // Start storage monitoring
+  useEffect(() => {
+    // Only monitor if user has a branch (not HQ admin with no branch)
+    if (user?.branchId) {
+      storageMonitor.startMonitoring();
+
+      // Register alert callback
+      const unsubscribe = storageMonitor.onAlert((alert) => {
+        setStorageAlert(alert);
+        if (alert.type === 'critical') {
+          showWarningToast(
+            'Storage Alert',
+            alert.message
+          );
+        } else if (alert.type === 'warning') {
+          showWarningToast(
+            'Storage Warning',
+            alert.message
+          );
+        }
+      });
+
+      return () => {
+        unsubscribe();
+        storageMonitor.stopMonitoring();
+      };
+    }
+  }, [user?.branchId]);
 
   // Initialize offline manager and fetch data
   useEffect(() => {

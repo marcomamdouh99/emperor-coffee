@@ -49,6 +49,7 @@ interface SyncOperation {
   type: OperationTypeType;
   data: any;
   timestamp: number;
+  idempotencyKey?: string; // Optional: for idempotency checking
 }
 
 interface BatchPushRequest {
@@ -111,6 +112,12 @@ export async function POST(request: NextRequest) {
 
       try {
         await processOperation(operation, branchId);
+
+        // Record idempotency key after successful processing
+        if (operation.idempotencyKey) {
+          await recordIdempotencyKey(operation.idempotencyKey, branchId);
+        }
+
         results.processed++;
       } catch (error) {
         results.failed++;
@@ -173,9 +180,50 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * Check if an operation with this idempotency key has already been processed
+ * This prevents duplicate operations from being executed multiple times
+ */
+async function checkIdempotencyKey(idempotencyKey: string, branchId: string): Promise<boolean> {
+  try {
+    const existing = await db.idempotencyKey.findUnique({
+      where: { key: idempotencyKey }
+    });
+    return !!existing;
+  } catch (error) {
+    // If the table doesn't exist yet (schema not pushed), return false
+    console.warn('[Idempotency] Could not check idempotency key:', error);
+    return false;
+  }
+}
+
+/**
+ * Record that an operation with this idempotency key has been processed
+ */
+async function recordIdempotencyKey(idempotencyKey: string, branchId: string): Promise<void> {
+  try {
+    await db.idempotencyKey.create({
+      data: { key: idempotencyKey, branchId }
+    });
+    console.log(`[Idempotency] Recorded idempotency key: ${idempotencyKey}`);
+  } catch (error) {
+    // If the table doesn't exist yet (schema not pushed), log and continue
+    console.warn('[Idempotency] Could not record idempotency key:', error);
+  }
+}
+
+/**
  * Process individual sync operation
  */
 async function processOperation(operation: SyncOperation, branchId: string): Promise<void> {
+  // Check idempotency key to prevent duplicate processing
+  if (operation.idempotencyKey) {
+    const alreadyProcessed = await checkIdempotencyKey(operation.idempotencyKey, branchId);
+    if (alreadyProcessed) {
+      console.log(`[Idempotency] Skipping already processed operation: ${operation.idempotencyKey}`);
+      return;
+    }
+  }
+
   switch (operation.type) {
     case OperationType.CREATE_ORDER:
       await createOrder(operation.data, branchId);
