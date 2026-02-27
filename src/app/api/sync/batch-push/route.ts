@@ -58,6 +58,58 @@ interface BatchPushRequest {
 }
 
 /**
+ * Get priority level for an operation
+ * Lower values indicate higher priority
+ */
+function getOperationPriority(type: OperationTypeType): number {
+  const priorityMap: Record<string, number> = {
+    // CRITICAL (0) - Orders and payments
+    CREATE_ORDER: 0,
+    UPDATE_ORDER: 0,
+
+    // HIGH (1) - Shifts and customers
+    CREATE_SHIFT: 1,
+    UPDATE_SHIFT: 1,
+    CLOSE_SHIFT: 1,
+    CREATE_CUSTOMER: 1,
+    UPDATE_CUSTOMER: 1,
+
+    // MEDIUM (2) - Inventory, menu, transfers
+    CREATE_INGREDIENT: 2,
+    UPDATE_INGREDIENT: 2,
+    CREATE_MENU_ITEM: 2,
+    UPDATE_MENU_ITEM: 2,
+    UPDATE_INVENTORY: 2,
+    CREATE_INVENTORY_TRANSACTION: 2,
+    CREATE_TRANSFER: 2,
+    CREATE_PURCHASE_ORDER: 2,
+    UPDATE_PURCHASE_ORDER: 2,
+
+    // LOW (3) - Logs, expenses, promos, other
+    CREATE_WASTE: 3,
+    CREATE_DAILY_EXPENSE: 3,
+    CREATE_VOIDED_ITEM: 3,
+    CREATE_PROMO_CODE: 3,
+    USE_PROMO_CODE: 3,
+    CREATE_LOYALTY_TRANSACTION: 3,
+
+    // Tables (HIGH priority for dine-in)
+    CREATE_TABLE: 1,
+    UPDATE_TABLE: 1,
+    CLOSE_TABLE: 1,
+
+    // Receipt settings (LOW priority)
+    CREATE_RECEIPT_SETTINGS: 3,
+    UPDATE_RECEIPT_SETTINGS: 3,
+
+    // Users (LOW priority)
+    UPDATE_USER: 3,
+  };
+
+  return priorityMap[type] || 3; // Default to LOW priority
+}
+
+/**
  * In-memory cache for mapping temporary IDs to real IDs during batch processing.
  * This ensures that multiple operations referencing the same temp ID use the same real ID.
  */
@@ -106,9 +158,27 @@ export async function POST(request: NextRequest) {
       conflictsResolved: 0,
     };
 
+    // Sort operations by priority (lower priority = higher priority)
+    // This ensures critical operations (orders, payments) sync first
+    const sortedOperations = [...operations].sort((a, b) => {
+      const priorityA = getOperationPriority(a.type);
+      const priorityB = getOperationPriority(b.type);
+      const priorityDiff = priorityA - priorityB;
+
+      // If priorities differ, sort by priority
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+
+      // Same priority: sort by timestamp (older first)
+      return a.timestamp - b.timestamp;
+    });
+
+    console.log(`[BatchPush] Processing ${sortedOperations.length} operations in priority order`);
+
     // Process operations
-    for (let i = 0; i < operations.length; i++) {
-      const operation = operations[i];
+    for (let i = 0; i < sortedOperations.length; i++) {
+      const operation = sortedOperations[i];
 
       try {
         await processOperation(operation, branchId);
