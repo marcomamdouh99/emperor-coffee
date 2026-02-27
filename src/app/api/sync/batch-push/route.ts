@@ -417,7 +417,8 @@ async function processOperation(operation: SyncOperation, branchId: string): Pro
 }
 
 /**
- * Create order
+ * Create order with validation and idempotency check
+ * Note: Prisma automatically handles transactions for nested creates (order + items)
  */
 async function createOrder(data: any, branchId: string): Promise<void> {
   console.log('[BatchPush] Creating order with data:', JSON.stringify(data, null, 2));
@@ -439,6 +440,60 @@ async function createOrder(data: any, branchId: string): Promise<void> {
   if (!orderItems || orderItems.length === 0) {
     throw new Error(`No items found in order data. Order number: ${data.orderNumber}`);
   }
+
+  // Phase 1: Validation & Pre-checks
+  console.log('[BatchPush] Phase 1: Validation and Pre-checks');
+  
+  // Check for duplicate order
+  const duplicateOrder = await db.order.findFirst({
+    where: { 
+      branchId,
+      orderNumber: data.orderNumber 
+    }
+  });
+
+  if (duplicateOrder) {
+    console.log(`[BatchPush] Order ${data.orderNumber} already exists, skipping creation`);
+    return; // Skip creation if duplicate
+  }
+
+  // Phase 2: Atomic creation (Prisma handles transactions automatically)
+  console.log('[BatchPush] Phase 2: Atomic creation');
+  
+  const createdOrder = await db.order.create({
+    data: {
+      branchId,
+      orderNumber: data.orderNumber,
+      cashierId: data.cashierId, // cashierId is required
+      customerId: data.customerId, // Use mapped customerId (or null if temp ID not mapped yet)
+      orderType: data.orderType,
+      totalAmount: data.totalAmount,
+      paymentMethod: data.paymentMethod || null,
+      shiftId: data.shiftId, // Use mapped shiftId (or null if temp ID not mapped yet)
+      isRefunded: data.isRefunded || false,
+      refundReason: data.refundReason || null,
+      transactionHash: data.transactionHash || generateTransactionHash(data, branchId, data.orderNumber, data.totalAmount, data.cashierId, data.createdAt),
+      orderTimestamp: data.orderTimestamp ? new Date(data.orderTimestamp) : new Date(data.createdAt),
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    },
+    include: {
+      items: {
+        create: orderItems.map((item: any) => ({
+          menuItemId: item.menuItemId,
+          itemName: item.itemName || item.name || 'Unknown',
+          quantity: item.quantity,
+          menuItemVariantId: item.menuItemVariantId || null,
+          variantName: item.variantName || null,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal || (item.quantity * item.unitPrice),
+          recipeVersion: item.recipeVersion || 1,
+        })),
+      },
+    },
+  });
+
+  console.log('[BatchPush] Order created successfully with order number:', data.orderNumber, 'ID:', createdOrder.id);
 
   // Extract subtotal from either _offlineData or data directly
   const subtotal = data._offlineData?.subtotal !== undefined ? data._offlineData.subtotal :
@@ -1237,9 +1292,28 @@ async function handleUsePromoCode(data: any, branchId: string): Promise<void> {
 }
 
 /**
- * Create loyalty transaction
+ * Create loyalty transaction with validation
+ * Note: Uses Prisma's atomic transactions automatically
  */
 async function createLoyaltyTransaction(data: any): Promise<void> {
+  console.log('[BatchPush] Creating loyalty transaction with data:', JSON.stringify(data, null, 2));
+
+  // Phase 1: Validation
+  console.log('[BatchPush] Phase 1: Validation');
+  
+  // Check if transaction already exists (idempotency check at operation level)
+  const existingTransaction = await db.loyaltyTransaction.findFirst({
+    where: { id: data.id }
+  });
+
+  if (existingTransaction) {
+    console.log(`[BatchPush] Loyalty transaction ${data.id} already exists, skipping`);
+    return;
+  }
+
+  // Phase 2: Create transaction
+  console.log('[BatchPush] Phase 2: Creating transaction');
+  
   await db.loyaltyTransaction.create({
     data: {
       id: data.id,
@@ -1252,6 +1326,8 @@ async function createLoyaltyTransaction(data: any): Promise<void> {
       createdAt: new Date(data.createdAt),
     },
   });
+
+  console.log('[BatchPush] Loyalty transaction created successfully:', data.id);
 }
 
 /**
