@@ -1360,10 +1360,10 @@ export default function ShiftManagement() {
   const calculateDiscrepancy = () => {
     if (!selectedShift) return { hasDiscrepancy: false, amount: 0 };
 
-    // For open shifts, use shiftCashRevenue (cash-only)
-    // For closed shifts, we can't calculate it accurately without payment breakdown
-    const cashRevenueDuringShift = selectedShift.isClosed ? 0 : shiftCashRevenue;
-    // Expected Cash = Opening + (Total Payments - Card - Other) - Daily Expenses
+    // Always use shiftCashRevenue (fetched from closing-report API)
+    // This gives us the accurate cash breakdown from the shift's orders
+    const cashRevenueDuringShift = shiftCashRevenue;
+    // Expected Cash = Opening + Cash Revenue - Daily Expenses
     const expectedCash = selectedShift.openingCash + cashRevenueDuringShift - currentDailyExpenses;
     const actualCash = parseFloat(closingCash) || 0;
     const discrepancy = actualCash - expectedCash;
