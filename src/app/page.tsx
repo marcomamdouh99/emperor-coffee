@@ -202,7 +202,7 @@ export default function POSDashboard() {
     }
   };
 
-  // Initialize offline manager and fetch data
+  // Initialize offline manager and fetch data (only once per branch)
   useEffect(() => {
     if (user && user.branchId) {
       // Only initialize offline manager if user has a branch (not HQ admin)
@@ -242,7 +242,7 @@ export default function POSDashboard() {
     } else if (user && !user.branchId) {
       console.log('[Dashboard] User has no branchId (HQ Admin), skipping offline sync');
     }
-  }, [user?.branchId, user?.id]); // Add user.id to trigger on login
+  }, [user?.branchId]); // Only re-run when branchId changes, not user.id
 
   // Fetch branches on mount
   useEffect(() => {

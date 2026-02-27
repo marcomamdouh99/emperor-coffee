@@ -50,6 +50,9 @@ class OfflineManager {
   private initialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
   private skipFirstAutoSync: boolean = false;
+  private connectivityCheckTimeout: NodeJS.Timeout | null = null;
+  private lastConnectivityCheck: number = 0;
+  private readonly CONNECTIVITY_CHECK_DEBOUNCE = 3000; // 3 seconds between checks
 
   /**
    * Initialize offline manager
@@ -60,7 +63,7 @@ class OfflineManager {
       return this.initializationPromise;
     }
 
-    // If already initialized with same branch, return
+    // If already initialized with same branch, return immediately
     if (this.initialized && this.branchId === branchId) {
       console.log('[OfflineManager] Already initialized for branch:', branchId);
       return Promise.resolve();
@@ -72,11 +75,14 @@ class OfflineManager {
       // Initialize local storage
       await storageService.init();
 
-      // Check actual network connectivity
-      await this.checkActualConnectivity();
+      // Check actual network connectivity only if not already checked
+      // to avoid rapid re-renders during network transitions
+      if (!this.initialized) {
+        await this.checkActualConnectivity();
+      }
 
-      // Set up online/offline event listeners
-      if (typeof window !== 'undefined') {
+      // Set up online/offline event listeners (only once)
+      if (typeof window !== 'undefined' && !this.initialized) {
         window.addEventListener('online', this.handleOnline);
         window.addEventListener('offline', this.handleOffline);
       }
@@ -113,9 +119,18 @@ class OfflineManager {
   }
 
   /**
-   * Check actual network connectivity
+   * Check actual network connectivity with debouncing
    */
   async checkActualConnectivity(): Promise<void> {
+    // Debounce connectivity checks to prevent rapid re-renders
+    const now = Date.now();
+    if (now - this.lastConnectivityCheck < this.CONNECTIVITY_CHECK_DEBOUNCE) {
+      console.log('[OfflineManager] Skipping connectivity check - too soon since last check');
+      return;
+    }
+
+    this.lastConnectivityCheck = now;
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -127,46 +142,73 @@ class OfflineManager {
       });
 
       clearTimeout(timeoutId);
-      this.isOnline = true;
-      await storageService.updateSyncState({ isOnline: true });
+      
+      // Only update if status changed
+      if (!this.isOnline) {
+        this.isOnline = true;
+        await storageService.updateSyncState({ isOnline: true });
+      }
     } catch (err) {
       console.log('[OfflineManager] Network check failed, setting offline');
-      this.isOnline = false;
-      await storageService.updateSyncState({ isOnline: false });
+      // Only update if status changed
+      if (this.isOnline) {
+        this.isOnline = false;
+        await storageService.updateSyncState({ isOnline: false });
+      }
     }
   }
 
   /**
-   * Handle online event
+   * Handle online event with debouncing
    */
   private handleOnline = async (): Promise<void> => {
-    console.log('[OfflineManager] Browser says online, verifying...');
-    await this.checkActualConnectivity();
-
-    if (this.isOnline) {
-      console.log('[OfflineManager] Connection restored');
-      await storageService.updateSyncState({ isOnline: true });
-      this.notifyListeners(SyncStatus.IDLE, { message: 'Back online' });
-
-      // Start auto-sync
-      this.startAutoSync();
-
-      // Trigger immediate sync (with small delay to ensure everything is ready)
-      setTimeout(() => this.syncAll(), 1000);
-    } else {
-      console.log('[OfflineManager] Still offline despite browser event');
+    // Clear any pending timeout
+    if (this.connectivityCheckTimeout) {
+      clearTimeout(this.connectivityCheckTimeout);
     }
+
+    // Debounce the online check
+    this.connectivityCheckTimeout = setTimeout(async () => {
+      console.log('[OfflineManager] Browser says online, verifying...');
+      await this.checkActualConnectivity();
+
+      if (this.isOnline) {
+        console.log('[OfflineManager] Connection restored');
+        await storageService.updateSyncState({ isOnline: true });
+        this.notifyListeners(SyncStatus.IDLE, { message: 'Back online' });
+
+        // Start auto-sync
+        this.startAutoSync();
+
+        // Trigger immediate sync (with small delay to ensure everything is ready)
+        setTimeout(() => this.syncAll(), 1000);
+      } else {
+        console.log('[OfflineManager] Still offline despite browser event');
+      }
+    }, 1000); // 1 second debounce
   };
 
   /**
-   * Handle offline event
+   * Handle offline event with debouncing
    */
   private handleOffline = async (): Promise<void> => {
-    console.log('[OfflineManager] Connection lost');
-    this.isOnline = false;
-    await storageService.updateSyncState({ isOnline: false });
-    this.stopAutoSync();
-    this.notifyListeners(SyncStatus.OFFLINE, { message: 'You are offline' });
+    // Clear any pending timeout
+    if (this.connectivityCheckTimeout) {
+      clearTimeout(this.connectivityCheckTimeout);
+    }
+
+    // Debounce the offline check
+    this.connectivityCheckTimeout = setTimeout(async () => {
+      console.log('[OfflineManager] Connection lost');
+      
+      // Only update if status changed
+      if (this.isOnline) {
+        this.isOnline = false;
+        await storageService.updateSyncState({ isOnline: false });
+        this.stopAutoSync();
+        this.notifyListeners(SyncStatus.OFFLINE, { message: 'You are offline' });
+      }
+    }, 500); // 500ms debounce for offline
   };
 
   /**
@@ -664,6 +706,9 @@ class OfflineManager {
     this.stopAutoSync();
     if (this.retryTimeout) {
       clearTimeout(this.retryTimeout);
+    }
+    if (this.connectivityCheckTimeout) {
+      clearTimeout(this.connectivityCheckTimeout);
     }
     dataExpirationService.stopCleanupInterval();
     this.listeners = [];

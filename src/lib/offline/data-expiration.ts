@@ -27,14 +27,19 @@ class DataExpirationService {
   private policies: Map<string, CachePolicy> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
   private storageKey = 'data_expiration_cache';
+  private initialized: boolean = false;
 
   constructor() {
     // Initialize with default cache policies
     this.setDefaultPolicies();
-    // Load cache from storage
-    this.loadCacheFromStorage();
-    // Start cleanup interval
-    this.startCleanupInterval();
+    // Load cache from storage only after DOM is ready
+    if (typeof window !== 'undefined') {
+      // Defer loading until after component mount
+      setTimeout(() => {
+        this.loadCacheFromStorage();
+        this.startCleanupInterval();
+      }, 100);
+    }
   }
 
   /**
@@ -453,6 +458,11 @@ class DataExpirationService {
    * Persist cache to localStorage
    */
   private async persistCacheToStorage(): Promise<void> {
+    // Guard against SSR or missing localStorage
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
+    }
+
     try {
       const cacheArray = Array.from(this.cache.entries());
       localStorage.setItem(this.storageKey, JSON.stringify(cacheArray));
@@ -465,6 +475,11 @@ class DataExpirationService {
    * Load cache from localStorage
    */
   private loadCacheFromStorage(): void {
+    // Guard against SSR or missing localStorage
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
+    }
+
     try {
       const cached = localStorage.getItem(this.storageKey);
       if (cached) {
@@ -472,8 +487,10 @@ class DataExpirationService {
         this.cache = new Map(cacheArray);
         console.log(`[DataExpiration] Loaded ${this.cache.size} cache entries from storage`);
       }
+      this.initialized = true;
     } catch (error) {
       console.error('[DataExpiration] Failed to load cache from storage:', error);
+      this.initialized = true;
     }
   }
 
