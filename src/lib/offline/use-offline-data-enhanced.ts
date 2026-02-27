@@ -114,7 +114,7 @@ export function useOfflineData<T = any>(options: OfflineDataOptions) {
 
   const [data, setData] = useState<T[]>(initialData);
   const [loading, setLoading] = useState(true);
-  [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
   const [optimisticData, setOptimisticData] = useState<Record<string, any>>({});
 
@@ -273,7 +273,7 @@ export function useOfflineData<T = any>(options: OfflineDataOptions) {
     });
 
     // Clear optimistic data
-    setOptimisticisticData(prev => {
+    setOptimisticData(prev => {
       const newOptimisticData = { ...prev };
       ids.forEach(id => delete newOptimisticData[id]);
       return newOptimisticData;

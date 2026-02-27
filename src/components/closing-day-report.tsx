@@ -370,6 +370,7 @@ export default function ClosingDayReport({ open, onClose, report, currency, auto
 
             </div>
           </ScrollArea>
+        </div>
 
         {/* Fixed Footer - Outside ScrollArea */}
         <div className="flex-shrink-0 px-6 pb-6 pt-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
