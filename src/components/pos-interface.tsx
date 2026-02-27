@@ -374,6 +374,7 @@ export default function POSInterface() {
     '/api/categories?active=true',
     {
       fetchFromDB: offlineDataFetchers.categories,
+      useCache: true, // Enable in-memory caching for instant tab switching
     }
   );
 
@@ -382,6 +383,7 @@ export default function POSInterface() {
     {
       fetchFromDB: offlineDataFetchers.menuItems,
       deps: [selectedBranch, user?.branchId, user?.role],
+      useCache: true, // Enable in-memory caching for instant tab switching
     }
   );
 

@@ -4,7 +4,7 @@
  * and from IndexedDB when offline
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getIndexedDBStorage } from '@/lib/storage/indexeddb-storage';
 
 const indexedDBStorage = getIndexedDBStorage();
@@ -17,13 +17,20 @@ export function useOfflineData<T>(
     deps?: any[];
     // IndexedDB fetch function
     fetchFromDB?: () => Promise<T | T[] | null>;
+    // Enable in-memory caching for fast tab switching
+    useCache?: boolean;
   } = {}
 ) {
-  const { branchId, enabled = true, deps = [], fetchFromDB } = options;
+  const { branchId, enabled = true, deps = [], fetchFromDB, useCache = false } = options;
   const [data, setData] = useState<T | T[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // Track if we've already fetched data to prevent duplicate fetches
+  const hasFetchedRef = useRef(false);
+  // Track previous branchId to detect changes
+  const prevBranchIdRef = useRef(branchId);
 
   const fetchData = useCallback(async () => {
     if (!enabled) {
@@ -31,11 +38,49 @@ export function useOfflineData<T>(
       return;
     }
 
+    // Invalidate cache when branch changes
+    if (useCache && prevBranchIdRef.current !== branchId) {
+      console.log('[useOfflineData] Branch changed, invalidating cache');
+      const { menuCache } = await import('@/lib/menu-cache');
+      menuCache.invalidate();
+      hasFetchedRef.current = false;
+      prevBranchIdRef.current = branchId;
+    }
+
+    // Check in-memory cache first for menu items and categories
+    if (useCache && !hasFetchedRef.current) {
+      if (apiEndpoint.includes('/api/menu-items')) {
+        const { menuCache } = await import('@/lib/menu-cache');
+        const cachedItems = menuCache.getMenuItems();
+        if (cachedItems) {
+          console.log('[useOfflineData] Using cached menu items');
+          setData(cachedItems as T);
+          setLoading(false);
+          return;
+        }
+      } else if (apiEndpoint.includes('/api/categories')) {
+        const { menuCache } = await import('@/lib/menu-cache');
+        const cachedCategories = menuCache.getCategories();
+        if (cachedCategories) {
+          console.log('[useOfflineData] Using cached categories');
+          setData(cachedCategories as T);
+          setLoading(false);
+          return;
+        }
+      }
+    }
+
     // Skip API call if apiEndpoint is empty - use offline data only
     const shouldSkipAPI = !apiEndpoint || apiEndpoint.trim() === '';
 
     // Better offline detection
     const isActuallyOffline = !navigator.onLine || typeof navigator.onLine !== 'boolean';
+
+    // Skip fetching if we've already fetched and cache is still valid
+    if (hasFetchedRef.current && useCache) {
+      console.log('[useOfflineData] Already fetched, skipping');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -73,6 +118,18 @@ export function useOfflineData<T>(
           const data = result.data || result.branches || result.menuItems || result.categories || result.orders || result.shifts || result.users || result;
           setData(data);
           console.log(`[useOfflineData] API fetch successful: ${apiEndpoint}`);
+
+          // Update in-memory cache for menu items and categories
+          if (useCache) {
+            if (apiEndpoint.includes('/api/menu-items') && Array.isArray(data)) {
+              const { menuCache } = await import('@/lib/menu-cache');
+              menuCache.setMenuItems(data);
+            } else if (apiEndpoint.includes('/api/categories') && Array.isArray(data)) {
+              const { menuCache } = await import('@/lib/menu-cache');
+              menuCache.setCategories(data);
+            }
+            hasFetchedRef.current = true;
+          }
 
           // Also save to IndexedDB for offline use (in background, don't wait)
           if (apiEndpoint.includes('/api/categories')) {
@@ -148,6 +205,18 @@ export function useOfflineData<T>(
           if (dbData) {
             setData(dbData);
             console.log(`[useOfflineData] IndexedDB fallback successful: ${apiEndpoint || '(none)'}`);
+
+            // Update in-memory cache from IndexedDB fallback
+            if (useCache) {
+              if (apiEndpoint.includes('/api/menu-items') && Array.isArray(dbData)) {
+                const { menuCache } = await import('@/lib/menu-cache');
+                menuCache.setMenuItems(dbData);
+              } else if (apiEndpoint.includes('/api/categories') && Array.isArray(dbData)) {
+                const { menuCache } = await import('@/lib/menu-cache');
+                menuCache.setCategories(dbData);
+              }
+              hasFetchedRef.current = true;
+            }
           } else {
             // Only set error if it's not a network error
             if (!isNetworkError) {
