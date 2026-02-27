@@ -1347,9 +1347,24 @@ export default function ShiftManagement() {
       const response = await fetch(`/api/shifts/${shiftId}/closing-report`);
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.data?.totals) {
-          setShiftCashRevenue(data.data.totals.cash || 0);
-          console.log('[Shift Management] Cash revenue fetched:', data.data.totals.cash);
+        if (data.success && data.report?.totals) {
+          const totals = data.report.totals;
+          setShiftCashRevenue(totals.cash || 0);
+          // Also pre-populate the payment breakdown with actual values
+          setPaymentBreakdown({
+            cash: totals.cash || 0,
+            card: totals.card || 0,
+            instapay: totals.instapay || 0,
+            wallet: totals.wallet || 0,
+            total: (totals.cash || 0) + (totals.card || 0) + (totals.instapay || 0) + (totals.wallet || 0),
+          });
+          console.log('[Shift Management] Cash revenue fetched:', totals.cash);
+          console.log('[Shift Management] Payment breakdown pre-populated:', {
+            cash: totals.cash,
+            card: totals.card,
+            instapay: totals.instapay,
+            wallet: totals.wallet,
+          });
         }
       }
     } catch (error) {
@@ -2276,13 +2291,13 @@ export default function ShiftManagement() {
                     <div>
                       <div className="text-sm text-slate-600 dark:text-slate-400">Expected Cash</div>
                       <div className="text-xs text-slate-500">
-                        Opening + Cash - Daily Expenses
+                        Opening + Cash Revenue - Daily Expenses
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-300">
                         {formatCurrency(
-                          selectedShift.openingCash + paymentBreakdown.cash - currentDailyExpenses,
+                          selectedShift.openingCash + shiftCashRevenue - currentDailyExpenses,
                           currency
                         )}
                       </div>
