@@ -35,6 +35,7 @@ import AuditLogs from '@/components/audit-logs';
 import { OfflineStatusIndicator } from '@/components/offline-status-indicator';
 import { PWAInstallPrompt } from '@/components/pwa-install-prompt';
 import { SyncOperationsViewer } from '@/components/sync-operations-viewer';
+import { ConflictResolutionDialog } from '@/components/conflict-resolution-dialog';
 import { offlineManager } from '@/lib/offline/offline-manager';
 import storageMonitor from '@/lib/storage/storage-monitor';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@/hooks/use-toast';
@@ -51,6 +52,8 @@ export default function POSDashboard() {
   const [showSyncViewer, setShowSyncViewer] = useState(false);
   const [hasOpenShift, setHasOpenShift] = useState(false);
   const [storageAlert, setStorageAlert] = useState<any>(null);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [syncConflicts, setSyncConflicts] = useState<any[]>([]);
 
   // Register Service Worker for PWA
   useEffect(() => {
@@ -93,6 +96,110 @@ export default function POSDashboard() {
       };
     }
   }, [user?.branchId]);
+
+  // Fetch sync conflicts periodically
+  useEffect(() => {
+    if (!user?.branchId) return;
+
+    const fetchConflicts = async () => {
+      try {
+        const response = await fetch(`/api/sync/conflicts?branchId=${user.branchId}`);
+        if (response.ok) {
+          const data = await response.json();
+          const conflicts = data.conflicts || [];
+
+          // Filter for unresolved conflicts
+          const unresolved = conflicts.filter((c: any) => !c.resolved);
+          setSyncConflicts(unresolved);
+
+          // Show conflict indicator if there are unresolved conflicts
+          if (unresolved.length > 0) {
+            showWarningToast(
+              'Sync Conflicts Detected',
+              `${unresolved.length} conflict${unresolved.length > 1 ? 's' : ''} require resolution`
+            );
+          }
+        }
+      } catch (error) {
+        console.error('[Dashboard] Failed to fetch conflicts:', error);
+      }
+    };
+
+    // Fetch conflicts initially
+    fetchConflicts();
+
+    // Poll for conflicts every 2 minutes
+    const intervalId = setInterval(fetchConflicts, 2 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [user?.branchId]);
+
+  // Handle conflict resolution
+  const handleResolveConflict = async (conflictId: string, strategy: string, resolvedData?: any) => {
+    try {
+      const response = await fetch('/api/sync/conflicts/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conflictId,
+          resolutionStrategy: strategy,
+          resolvedData,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          showSuccessToast('Conflict Resolved', 'Sync conflict has been resolved successfully');
+          // Refresh conflicts list
+          const response = await fetch(`/api/sync/conflicts?branchId=${user?.branchId}`);
+          if (response.ok) {
+            const data = await response.json();
+            const conflicts = data.conflicts || [];
+            const unresolved = conflicts.filter((c: any) => !c.resolved);
+            setSyncConflicts(unresolved);
+          }
+        } else {
+          showErrorToast('Resolution Failed', data.error || 'Failed to resolve conflict');
+        }
+      } else {
+        showErrorToast('Resolution Failed', 'Failed to resolve conflict');
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to resolve conflict:', error);
+      showErrorToast('Resolution Failed', 'An error occurred');
+    }
+  };
+
+  // Handle resolve all conflicts
+  const handleResolveAllConflicts = async (strategies: Record<string, string>) => {
+    try {
+      const response = await fetch('/api/sync/conflicts/resolve-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId: user?.branchId,
+          strategies,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          showSuccessToast('Conflicts Resolved', `${data.resolved} conflicts resolved successfully`);
+          setSyncConflicts([]);
+          setConflictDialogOpen(false);
+        } else {
+          showErrorToast('Resolution Failed', data.error || 'Failed to resolve conflicts');
+        }
+      } else {
+        showErrorToast('Resolution Failed', 'Failed to resolve conflicts');
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to resolve all conflicts:', error);
+      showErrorToast('Resolution Failed', 'An error occurred');
+    }
+  };
 
   // Initialize offline manager and fetch data
   useEffect(() => {
@@ -454,6 +561,20 @@ export default function POSDashboard() {
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Sync
                   </Button>
+
+                  {/* Conflicts Indicator - Shows when conflicts need resolution */}
+                  {syncConflicts.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConflictDialogOpen(true)}
+                      className="border-orange-600 hover:bg-orange-50 hover:text-orange-900 hidden sm:flex mr-2"
+                    >
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      Conflicts
+                      <Badge className="ml-2">{syncConflicts.length}</Badge>
+                    </Button>
+                  )}
                 </>
               )}
 
@@ -894,6 +1015,19 @@ export default function POSDashboard() {
       <SyncOperationsViewer
         open={showSyncViewer}
         onOpenChange={setShowSyncViewer}
+      />
+
+      <ConflictResolutionDialog
+        open={conflictDialogOpen}
+        onOpenChange={setConflictDialogOpen}
+        conflicts={syncConflicts.map(c => ({
+          ...c,
+          conflictType: c.conflictType || 'CONCURRENT_UPDATE',
+          resolutionStrategy: c.resolutionStrategy || 'LAST_WRITE_WINS',
+          resolved: c.resolved || false,
+        }))}
+        onResolve={handleResolveConflict}
+        onResolveAll={handleResolveAllConflicts}
       />
 
       {/* Footer */}
