@@ -457,44 +457,6 @@ async function createOrder(data: any, branchId: string): Promise<void> {
     return; // Skip creation if duplicate
   }
 
-  // Phase 2: Atomic creation (Prisma handles transactions automatically)
-  console.log('[BatchPush] Phase 2: Atomic creation');
-  
-  const createdOrder = await db.order.create({
-    data: {
-      branchId,
-      orderNumber: data.orderNumber,
-      cashierId: data.cashierId, // cashierId is required
-      customerId: data.customerId, // Use mapped customerId (or null if temp ID not mapped yet)
-      orderType: data.orderType,
-      totalAmount: data.totalAmount,
-      paymentMethod: data.paymentMethod || null,
-      shiftId: data.shiftId, // Use mapped shiftId (or null if temp ID not mapped yet)
-      isRefunded: data.isRefunded || false,
-      refundReason: data.refundReason || null,
-      transactionHash: data.transactionHash || generateTransactionHash(data, branchId, data.orderNumber, data.totalAmount, data.cashierId, data.createdAt),
-      orderTimestamp: data.orderTimestamp ? new Date(data.orderTimestamp) : new Date(data.createdAt),
-      createdAt: new Date(data.createdAt),
-      updatedAt: new Date(data.updatedAt),
-    },
-    include: {
-      items: {
-        create: orderItems.map((item: any) => ({
-          menuItemId: item.menuItemId,
-          itemName: item.itemName || item.name || 'Unknown',
-          quantity: item.quantity,
-          menuItemVariantId: item.menuItemVariantId || null,
-          variantName: item.variantName || null,
-          unitPrice: item.unitPrice,
-          subtotal: item.subtotal || (item.quantity * item.unitPrice),
-          recipeVersion: item.recipeVersion || 1,
-        })),
-      },
-    },
-  });
-
-  console.log('[BatchPush] Order created successfully with order number:', data.orderNumber, 'ID:', createdOrder.id);
-
   // Extract subtotal from either _offlineData or data directly
   const subtotal = data._offlineData?.subtotal !== undefined ? data._offlineData.subtotal :
                    data.subtotal !== undefined ? data.subtotal : undefined;
