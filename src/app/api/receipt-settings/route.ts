@@ -3,43 +3,116 @@ import { db } from '@/lib/db';
 
 /**
  * GET /api/receipt-settings
- * Fetch receipt settings from database
+ * Fetch receipt settings for a specific branch (or create defaults)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    console.log('[GET] Fetching receipt settings from database...');
+    const { searchParams } = new URL(request.url);
+    const branchId = searchParams.get('branchId');
 
-    // Try to get settings from database
-    let settings = await db.receiptSettings.findFirst();
+    console.log('[GET] Fetching receipt settings for branch:', branchId || 'default');
 
-    // If no settings exist, create default settings
-    if (!settings) {
-      console.log('[GET] No settings found, creating defaults...');
-      settings = await db.receiptSettings.create({
-        data: {
-          storeName: 'Emperor Coffee',
-          branchName: 'Coffee Shop',
-          headerText: 'Quality Coffee Since 2024',
-          footerText: 'Visit us again soon!',
-          thankYouMessage: 'Thank you for your purchase!',
-          fontSize: 'medium',
-          showLogo: true,
-          showCashier: true,
-          showDateTime: true,
-          showOrderType: true,
-          showCustomerInfo: true,
-          openCashDrawer: true,
-          cutPaper: true,
-          cutType: 'full',
-          paperWidth: 80,
-        },
+    let settings;
+
+    if (branchId) {
+      // Get settings for specific branch
+      settings = await db.receiptSettings.findUnique({
+        where: { branchId },
       });
 
-      console.log('[GET] Created default receipt settings:', settings.id);
+      // If no settings exist for this branch, create defaults
+      if (!settings) {
+        console.log('[GET] No settings for branch, creating defaults for branch:', branchId);
+        settings = await db.receiptSettings.create({
+          data: {
+            branchId,
+            storeName: 'Emperor Coffee',
+            headerText: 'Quality Coffee Since 2024',
+            footerText: 'Visit us again soon!',
+            thankYouMessage: 'Thank you for your purchase!',
+            fontSize: 'medium',
+            showLogo: true,
+            showCashier: true,
+            showDateTime: true,
+            showOrderType: true,
+            showCustomerInfo: true,
+            showBranchPhone: true,
+            showBranchAddress: true,
+            openCashDrawer: true,
+            cutPaper: true,
+            cutType: 'full',
+            paperWidth: 80,
+          },
+        });
+      }
+    } else {
+      // No branchId provided - get first available branch's settings
+      console.log('[GET] No branchId, fetching first available branch settings');
+      const firstBranch = await db.branch.findFirst({
+        where: { isActive: true },
+        select: { id: true, branchName: true },
+      });
+
+      if (firstBranch) {
+        // Get or create settings for the first branch
+        settings = await db.receiptSettings.findUnique({
+          where: { branchId: firstBranch.id },
+        });
+
+        if (!settings) {
+          console.log('[GET] No settings for first branch, creating defaults for branch:', firstBranch.id);
+          settings = await db.receiptSettings.create({
+            data: {
+              branchId: firstBranch.id,
+              storeName: 'Emperor Coffee',
+              headerText: 'Quality Coffee Since 2024',
+              footerText: 'Visit us again soon!',
+              thankYouMessage: 'Thank you for your purchase!',
+              fontSize: 'medium',
+              showLogo: true,
+              showCashier: true,
+              showDateTime: true,
+              showOrderType: true,
+              showCustomerInfo: true,
+              showBranchPhone: true,
+              showBranchAddress: true,
+              openCashDrawer: true,
+              cutPaper: true,
+              cutType: 'full',
+              paperWidth: 80,
+            },
+          });
+        }
+      } else {
+        // No active branches - create default settings without branch (for compatibility)
+        console.log('[GET] No active branches, creating global defaults');
+        settings = await db.receiptSettings.create({
+          data: {
+            branchId: 'global',
+            storeName: 'Emperor Coffee',
+            headerText: 'Quality Coffee Since 2024',
+            footerText: 'Visit us again soon!',
+            thankYouMessage: 'Thank you for your purchase!',
+            fontSize: 'medium',
+            showLogo: true,
+            showCashier: true,
+            showDateTime: true,
+            showOrderType: true,
+            showCustomerInfo: true,
+            showBranchPhone: true,
+            showBranchAddress: true,
+            openCashDrawer: true,
+            cutPaper: true,
+            cutType: 'full',
+            paperWidth: 80,
+          },
+        });
+      }
     }
 
     console.log('[GET] Successfully fetched receipt settings:', {
       id: settings.id,
+      branchId: settings.branchId,
       storeName: settings.storeName,
       hasLogo: !!settings.logoData,
     });
@@ -47,8 +120,9 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       settings: {
+        id: settings.id,
+        branchId: settings.branchId,
         storeName: settings.storeName,
-        branchName: settings.branchName,
         headerText: settings.headerText,
         footerText: settings.footerText,
         thankYouMessage: settings.thankYouMessage,
@@ -59,6 +133,8 @@ export async function GET() {
         showDateTime: settings.showDateTime,
         showOrderType: settings.showOrderType,
         showCustomerInfo: settings.showCustomerInfo,
+        showBranchPhone: settings.showBranchPhone,
+        showBranchAddress: settings.showBranchAddress,
         openCashDrawer: settings.openCashDrawer,
         cutPaper: settings.cutPaper,
         cutType: settings.cutType as 'full' | 'partial',
@@ -84,21 +160,42 @@ export async function GET() {
 
 /**
  * POST /api/receipt-settings
- * Save receipt settings to database
+ * Save receipt settings for a specific branch
  */
 export async function POST(request: NextRequest) {
   try {
     const settings = await request.json();
 
     console.log('[POST] Saving receipt settings:', {
+      branchId: settings.branchId,
       storeName: settings.storeName,
-      branchName: settings.branchName,
-      hasLogo: !!settings.logoData,
+      headerText: settings.headerText,
+      footerText: settings.footerText,
+      thankYouMessage: settings.thankYouMessage,
+      fontSize: settings.fontSize,
+      showLogo: settings.showLogo,
+      showCashier: settings.showCashier,
+      showDateTime: settings.showDateTime,
+      showOrderType: settings.showOrderType,
+      showCustomerInfo: settings.showCustomerInfo,
+      showBranchPhone: settings.showBranchPhone,
+      showBranchAddress: settings.showBranchAddress,
     });
 
     // Validate required fields
+    if (!settings.branchId) {
+      console.error('[POST] Validation failed: branchId is required');
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          message: 'branchId is required',
+        },
+        { status: 400 }
+      );
+    }
+
     if (!settings.storeName || !settings.thankYouMessage) {
-      console.error('[POST] Validation failed: Missing required fields');
+      console.error('[POST] Validation failed: storeName and thankYouMessage are required');
       return NextResponse.json(
         {
           error: 'Validation failed',
@@ -108,15 +205,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use upsert to either create or update
-    // We'll use a fixed ID to ensure only one row exists
-    const FIXED_ID = 'global-receipt-settings';
-
+    // Use upsert to either create or update settings for the branch
     const result = await db.receiptSettings.upsert({
-      where: { id: FIXED_ID },
+      where: { branchId: settings.branchId },
       update: {
         storeName: settings.storeName,
-        branchName: settings.branchName || 'Coffee Shop',
         headerText: settings.headerText || null,
         footerText: settings.footerText || null,
         thankYouMessage: settings.thankYouMessage,
@@ -127,15 +220,17 @@ export async function POST(request: NextRequest) {
         showDateTime: settings.showDateTime ?? true,
         showOrderType: settings.showOrderType ?? true,
         showCustomerInfo: settings.showCustomerInfo ?? true,
+        showBranchPhone: settings.showBranchPhone ?? true,
+        showBranchAddress: settings.showBranchAddress ?? true,
         openCashDrawer: settings.openCashDrawer ?? true,
         cutPaper: settings.cutPaper ?? true,
         cutType: settings.cutType || 'full',
         paperWidth: settings.paperWidth || 80,
       },
       create: {
-        id: FIXED_ID,
+        id: settings.id,
+        branchId: settings.branchId,
         storeName: settings.storeName,
-        branchName: settings.branchName || 'Coffee Shop',
         headerText: settings.headerText || null,
         footerText: settings.footerText || null,
         thankYouMessage: settings.thankYouMessage,
@@ -146,6 +241,8 @@ export async function POST(request: NextRequest) {
         showDateTime: settings.showDateTime ?? true,
         showOrderType: settings.showOrderType ?? true,
         showCustomerInfo: settings.showCustomerInfo ?? true,
+        showBranchPhone: settings.showBranchPhone ?? true,
+        showBranchAddress: settings.showBranchAddress ?? true,
         openCashDrawer: settings.openCashDrawer ?? true,
         cutPaper: settings.cutPaper ?? true,
         cutType: settings.cutType || 'full',
@@ -158,8 +255,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       settings: {
+        id: result.id,
+        branchId: result.branchId,
         storeName: result.storeName,
-        branchName: result.branchName,
         headerText: result.headerText,
         footerText: result.footerText,
         thankYouMessage: result.thankYouMessage,
@@ -170,6 +268,8 @@ export async function POST(request: NextRequest) {
         showDateTime: result.showDateTime,
         showOrderType: result.showOrderType,
         showCustomerInfo: result.showCustomerInfo,
+        showBranchPhone: result.showBranchPhone,
+        showBranchAddress: result.showBranchAddress,
         openCashDrawer: result.openCashDrawer,
         cutPaper: result.cutPaper,
         cutType: result.cutType as 'full' | 'partial',
@@ -181,12 +281,10 @@ export async function POST(request: NextRequest) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
-    const errorName = error instanceof Error ? error.name : 'Error';
 
     return NextResponse.json(
       {
         error: 'Failed to save receipt settings',
-        name: errorName,
         message: errorMessage,
         stack: errorStack,
         details: String(error),

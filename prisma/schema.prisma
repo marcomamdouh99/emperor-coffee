@@ -1125,13 +1125,13 @@ enum NotificationType {
 }
 
 // ============================================
-// RECEIPT SETTINGS (CENTRALIZED)
+// RECEIPT SETTINGS (PER-BRANCH)
 // ============================================
 
 model ReceiptSettings {
   id               String   @id @default(cuid())
+  branchId         String   // Links to Branch (one settings per branch)
   storeName        String
-  branchName       String   @default("Coffee Shop")
   headerText       String?  @default("Quality Coffee Since 2024")
   footerText       String?  @default("Visit us again soon!")
   thankYouMessage  String   @default("Thank you for your purchase!")
@@ -1142,6 +1142,8 @@ model ReceiptSettings {
   showDateTime     Boolean  @default(true)
   showOrderType    Boolean  @default(true)
   showCustomerInfo Boolean  @default(true)
+  showBranchPhone    Boolean  @default(true) // Show branch phone on receipts
+  showBranchAddress  Boolean  @default(true) // Show branch address on receipts
   openCashDrawer   Boolean  @default(true)
   cutPaper         Boolean  @default(true)
   cutType          String   @default("full") // 'full' | 'partial'
@@ -1149,6 +1151,7 @@ model ReceiptSettings {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  @@unique([branchId])
   @@map("receipt_settings")
 }
 
