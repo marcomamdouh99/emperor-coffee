@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
           branchName: true,
           licenseKey: true,
           isActive: true,
+          phone: true,
+          address: true,
           licenseExpiresAt: true,
           lastSyncAt: true,
           menuVersion: true,
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { branchName, licenseKey, licenseExpiresAt } = body;
+    const { branchName, licenseKey, licenseExpiresAt, phone, address } = body;
 
     if (!branchName || !licenseKey || !licenseExpiresAt) {
       return NextResponse.json(
@@ -73,6 +75,8 @@ export async function POST(request: NextRequest) {
         branchName,
         licenseKey,
         licenseExpiresAt: new Date(licenseExpiresAt),
+        phone: phone || null,
+        address: address || null,
         isActive: true,
       },
     });
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, branchName, licenseKey, licenseExpiresAt, isActive } = body;
+    const { id, branchName, licenseKey, licenseExpiresAt, isActive, phone, address } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -148,6 +152,8 @@ export async function PATCH(request: NextRequest) {
         ...(licenseKey && { licenseKey }),
         ...(licenseExpiresAt && { licenseExpiresAt: new Date(licenseExpiresAt) }),
         ...(isActive !== undefined && { isActive }),
+        ...(phone !== undefined && { phone: phone || null }),
+        ...(address !== undefined && { address: address || null }),
       },
     });
 

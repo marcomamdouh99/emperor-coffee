@@ -88,6 +88,15 @@ function generateReceiptHTML(order: any): string {
       font-size: 18px;
       font-weight: bold;
     }
+    .header .branch-name {
+      margin: 5px 0;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .header .branch-info {
+      margin: 2px 0;
+      font-size: 10px;
+    }
     .info {
       margin-bottom: 15px;
       font-size: 11px;
@@ -105,8 +114,8 @@ function generateReceiptHTML(order: any): string {
     }
     .item-qty {
       flex: 0 0 30px;
-    text-align: left;
-    font-weight: bold;
+      text-align: left;
+      font-weight: bold;
     }
     .item-name {
       flex: 1;
@@ -137,6 +146,9 @@ function generateReceiptHTML(order: any): string {
       border-top: 2px dashed #000;
       font-size: 10px;
     }
+    .footer .contact {
+      margin: 2px 0;
+    }
     .refunded {
       color: #ff0000;
       font-weight: bold;
@@ -150,7 +162,9 @@ function generateReceiptHTML(order: any): string {
 <body>
   <div class="header">
     <h1>Emperor Coffee</h1>
-    <div>${branch?.branchName || 'Coffee Shop'}</div>
+    <div class="branch-name">${branch?.branchName || 'Coffee Shop'}</div>
+    ${branch?.address ? `<div class="branch-info">📍 ${branch.address}</div>` : ''}
+    ${branch?.phone ? `<div class="branch-info">📞 ${branch.phone}</div>` : ''}
     <div>Receipt #${order.orderNumber}</div>
   </div>
 
@@ -212,6 +226,8 @@ function generateReceiptHTML(order: any): string {
   <div class="footer">
     <div>Thank you for your purchase!</div>
     <div>Emperor Coffee Franchise</div>
+    ${branch?.phone ? `<div class="contact">📞 ${branch.phone}</div>` : ''}
+    ${branch?.address ? `<div class="contact">📍 ${branch.address}</div>` : ''}
   </div>
 
   <script>

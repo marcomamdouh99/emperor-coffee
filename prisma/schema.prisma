@@ -64,6 +64,8 @@ model Branch {
   licenseKey        String    @unique
   licenseExpiresAt  DateTime
   isActive          Boolean   @default(true)
+  phone             String?   // Branch phone number for receipts
+  address           String?   // Branch address for receipts
   lastSyncAt        DateTime?
   menuVersion       Int       @default(1)
   pricingVersion    Int       @default(1)

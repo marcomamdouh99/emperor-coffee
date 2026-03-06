@@ -52,6 +52,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if user's branch is active (if user has a branch)
+    if (user.branchId) {
+      const branch = await db.branch.findUnique({
+        where: { id: user.branchId },
+        select: { id: true, branchName: true, isActive: true, licenseExpiresAt: true },
+      });
+
+      if (!branch) {
+        return NextResponse.json(
+          { success: false, error: 'Branch not found. Please contact administrator.' },
+          { status: 403 }
+        );
+      }
+
+      if (!branch.isActive) {
+        return NextResponse.json(
+          { success: false, error: `Branch "${branch.branchName}" is deactivated. Please contact administrator.` },
+          { status: 403 }
+        );
+      }
+
+      // Check if license is expired
+      if (new Date(branch.licenseExpiresAt) < new Date()) {
+        return NextResponse.json(
+          { success: false, error: `Branch license expired on ${new Date(branch.licenseExpiresAt).toLocaleDateString()}. Please contact administrator.` },
+          { status: 403 }
+        );
+      }
+    }
+
     // Verify password using bcrypt
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 

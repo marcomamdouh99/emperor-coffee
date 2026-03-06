@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, LayoutDashboard, Key, AlertTriangle, CheckCircle, Clock, Search, Settings } from 'lucide-react';
+import { Plus, Pencil, Trash2, LayoutDashboard, Key, AlertTriangle, CheckCircle, Clock, Search, Settings, Phone, MapPin } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
 
 interface Branch {
@@ -20,6 +20,8 @@ interface Branch {
   licenseKey: string;
   licenseExpiresAt: Date;
   isActive: boolean;
+  phone?: string;
+  address?: string;
   lastSyncAt?: Date;
   menuVersion: number;
   createdAt: Date;
@@ -29,6 +31,8 @@ interface BranchFormData {
   branchName: string;
   licenseKey: string;
   expirationDays: string;
+  phone: string;
+  address: string;
 }
 
 export default function BranchManagement() {
@@ -42,6 +46,8 @@ export default function BranchManagement() {
     branchName: '',
     licenseKey: '',
     expirationDays: '365',
+    phone: '',
+    address: '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -59,6 +65,8 @@ export default function BranchManagement() {
           licenseKey: branch.licenseKey,
           licenseExpiresAt: new Date(branch.licenseExpiresAt),
           isActive: branch.isActive,
+          phone: branch.phone || undefined,
+          address: branch.address || undefined,
           lastSyncAt: branch.lastSyncAt ? new Date(branch.lastSyncAt) : undefined,
           menuVersion: branch.menuVersion || 1,
           createdAt: new Date(branch.createdAt),
@@ -93,6 +101,8 @@ export default function BranchManagement() {
             branchName: formData.branchName,
             licenseKey: formData.licenseKey,
             licenseExpiresAt: expirationDate.toISOString(),
+            phone: formData.phone,
+            address: formData.address,
           }),
         });
 
@@ -111,6 +121,8 @@ export default function BranchManagement() {
             branchName: formData.branchName,
             licenseKey: formData.licenseKey,
             licenseExpiresAt: expirationDate.toISOString(),
+            phone: formData.phone,
+            address: formData.address,
           }),
         });
 
@@ -141,6 +153,8 @@ export default function BranchManagement() {
       branchName: branch.branchName,
       licenseKey: branch.licenseKey,
       expirationDays: daysUntilExpiry.toString(),
+      phone: branch.phone || '',
+      address: branch.address || '',
     });
     setDialogOpen(true);
   };
@@ -201,6 +215,8 @@ export default function BranchManagement() {
       branchName: '',
       licenseKey: '',
       expirationDays: '365',
+      phone: '',
+      address: '',
     });
   };
 
@@ -288,6 +304,31 @@ export default function BranchManagement() {
                           placeholder="LIC-XXXX-YYYY-ZZZZ"
                           className="pl-10 font-mono"
                           required
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          placeholder="e.g., +20 123 456 7890"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Address</Label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          id="address"
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          placeholder="e.g., 123 Main Street, Cairo, Egypt"
                         />
                       </div>
                     </div>
