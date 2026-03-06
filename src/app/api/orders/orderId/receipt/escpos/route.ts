@@ -86,14 +86,24 @@ export async function GET(
       paperWidth: 80,
     };
 
-    // Fetch receipt settings directly from database
+    // Fetch receipt settings - try branch-specific first, then fallback to global
     try {
-      const dbSettings = await db.receiptSettings.findFirst();
+      const dbSettings = await db.receiptSettings.findFirst({
+        where: {
+          OR: [
+            { branchId: order.branchId },
+            { branchId: null }
+          ]
+        },
+        orderBy: {
+          branchId: 'desc' // Prefer branch-specific settings over global
+        }
+      });
 
       if (dbSettings) {
         receiptSettings = {
           storeName: dbSettings.storeName,
-          branchName: dbSettings.branchName || 'Coffee Shop',
+          branchName: order.branch?.branchName || 'Coffee Shop', // Use actual branch name
           headerText: dbSettings.headerText || undefined,
           footerText: dbSettings.footerText || undefined,
           thankYouMessage: dbSettings.thankYouMessage,
@@ -114,10 +124,13 @@ export async function GET(
 
         console.log('[ESC/POS] Receipt settings loaded:', {
           storeName: receiptSettings.storeName,
+          branchName: receiptSettings.branchName,
           hasLogo: !!receiptSettings.logoData,
           fontSize: receiptSettings.fontSize,
           showBranchPhone: receiptSettings.showBranchPhone,
           showBranchAddress: receiptSettings.showBranchAddress,
+          branchPhone: order.branch?.phone,
+          branchAddress: order.branch?.address,
         });
       } else {
         console.log('[ESC/POS] No settings found, using defaults');

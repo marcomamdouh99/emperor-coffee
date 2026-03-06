@@ -43,6 +43,13 @@ const metrics: ConnectionMetrics = {
  * For SQLite, we use a singleton pattern with proper timeout settings
  */
 export const db = (() => {
+  // Force reload Prisma Client by clearing the cache
+  // This ensures the regenerated Prisma Client is used
+  if (process.env.FORCE_PRISMA_RELOAD === 'true' && globalForPrisma.prisma) {
+    console.log('[DB] Force reloading Prisma client...')
+    globalForPrisma.prisma = undefined
+  }
+
   if (globalForPrisma.prisma) {
     return globalForPrisma.prisma
   }
