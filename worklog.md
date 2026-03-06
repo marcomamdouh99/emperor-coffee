@@ -4387,3 +4387,41 @@ Stage Summary:
 
 **Conclusion:**
 The Emperor Coffee POS is a world-class, production-ready system with comprehensive offline capabilities, sophisticated inventory management, advanced reporting, and excellent architecture. Ready for new feature development and enhancements.
+
+---
+
+Task ID: Post-Context-Restoration-1
+Agent: Z.ai Code
+Task: Push receipt settings per-branch configuration changes to GitHub
+
+Work Log:
+- Found uncommitted changes in the working tree:
+  * prisma/schema.prisma - Modified to convert ReceiptSettings from centralized to per-branch configuration
+  * src/app/api/receipt-settings/route.ts - Updated API to handle per-branch settings with branchId
+- Committed changes with message: "feat: convert receipt settings to per-branch configuration with phone/address support"
+- Successfully pushed to GitHub main branch (commit 936fc3a)
+- Git status confirmed clean: "Your branch is up to date with 'origin/main'"
+
+Stage Summary:
+- Receipt settings architecture improved from centralized to per-branch
+- Added branchId field to ReceiptSettings model with unique constraint
+- Added showBranchPhone and showBranchAddress boolean fields
+- API updated to support branch-specific receipt settings
+- All changes successfully committed and pushed to GitHub main branch
+
+**Files Modified:**
+1. `/prisma/schema.prisma` - Changed ReceiptSettings to per-branch with phone/address support
+2. `/src/app/api/receipt-settings/route.ts` - Updated API for branch-specific settings
+
+**Key Changes:**
+- ReceiptSettings now linked to Branch via branchId field
+- Removed branchName field (now uses actual Branch relationship)
+- Added showBranchPhone and showBranchAddress fields for display control
+- GET endpoint accepts branchId query parameter
+- POST endpoint requires branchId and uses upsert for branch-specific settings
+- Automatic default settings creation when branch has no settings
+
+**Git Commit:**
+- Commit: 936fc3a
+- Message: "feat: convert receipt settings to per-branch configuration with phone/address support"
+- Pushed to: origin/main

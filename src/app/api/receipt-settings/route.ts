@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     if (branchId) {
       // Get settings for specific branch
-      settings = await db.receiptSettings.findUnique({
+      settings = await db.receiptSettings.findFirst({
         where: { branchId },
       });
 
@@ -46,24 +46,54 @@ export async function GET(request: NextRequest) {
         });
       }
     } else {
-      // No branchId provided - get first available branch's settings
-      console.log('[GET] No branchId, fetching first available branch settings');
-      const firstBranch = await db.branch.findFirst({
-        where: { isActive: true },
-        select: { id: true, branchName: true },
+      // No branchId provided - first try to get the old centralized settings (branchId is null)
+      settings = await db.receiptSettings.findFirst({
+        where: { branchId: null },
       });
 
-      if (firstBranch) {
-        // Get or create settings for the first branch
-        settings = await db.receiptSettings.findUnique({
-          where: { branchId: firstBranch.id },
+      // If no old centralized settings, get first available branch's settings
+      if (!settings) {
+        console.log('[GET] No old centralized settings, fetching first available branch settings');
+        const firstBranch = await db.branch.findFirst({
+          where: { isActive: true },
+          select: { id: true, branchName: true },
         });
 
-        if (!settings) {
-          console.log('[GET] No settings for first branch, creating defaults for branch:', firstBranch.id);
+        if (firstBranch) {
+          // Get or create settings for the first branch
+          settings = await db.receiptSettings.findFirst({
+            where: { branchId: firstBranch.id },
+          });
+
+          if (!settings) {
+            console.log('[GET] No settings for first branch, creating defaults for branch:', firstBranch.id);
+            settings = await db.receiptSettings.create({
+              data: {
+                branchId: firstBranch.id,
+                storeName: 'Emperor Coffee',
+                headerText: 'Quality Coffee Since 2024',
+                footerText: 'Visit us again soon!',
+                thankYouMessage: 'Thank you for your purchase!',
+                fontSize: 'medium',
+                showLogo: true,
+                showCashier: true,
+                showDateTime: true,
+                showOrderType: true,
+                showCustomerInfo: true,
+                showBranchPhone: true,
+                showBranchAddress: true,
+                openCashDrawer: true,
+                cutPaper: true,
+                cutType: 'full',
+                paperWidth: 80,
+              },
+            });
+          }
+        } else {
+          // No active branches - create default settings without branch (for compatibility)
+          console.log('[GET] No active branches, creating global defaults');
           settings = await db.receiptSettings.create({
             data: {
-              branchId: firstBranch.id,
               storeName: 'Emperor Coffee',
               headerText: 'Quality Coffee Since 2024',
               footerText: 'Visit us again soon!',
@@ -83,30 +113,6 @@ export async function GET(request: NextRequest) {
             },
           });
         }
-      } else {
-        // No active branches - create default settings without branch (for compatibility)
-        console.log('[GET] No active branches, creating global defaults');
-        settings = await db.receiptSettings.create({
-          data: {
-            branchId: 'global',
-            storeName: 'Emperor Coffee',
-            headerText: 'Quality Coffee Since 2024',
-            footerText: 'Visit us again soon!',
-            thankYouMessage: 'Thank you for your purchase!',
-            fontSize: 'medium',
-            showLogo: true,
-            showCashier: true,
-            showDateTime: true,
-            showOrderType: true,
-            showCustomerInfo: true,
-            showBranchPhone: true,
-            showBranchAddress: true,
-            openCashDrawer: true,
-            cutPaper: true,
-            cutType: 'full',
-            paperWidth: 80,
-          },
-        });
       }
     }
 
@@ -183,17 +189,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Validate required fields
-    if (!settings.branchId) {
-      console.error('[POST] Validation failed: branchId is required');
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          message: 'branchId is required',
-        },
-        { status: 400 }
-      );
-    }
-
     if (!settings.storeName || !settings.thankYouMessage) {
       console.error('[POST] Validation failed: storeName and thankYouMessage are required');
       return NextResponse.json(
@@ -206,9 +201,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Use upsert to either create or update settings for the branch
+    // If branchId is provided, use it; otherwise use null for backward compatibility
+    const branchIdValue = settings.branchId || null;
+
     const result = await db.receiptSettings.upsert({
-      where: { branchId: settings.branchId },
+      where: { id: settings.id || 'default' },
       update: {
+        branchId: branchIdValue,
         storeName: settings.storeName,
         headerText: settings.headerText || null,
         footerText: settings.footerText || null,
@@ -228,8 +227,8 @@ export async function POST(request: NextRequest) {
         paperWidth: settings.paperWidth || 80,
       },
       create: {
-        id: settings.id,
-        branchId: settings.branchId,
+        id: settings.id || undefined,
+        branchId: branchIdValue,
         storeName: settings.storeName,
         headerText: settings.headerText || null,
         footerText: settings.footerText || null,

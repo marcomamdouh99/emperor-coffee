@@ -6,7 +6,7 @@
 
 // Database configuration
 const DB_NAME = 'emperor-pos-db';
-const DB_VERSION = 3; // Incremented to 3 for idempotencyKey index
+const DB_VERSION = 4; // Incremented to 4 to ensure receipt_settings store is created
 const STORES = [
   'sync_operations',
   'sync_state',

@@ -380,7 +380,17 @@ export async function POST(request: NextRequest) {
     // ============================================
     console.log(`[Sync Pull] Syncing receipt settings...`);
 
-    const receiptSettings = await db.receiptSettings.findFirst();
+    // Try to get branch-specific settings first
+    let receiptSettings = await db.receiptSettings.findFirst({
+      where: { branchId }
+    });
+
+    // If no branch-specific settings, get the old centralized settings (branchId is null)
+    if (!receiptSettings) {
+      receiptSettings = await db.receiptSettings.findFirst({
+        where: { branchId: null }
+      });
+    }
 
     if (receiptSettings) {
       dataToReturn.receiptSettings = receiptSettings;
@@ -388,21 +398,25 @@ export async function POST(request: NextRequest) {
     } else {
       // Create default settings if not found
       const defaultSettings = await db.receiptSettings.create({
-        storeName: 'Emperor Coffee',
-        branchName: 'Coffee Shop',
-        headerText: 'Quality Coffee Since 2024',
-        footerText: 'Visit us again soon!',
-        thankYouMessage: 'Thank you for your purchase!',
-        fontSize: 'medium',
-        showLogo: true,
-        showCashier: true,
-        showDateTime: true,
-        showOrderType: true,
-        showCustomerInfo: true,
-        openCashDrawer: true,
-        cutPaper: true,
-        cutType: 'full',
-        paperWidth: 80,
+        data: {
+          branchId,
+          storeName: 'Emperor Coffee',
+          headerText: 'Quality Coffee Since 2024',
+          footerText: 'Visit us again soon!',
+          thankYouMessage: 'Thank you for your purchase!',
+          fontSize: 'medium',
+          showLogo: true,
+          showCashier: true,
+          showDateTime: true,
+          showOrderType: true,
+          showCustomerInfo: true,
+          showBranchPhone: true,
+          showBranchAddress: true,
+          openCashDrawer: true,
+          cutPaper: true,
+          cutType: 'full',
+          paperWidth: 80,
+        }
       });
       dataToReturn.receiptSettings = defaultSettings;
       updates.push(`Receipt Settings: 1 default settings created`);

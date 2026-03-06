@@ -1130,7 +1130,7 @@ enum NotificationType {
 
 model ReceiptSettings {
   id               String   @id @default(cuid())
-  branchId         String   // Links to Branch (one settings per branch)
+  branchId         String?  // Links to Branch (one settings per branch) - optional for backward compatibility
   storeName        String
   headerText       String?  @default("Quality Coffee Since 2024")
   footerText       String?  @default("Visit us again soon!")
@@ -1151,7 +1151,6 @@ model ReceiptSettings {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  @@unique([branchId])
   @@map("receipt_settings")
 }
 
