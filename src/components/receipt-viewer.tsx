@@ -789,12 +789,6 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
 
                 <div className="footer">
                   <div>{receiptSettings?.thankYouMessage || 'Thank you for your purchase!'}</div>
-                  {receiptSettings?.showBranchPhone !== false && order.branch?.phone && (
-                    <div className="text-sm">{order.branch.phone}</div>
-                  )}
-                  {receiptSettings?.showBranchAddress !== false && order.branch?.address && (
-                    <div className="text-sm">{order.branch.address}</div>
-                  )}
                   {receiptSettings?.footerText && <div>{receiptSettings.footerText}</div>}
                   <div>{receiptSettings?.storeName || 'Emperor Coffee'}</div>
                 </div>
