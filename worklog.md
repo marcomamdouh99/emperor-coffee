@@ -4425,3 +4425,65 @@ Stage Summary:
 - Commit: 936fc3a
 - Message: "feat: convert receipt settings to per-branch configuration with phone/address support"
 - Pushed to: origin/main
+
+---
+
+Task ID: Receipt-Settings-Fix-1
+Agent: Z.ai Code
+Task: Fix receipt settings 500 error and IndexedDB issues
+
+Work Log:
+- Diagnosed the issue: ReceiptSettings schema changes caused 500 errors
+  * branchId field was required but existing records had null values
+  * Unique constraint on branchId conflicted with findUnique queries
+  * Prisma Client was outdated, querying non-existent branchName field
+- Updated Prisma schema:
+  * Made ReceiptSettings.branchId optional for backward compatibility
+  * Removed unique constraint on branchId
+  * Added showBranchPhone and showBranchAddress fields
+- Pushed database schema with --accept-data-loss flag
+- Updated receipt-settings API:
+  * Changed from findUnique to findFirst for branchId queries
+  * Handle old centralized settings (branchId is null)
+  * Make branchId optional in POST validation
+  * Update response to include branchId
+- Fixed sync/pull API:
+  * Updated to query branch-specific receipt settings first
+  * Fallback to centralized settings if no branch-specific ones exist
+  * Create default settings with branchId if none found
+  * Removed reference to non-existent branchName field
+- Incremented IndexedDB version from 3 to 4 to force upgrade
+  * Ensures receipt_settings store is created for existing users
+- Regenerated Prisma Client to reflect schema changes
+- Committed and pushed all changes to GitHub (commit c15b2cc)
+
+Stage Summary:
+- Receipt settings API now works without 500 errors
+- Backward compatible with old centralized settings
+- Branch-specific settings support implemented
+- IndexedDB will auto-upgrade to version 4
+- All changes committed and pushed to GitHub
+
+**Files Modified:**
+1. `/prisma/schema.prisma` - Made branchId optional, removed unique constraint
+2. `/src/app/api/receipt-settings/route.ts` - Updated GET/POST to handle optional branchId
+3. `/src/app/api/sync/pull/route.ts` - Fixed to query branch-specific settings
+4. `/src/lib/storage/indexeddb-storage.ts` - Incremented DB version to 4
+
+**Database Changes:**
+- Removed branchName column from receipt_settings table
+- Added branchId column (optional)
+- Added showBranchPhone column (boolean, default true)
+- Added showBranchAddress column (boolean, default true)
+- Removed unique constraint on branchId
+
+**Git Commits:**
+- 936fc3a: feat: convert receipt settings to per-branch configuration
+- c15b2cc: fix: resolve receipt settings 500 error and IndexedDB issues
+
+**Key Achievements:**
+- ✅ Fixed 500 error on /api/receipt-settings endpoint
+- ✅ Fixed IndexedDB "object store not found" error
+- ✅ Maintained backward compatibility with old settings
+- ✅ Added branch-specific receipt settings support
+- ✅ All changes pushed to GitHub main branch

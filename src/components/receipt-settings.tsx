@@ -9,12 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Save, RefreshCw, Printer, Image, Type, FileText, Settings, Upload, X } from 'lucide-react';
+import { Save, RefreshCw, Printer, Image, Type, FileText, Settings, Upload, X, Phone, MapPin } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '@/hooks/use-toast';
 
 interface ReceiptSettings {
+  id?: string;
+  branchId?: string;
   storeName: string;
-  branchName: string;
   headerText?: string;
   footerText?: string;
   thankYouMessage: string;
@@ -25,6 +26,8 @@ interface ReceiptSettings {
   showDateTime: boolean;
   showOrderType: boolean;
   showCustomerInfo: boolean;
+  showBranchPhone: boolean;
+  showBranchAddress: boolean;
   openCashDrawer: boolean;
   cutPaper: boolean;
   cutType: 'full' | 'partial';
@@ -33,7 +36,6 @@ interface ReceiptSettings {
 
 const defaultSettings: ReceiptSettings = {
   storeName: 'Emperor Coffee',
-  branchName: 'Coffee Shop',
   headerText: 'Quality Coffee Since 2024',
   footerText: 'Visit us again soon!',
   thankYouMessage: 'Thank you for your purchase!',
@@ -43,6 +45,8 @@ const defaultSettings: ReceiptSettings = {
   showDateTime: true,
   showOrderType: true,
   showCustomerInfo: true,
+  showBranchPhone: true,
+  showBranchAddress: true,
   openCashDrawer: true,
   cutPaper: true,
   cutType: 'full',
@@ -105,10 +109,6 @@ export default function ReceiptSettings() {
                     storeName: settings.storeName,
                     hasLogo: !!settings.logoData,
                   });
-                  showWarningToast(
-                    'Offline Mode',
-                    'Using cached receipt settings'
-                  );
                 } else {
                   showErrorToast('Error', 'No receipt settings found');
                 }
@@ -197,8 +197,9 @@ export default function ReceiptSettings() {
         // Settings are saved to database - now also cache in IndexedDB for offline use
         console.log('Settings saved to database:', {
           storeName: settings.storeName,
-          branchName: settings.branchName,
           hasLogo: !!settings.logoData,
+          showBranchPhone: settings.showBranchPhone,
+          showBranchAddress: settings.showBranchAddress,
         });
 
         // Also save to IndexedDB for offline use
@@ -313,16 +314,15 @@ export default function ReceiptSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Branch Name (Default)</Label>
-              <Input
-                value={settings.branchName}
-                onChange={(e) => setSettings({ ...settings, branchName: e.target.value })}
-                placeholder="Downtown Branch"
-              />
-              <p className="text-xs text-slate-500">
-                Used as fallback - actual branch is auto-detected from order
-              </p>
+              <Label>Branch Phone & Address</Label>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-700">
+                  Branch phone number and address are managed in <strong>Branch Management</strong>.
+                  Use the toggles below to show/hide them on receipts.
+                </p>
+              </div>
             </div>
+            <Separator />
             <div className="space-y-2">
               <Label>Header Text (Optional)</Label>
               <Input
@@ -538,6 +538,34 @@ export default function ReceiptSettings() {
                 onCheckedChange={(checked) => setSettings({ ...settings, showCustomerInfo: checked })}
               />
             </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Show Branch Phone
+                </Label>
+                <p className="text-xs text-slate-500">Display branch phone number on receipt</p>
+              </div>
+              <Switch
+                checked={settings.showBranchPhone}
+                onCheckedChange={(checked) => setSettings({ ...settings, showBranchPhone: checked })}
+              />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Show Branch Address
+                </Label>
+                <p className="text-xs text-slate-500">Display branch address on receipt</p>
+              </div>
+              <Switch
+                checked={settings.showBranchAddress}
+                onCheckedChange={(checked) => setSettings({ ...settings, showBranchAddress: checked })}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -629,9 +657,24 @@ export default function ReceiptSettings() {
                 </div>
               )}
               <div className="font-bold text-lg">{settings.storeName}</div>
-              <div className="text-sm">{settings.branchName} <span className="text-xs text-slate-500">(default)</span></div>
               {settings.headerText && (
                 <div className="text-xs text-slate-600">{settings.headerText}</div>
+              )}
+              {(settings.showBranchPhone || settings.showBranchAddress) && (
+                <div className="text-xs text-slate-600 space-y-0.5">
+                  {settings.showBranchAddress && (
+                    <div className="flex items-center justify-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      <span>123 Main Street, Cairo, Egypt</span>
+                    </div>
+                  )}
+                  {settings.showBranchPhone && (
+                    <div className="flex items-center justify-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      <span>+20 123 456 7890</span>
+                    </div>
+                  )}
+                </div>
               )}
               <div className="border-t border-dashed border-slate-300 pt-2 mt-2 text-left">
                 <div className="text-xs">
