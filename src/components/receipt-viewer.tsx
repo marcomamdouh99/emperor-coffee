@@ -59,6 +59,8 @@ interface Order {
   branch?: {
     id: string;
     branchName: string;
+    phone?: string | null;
+    address?: string | null;
   };
   customerPhone?: string;
   customerName?: string;
@@ -165,6 +167,8 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
       const receiptData: ReceiptData = {
         storeName: receiptSettings?.storeName || 'Emperor Coffee',
         branchName: order.branch?.branchName || receiptSettings?.branchName || 'Coffee Shop',
+        branchPhone: order.branch?.phone || undefined,
+        branchAddress: order.branch?.address || undefined,
         orderNumber: order.orderNumber,
         date: new Date(order.orderTimestamp),
         cashier: order.cashier?.name || order.cashier?.username || 'Unknown',
@@ -202,6 +206,8 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
         showDateTime: receiptSettings?.showDateTime,
         showOrderType: receiptSettings?.showOrderType,
         showCustomerInfo: receiptSettings?.showCustomerInfo,
+        showBranchPhone: receiptSettings?.showBranchPhone ?? true,
+        showBranchAddress: receiptSettings?.showBranchAddress ?? true,
         openCashDrawer: receiptSettings?.openCashDrawer,
         cutPaper: receiptSettings?.cutPaper,
         cutType: receiptSettings?.cutType as 'full' | 'partial',
@@ -654,6 +660,12 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
                     {order.branch?.branchName || receiptSettings?.branchName || 'Coffee Shop'}
                     {!order.branch?.branchName && receiptSettings?.branchName && ' (default)'}
                   </div>
+                  {receiptSettings?.showBranchPhone !== false && order.branch?.phone && (
+                    <div className="text-sm">{order.branch.phone}</div>
+                  )}
+                  {receiptSettings?.showBranchAddress !== false && order.branch?.address && (
+                    <div className="text-sm">{order.branch.address}</div>
+                  )}
                   {receiptSettings?.headerText && (
                     <div className="text-xs text-slate-600">{receiptSettings.headerText}</div>
                   )}
@@ -777,6 +789,12 @@ export function ReceiptViewer({ open, onClose, order, autoPrint, isDuplicate }: 
 
                 <div className="footer">
                   <div>{receiptSettings?.thankYouMessage || 'Thank you for your purchase!'}</div>
+                  {receiptSettings?.showBranchPhone !== false && order.branch?.phone && (
+                    <div className="text-sm">{order.branch.phone}</div>
+                  )}
+                  {receiptSettings?.showBranchAddress !== false && order.branch?.address && (
+                    <div className="text-sm">{order.branch.address}</div>
+                  )}
                   {receiptSettings?.footerText && <div>{receiptSettings.footerText}</div>}
                   <div>{receiptSettings?.storeName || 'Emperor Coffee'}</div>
                 </div>

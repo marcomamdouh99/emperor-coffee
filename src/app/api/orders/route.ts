@@ -795,6 +795,8 @@ export async function POST(request: NextRequest) {
         branch: branch ? {
           id: branch.id,
           branchName: branch.branchName,
+          phone: branch.phone,
+          address: branch.address,
         } : null,
       },
       message: 'Order processed successfully',
