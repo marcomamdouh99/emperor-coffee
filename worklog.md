@@ -4487,3 +4487,70 @@ Stage Summary:
 - ✅ Maintained backward compatibility with old settings
 - ✅ Added branch-specific receipt settings support
 - ✅ All changes pushed to GitHub main branch
+
+---
+
+Task ID: Receipt-Settings-UI-Update-1
+Agent: Z.ai Code
+Task: Add branch phone and address display toggles to Receipt Settings UI
+
+Work Log:
+- User reported that Receipt Tab doesn't have:
+  * Section to enter branch address and phone number
+  * Toggles for showing branch phone and address on receipts
+- Updated ReceiptSettings interface:
+  * Added id and branchId optional fields
+  * Added showBranchPhone and showBranchAddress boolean fields
+  * Removed deprecated branchName field
+- Updated defaultSettings to include new fields:
+  * showBranchPhone: true
+  * showBranchAddress: true
+- Added Phone and MapPin icons to imports
+- Updated Store Information section:
+  * Replaced Branch Name input with informational note
+  * Explained that branch phone/address are managed in Branch Management
+  * Users use toggles to control display on receipts
+- Updated Display Options section:
+  * Added "Show Branch Phone" toggle with Phone icon
+  * Added "Show Branch Address" toggle with MapPin icon
+  * Both toggles have descriptive labels and help text
+- Updated Live Preview:
+  * Shows branch phone when showBranchPhone is true
+  * Shows branch address when showBranchAddress is true
+  * Both display with appropriate icons (Phone, MapPin)
+- Fixed console.log statements:
+  * Removed reference to deprecated branchName field
+  * Added showBranchPhone and showBranchAddress to save log
+- Removed showWarningToast call to prevent import errors
+- Committed and pushed all changes to GitHub (commit c77a199)
+
+Stage Summary:
+- Receipt Settings UI now has full support for branch phone/address display
+- Users can toggle visibility of branch contact info on receipts
+- Clear guidance that phone/address are configured in Branch Management
+- Live preview shows exactly how receipts will appear
+- All changes committed and pushed to GitHub main branch
+
+**Files Modified:**
+1. `/src/components/receipt-settings.tsx` - Added phone/address toggles and updated UI
+
+**UI Changes:**
+- Store Information: Replaced Branch Name input with informational note
+- Display Options: Added 2 new toggles (Show Branch Phone, Show Branch Address)
+- Live Preview: Shows branch phone/address when toggles are enabled
+- Icons: Added Phone and MapPin icons for visual clarity
+
+**Next Steps for Users:**
+1. Go to Branch Management to configure phone and address for each branch
+2. Go to Receipt Settings to toggle phone/address display on/off
+3. Save settings to apply changes
+4. Process an order to see updated receipt with branch contact info
+
+**Git Commit:**
+- c77a199: feat: add branch phone and address display toggles to Receipt Settings
+
+**Key Achievements:**
+- ✅ Receipt Settings UI now has toggles for branch phone/address
+- ✅ Clear instructions on where to configure phone and address values
+- ✅ Live preview shows branch contact info when enabled
+- ✅ All changes committed and pushed to GitHub

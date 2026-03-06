@@ -47,6 +47,8 @@ export interface ReceiptData {
   showDateTime?: boolean;
   showOrderType?: boolean;
   showCustomerInfo?: boolean;
+  showBranchPhone?: boolean;
+  showBranchAddress?: boolean;
   openCashDrawer?: boolean;
   cutPaper?: boolean;
   cutType?: 'full' | 'partial';
@@ -315,15 +317,15 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
     .text(data.branchName)
     .newLines(1);
 
-  // Branch phone (if provided)
-  if (data.branchPhone) {
+  // Branch phone (if enabled and provided)
+  if (data.showBranchPhone !== false && data.branchPhone) {
     encoder.fontSize(baseFontSize)
       .text(data.branchPhone)
       .newLines(1);
   }
 
-  // Branch address (if provided)
-  if (data.branchAddress) {
+  // Branch address (if enabled and provided)
+  if (data.showBranchAddress !== false && data.branchAddress) {
     encoder.fontSize(baseFontSize)
       .text(data.branchAddress)
       .newLines(1);
@@ -508,11 +510,11 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
     encoder.text(data.thankYouMessage).newLine();
   }
 
-  // Branch phone and address in footer
-  if (data.branchPhone) {
+  // Branch phone and address in footer (if enabled)
+  if (data.showBranchPhone !== false && data.branchPhone) {
     encoder.text(data.branchPhone).newLine();
   }
-  if (data.branchAddress) {
+  if (data.showBranchAddress !== false && data.branchAddress) {
     encoder.text(data.branchAddress).newLine();
   }
 

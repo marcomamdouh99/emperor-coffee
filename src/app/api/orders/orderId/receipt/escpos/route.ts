@@ -93,7 +93,7 @@ export async function GET(
       if (dbSettings) {
         receiptSettings = {
           storeName: dbSettings.storeName,
-          branchName: dbSettings.branchName,
+          branchName: dbSettings.branchName || 'Coffee Shop',
           headerText: dbSettings.headerText || undefined,
           footerText: dbSettings.footerText || undefined,
           thankYouMessage: dbSettings.thankYouMessage,
@@ -103,6 +103,8 @@ export async function GET(
           showDateTime: dbSettings.showDateTime,
           showOrderType: dbSettings.showOrderType,
           showCustomerInfo: dbSettings.showCustomerInfo,
+          showBranchPhone: dbSettings.showBranchPhone ?? true,
+          showBranchAddress: dbSettings.showBranchAddress ?? true,
           openCashDrawer: dbSettings.openCashDrawer,
           cutPaper: dbSettings.cutPaper,
           cutType: dbSettings.cutType as 'full' | 'partial',
@@ -114,6 +116,8 @@ export async function GET(
           storeName: receiptSettings.storeName,
           hasLogo: !!receiptSettings.logoData,
           fontSize: receiptSettings.fontSize,
+          showBranchPhone: receiptSettings.showBranchPhone,
+          showBranchAddress: receiptSettings.showBranchAddress,
         });
       } else {
         console.log('[ESC/POS] No settings found, using defaults');
@@ -176,6 +180,8 @@ export async function GET(
       showDateTime: receiptSettings.showDateTime,
       showOrderType: receiptSettings.showOrderType,
       showCustomerInfo: receiptSettings.showCustomerInfo,
+      showBranchPhone: receiptSettings.showBranchPhone,
+      showBranchAddress: receiptSettings.showBranchAddress,
       openCashDrawer: receiptSettings.openCashDrawer,
       cutPaper: receiptSettings.cutPaper,
       cutType: receiptSettings.cutType,

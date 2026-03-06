@@ -39,8 +39,18 @@ export async function GET(
       );
     }
 
+    // Fetch receipt settings to check if we should show branch phone/address
+    const receiptSettings = await db.receiptSettings.findFirst({
+      where: {
+        OR: [
+          { branchId: order.branchId },
+          { branchId: null }
+        ]
+      }
+    });
+
     // Generate receipt HTML
-    const receiptHtml = generateReceiptHTML(order);
+    const receiptHtml = generateReceiptHTML(order, receiptSettings);
 
     return NextResponse.json({
       success: true,
@@ -57,10 +67,14 @@ export async function GET(
   }
 }
 
-function generateReceiptHTML(order: any): string {
+function generateReceiptHTML(order: any, receiptSettings: any): string {
   const branch = order.branch;
   const cashier = order.cashier;
   const date = new Date(order.orderTimestamp);
+
+  // Determine if we should show branch phone and address
+  const showBranchPhone = receiptSettings?.showBranchPhone ?? true;
+  const showBranchAddress = receiptSettings?.showBranchAddress ?? true;
 
   return `
 <!DOCTYPE html>
@@ -163,8 +177,8 @@ function generateReceiptHTML(order: any): string {
   <div class="header">
     <h1>Emperor Coffee</h1>
     <div class="branch-name">${branch?.branchName || 'Coffee Shop'}</div>
-    ${branch?.address ? `<div class="branch-info">📍 ${branch.address}</div>` : ''}
-    ${branch?.phone ? `<div class="branch-info">📞 ${branch.phone}</div>` : ''}
+    ${showBranchAddress && branch?.address ? `<div class="branch-info">📍 ${branch.address}</div>` : ''}
+    ${showBranchPhone && branch?.phone ? `<div class="branch-info">📞 ${branch.phone}</div>` : ''}
     <div>Receipt #${order.orderNumber}</div>
   </div>
 
@@ -226,8 +240,8 @@ function generateReceiptHTML(order: any): string {
   <div class="footer">
     <div>Thank you for your purchase!</div>
     <div>Emperor Coffee Franchise</div>
-    ${branch?.phone ? `<div class="contact">📞 ${branch.phone}</div>` : ''}
-    ${branch?.address ? `<div class="contact">📍 ${branch.address}</div>` : ''}
+    ${showBranchPhone && branch?.phone ? `<div class="contact">📞 ${branch.phone}</div>` : ''}
+    ${showBranchAddress && branch?.address ? `<div class="contact">📍 ${branch.address}</div>` : ''}
   </div>
 
   <script>
