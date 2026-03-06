@@ -140,6 +140,8 @@ export async function GET(
     const receiptData: ReceiptData = {
       storeName: receiptSettings.storeName,
       branchName: order.branch?.branchName || receiptSettings.branchName,
+      branchPhone: order.branch?.phone || undefined,
+      branchAddress: order.branch?.address || undefined,
       orderNumber: order.orderNumber,
       date: new Date(order.orderTimestamp),
       cashier: order.cashier?.name || order.cashier?.username || 'Unknown',

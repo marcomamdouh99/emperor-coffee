@@ -15,6 +15,8 @@ export interface ReceiptItem {
 export interface ReceiptData {
   storeName: string;
   branchName: string;
+  branchPhone?: string;
+  branchAddress?: string;
   orderNumber: number;
   date: Date;
   cashier: string;
@@ -313,6 +315,20 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
     .text(data.branchName)
     .newLines(1);
 
+  // Branch phone (if provided)
+  if (data.branchPhone) {
+    encoder.fontSize(baseFontSize)
+      .text(data.branchPhone)
+      .newLines(1);
+  }
+
+  // Branch address (if provided)
+  if (data.branchAddress) {
+    encoder.fontSize(baseFontSize)
+      .text(data.branchAddress)
+      .newLines(1);
+  }
+
   // Header Text (if enabled) - use selected font size
   if (data.headerText) {
     encoder.text(data.headerText).newLines(2);
@@ -490,6 +506,14 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
   encoder.fontSize(baseFontSize);
   if (data.thankYouMessage) {
     encoder.text(data.thankYouMessage).newLine();
+  }
+
+  // Branch phone and address in footer
+  if (data.branchPhone) {
+    encoder.text(data.branchPhone).newLine();
+  }
+  if (data.branchAddress) {
+    encoder.text(data.branchAddress).newLine();
   }
 
   // Footer text - use selected font size
