@@ -115,8 +115,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[Auth] Offline login mode');
 
       // Try offline login from localStorage
-      const storedUser = localStorage.getItem('user');
-      const isLoggedIn = localStorage.getItem('isLoggedIn');
+      let storedUser = null;
+      let isLoggedIn = null;
+      try {
+        storedUser = localStorage.getItem('user');
+        isLoggedIn = localStorage.getItem('isLoggedIn');
+      } catch (error) {
+        console.warn('[Auth] localStorage not accessible:', error);
+      }
 
       console.log('[Auth] Stored user exists:', !!storedUser, 'Is logged in:', isLoggedIn);
 
@@ -202,8 +208,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
 
       // Store in localStorage as fallback (for offline access)
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('user', JSON.stringify(userData));
+      try {
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch (error) {
+        console.warn('[Auth] localStorage not accessible:', error);
+      }
 
       showSuccessToast('Welcome back!', `Logged in as ${data.session.name || data.session.username}`);
 
@@ -252,9 +262,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Then clear local storage immediately to prevent auto-login on reload
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('user');
-        localStorage.removeItem('isLoggedIn');
-        console.log('[Auth] Local storage cleared');
+        try {
+          localStorage.removeItem('user');
+          localStorage.removeItem('isLoggedIn');
+          console.log('[Auth] Local storage cleared');
+        } catch (error) {
+          console.warn('[Auth] localStorage not accessible:', error);
+        }
       }
 
       // Clear user state last
@@ -264,8 +278,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[Auth] Logout error:', err);
       // Ensure we clear everything even on error
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('user');
-        localStorage.removeItem('isLoggedIn');
+        try {
+          localStorage.removeItem('user');
+          localStorage.removeItem('isLoggedIn');
+        } catch (error) {
+          console.warn('[Auth] localStorage not accessible:', error);
+        }
       }
       setUser(null);
     }
@@ -275,8 +293,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // First check localStorage for fallback (needed for preview environments)
-      const storedUser = localStorage.getItem('user');
-      const isLoggedIn = localStorage.getItem('isLoggedIn');
+      let storedUser = null;
+      let isLoggedIn = null;
+      try {
+        storedUser = localStorage.getItem('user');
+        isLoggedIn = localStorage.getItem('isLoggedIn');
+      } catch (error) {
+        console.warn('[Auth] localStorage not accessible:', error);
+      }
 
       if (storedUser && isLoggedIn === 'true') {
         try {
@@ -291,8 +315,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (err) {
           console.error('Failed to parse stored user:', err);
-          localStorage.removeItem('user');
-          localStorage.removeItem('isLoggedIn');
+          try {
+            localStorage.removeItem('user');
+            localStorage.removeItem('isLoggedIn');
+          } catch (e) {
+            console.warn('[Auth] localStorage not accessible:', e);
+          }
         }
       }
 
@@ -307,8 +335,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               // Server session is valid, update user state
               setUser(data.user);
               // Update localStorage to match server session
-              localStorage.setItem('user', JSON.stringify(data.user));
-              localStorage.setItem('isLoggedIn', 'true');
+              try {
+                localStorage.setItem('user', JSON.stringify(data.user));
+                localStorage.setItem('isLoggedIn', 'true');
+              } catch (error) {
+                console.warn('[Auth] localStorage not accessible:', error);
+              }
 
               // Initialize offline manager with verified user
               if (data.user.branchId) {

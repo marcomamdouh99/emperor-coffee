@@ -17,20 +17,35 @@ interface ServiceWorkerState {
 }
 
 export function useServiceWorker() {
-  const [state, setState] = useState<ServiceWorkerState>(() => ({
-    isSupported: typeof window !== 'undefined' && 'serviceWorker' in navigator,
-    isInstalled: false,
-    isReady: false,
-    canInstall: false,
-    updateAvailable: false,
-    isOffline: typeof window !== 'undefined' ? !navigator.onLine : true,
-  }));
+  const [state, setState] = useState<ServiceWorkerState>(() => {
+    let isSupported = false;
+    try {
+      isSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator;
+    } catch (error) {
+      // In sandboxed environment, serviceWorker access will throw
+      isSupported = false;
+    }
+    return {
+      isSupported,
+      isInstalled: false,
+      isReady: false,
+      canInstall: false,
+      updateAvailable: false,
+      isOffline: typeof window !== 'undefined' ? !navigator.onLine : true,
+    };
+  });
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
-    // Check if service workers are supported
-    const isSupported = 'serviceWorker' in navigator;
+    // Check if service workers are supported AND accessible (not sandboxed)
+    let isSupported = false;
+    try {
+      isSupported = 'serviceWorker' in navigator;
+    } catch (error) {
+      console.warn('[PWA] Service workers not accessible (sandboxed environment):', error);
+      return;
+    }
 
     if (!isSupported) {
       console.warn('[PWA] Service workers not supported');
@@ -140,21 +155,27 @@ export function useServiceWorker() {
 
   // Update the service worker
   const update = useCallback(async () => {
-    if (!('serviceWorker' in navigator)) return;
-
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (registration?.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration?.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    } catch (error) {
+      console.warn('[PWA] Unable to update service worker:', error);
     }
   }, []);
 
   // Clear the cache
   const clearCache = useCallback(async () => {
-    if (!('serviceWorker' in navigator)) return;
-
-    const registration = await navigator.serviceWorker.getRegistration();
-    if (registration?.active) {
-      registration.active.postMessage({ type: 'CLEAR_CACHE' });
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration?.active) {
+        registration.active.postMessage({ type: 'CLEAR_CACHE' });
+      }
+    } catch (error) {
+      console.warn('[PWA] Unable to clear cache:', error);
     }
   }, []);
 

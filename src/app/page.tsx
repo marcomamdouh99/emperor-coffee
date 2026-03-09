@@ -47,9 +47,13 @@ export default function POSDashboard() {
   const { language, setLanguage, currency, t } = useI18n();
   const [activeTab, setActiveTab] = useState<'pos' | string>(() => {
     // Initialize tab based on user role
-    if (typeof window !== 'undefined') {
-      const savedTab = localStorage.getItem('activeTab');
-      if (savedTab) return savedTab;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedTab = window.localStorage.getItem('activeTab');
+        if (savedTab) return savedTab;
+      }
+    } catch (error) {
+      console.warn('localStorage not accessible:', error);
     }
     return 'pos';
   });
@@ -313,8 +317,12 @@ export default function POSDashboard() {
 
   // Save activeTab to localStorage when it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('activeTab', activeTab);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('activeTab', activeTab);
+      }
+    } catch (error) {
+      console.warn('localStorage not accessible:', error);
     }
   }, [activeTab]);
 
