@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { db } from '@/lib/db';
 import { rateLimit, rateLimits } from '@/lib/rate-limit';
 import { createSession } from '@/lib/session-manager';
 import { validateRequest, formatZodErrors, loginSchema } from '@/lib/validators';
 import { logLogin } from '@/lib/audit-logger';
+
+// Dynamic import for bcryptjs to avoid build issues
+const getBcrypt = async () => {
+  const bcrypt = await import('bcryptjs');
+  return bcrypt;
+};
 
 export async function POST(request: NextRequest) {
   // Apply rate limiting (5 login attempts per minute)
@@ -83,6 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password using bcrypt
+    const bcrypt = await getBcrypt();
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
