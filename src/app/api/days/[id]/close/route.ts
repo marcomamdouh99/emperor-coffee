@@ -133,8 +133,8 @@ export async function POST(
       .slice(0, 10)
       .map(([name, stats]: [string, any]) => ({ name, ...stats }));
 
-    // Calculate loyalty points redeemed
-    const loyaltyPointsUsed = day.totalLoyaltyDiscounts; // 1 point = 1 EGP
+    // Calculate loyalty points redeemed (1 point = 0.1 EGP, so points = discount * 10)
+    const loyaltyPointsUsed = day.totalLoyaltyDiscounts * 10;
 
     // Close the day
     const closedDay = await db.day.update({
@@ -278,8 +278,8 @@ export async function GET(
       .slice(0, 10)
       .map(([name, stats]: [string, any]) => ({ name, ...stats }));
 
-    // Calculate loyalty points redeemed
-    const loyaltyPointsUsed = day.totalLoyaltyDiscounts;
+    // Calculate loyalty points redeemed (1 point = 0.1 EGP, so points = discount * 10)
+    const loyaltyPointsUsed = day.totalLoyaltyDiscounts * 10;
 
     const report = {
       day,

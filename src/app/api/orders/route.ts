@@ -622,8 +622,8 @@ export async function POST(request: NextRequest) {
     // Update customer statistics
     if (customerId) {
       try {
-        // Calculate loyalty points (1 point per 100 EGP spent = 0.01 points per EGP)
-        const pointsEarned = subtotal / 100;
+        // Calculate loyalty points (10 points per 100 EGP spent = 0.1 points per EGP)
+        const pointsEarned = subtotal / 10;
         const netPointsChange = pointsEarned - (loyaltyPointsRedeemed || 0);
 
         await db.customer.update({

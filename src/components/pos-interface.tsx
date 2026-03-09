@@ -1548,17 +1548,17 @@ export default function POSInterface() {
     }
 
     const customerPoints = selectedAddress.loyaltyPoints || 0;
-    if (customerPoints < 15) {
-      alert('Customer needs at least 15 loyalty points to redeem');
+    if (customerPoints < 100) {
+      alert('Customer needs at least 100 loyalty points to redeem');
       return;
     }
 
-    // Calculate maximum redeemable points (multiples of 15)
-    const maxRedeemable = Math.floor(customerPoints / 15) * 15;
+    // Calculate maximum redeemable points (multiples of 100)
+    const maxRedeemable = Math.floor(customerPoints / 100) * 100;
 
     // Ask user how many points to redeem
     const pointsToRedeem = prompt(
-      `Enter points to redeem (multiples of 15, max ${maxRedeemable}):`,
+      `Enter points to redeem (multiples of 100, max ${maxRedeemable}):`,
       maxRedeemable.toString()
     );
 
@@ -1572,8 +1572,8 @@ export default function POSInterface() {
       return;
     }
 
-    if (pointsToRedeemNum < 15) {
-      alert('Minimum 15 points required for redemption');
+    if (pointsToRedeemNum < 100) {
+      alert('Minimum 100 points required for redemption');
       return;
     }
 
@@ -1582,14 +1582,14 @@ export default function POSInterface() {
       return;
     }
 
-    if (pointsToRedeemNum % 15 !== 0) {
-      alert('Points must be redeemed in multiples of 15');
+    if (pointsToRedeemNum % 100 !== 0) {
+      alert('Points must be redeemed in multiples of 100');
       return;
     }
 
-    // Set the redemption
+    // Set the redemption (1 point = 0.1 EGP discount, so 100 points = 10 EGP)
     setRedeemedPoints(pointsToRedeemNum);
-    setLoyaltyDiscount(pointsToRedeemNum); // 1 point = 1 EGP discount
+    setLoyaltyDiscount(pointsToRedeemNum * 0.1);
   };
 
   const handleClearRedemption = () => {
@@ -3012,7 +3012,7 @@ export default function POSInterface() {
               </div>
 
               {/* Loyalty Redemption Section */}
-              {redeemedPoints === 0 && selectedAddress?.loyaltyPoints !== undefined && selectedAddress.loyaltyPoints >= 15 && (
+              {redeemedPoints === 0 && selectedAddress?.loyaltyPoints !== undefined && selectedAddress.loyaltyPoints >= 100 && (
                 <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -3022,7 +3022,7 @@ export default function POSInterface() {
                           {selectedAddress.loyaltyPoints.toFixed(0)} pts available
                         </p>
                         <p className="text-xs text-purple-600 dark:text-purple-400">
-                          Redeem 15 pts = 15 EGP off
+                          Redeem 100 pts = 10 EGP off
                         </p>
                       </div>
                     </div>
@@ -3568,7 +3568,7 @@ export default function POSInterface() {
                 </div>
 
                 {/* Loyalty Redemption Section */}
-                    {redeemedPoints === 0 && selectedAddress.loyaltyPoints !== undefined && selectedAddress.loyaltyPoints >= 15 && (
+                    {redeemedPoints === 0 && selectedAddress.loyaltyPoints !== undefined && selectedAddress.loyaltyPoints >= 100 && (
                       <div className="p-2.5 bg-purple-50 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">

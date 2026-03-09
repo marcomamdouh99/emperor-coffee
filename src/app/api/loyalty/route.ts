@@ -4,21 +4,21 @@ import { z } from 'zod';
 
 // Loyalty configuration
 const LOYALTY_CONFIG = {
-  pointsPerCurrency: 0.01, // 0.01 points per currency unit (10 points per 1000)
-  pointsValue: 1, // Each point is worth 1 currency unit
+  pointsPerCurrency: 0.1, // 0.1 points per currency unit (10 points per 100 EGP)
+  pointsValue: 0.1, // Each point is worth 0.1 currency unit (10 points = 1 EGP)
   tiers: {
     BRONZE: { minPoints: 0, discount: 0, name: 'Bronze' },
-    SILVER: { minPoints: 20, discount: 5, name: 'Silver' }, // 20 points = 2000 EGP spent
-    GOLD: { minPoints: 50, discount: 10, name: 'Gold' },    // 50 points = 5000 EGP spent
-    PLATINUM: { minPoints: 100, discount: 15, name: 'Platinum' }, // 100 points = 10000 EGP spent
+    SILVER: { minPoints: 200, discount: 5, name: 'Silver' }, // 200 points = 2000 EGP spent
+    GOLD: { minPoints: 500, discount: 10, name: 'Gold' },    // 500 points = 5000 EGP spent
+    PLATINUM: { minPoints: 1000, discount: 15, name: 'Platinum' }, // 1000 points = 10000 EGP spent
   },
 };
 
 // Calculate tier based on points
 function calculateTier(points: number): string {
-  if (points >= 100) return 'PLATINUM';
-  if (points >= 50) return 'GOLD';
-  if (points >= 20) return 'SILVER';
+  if (points >= 1000) return 'PLATINUM';
+  if (points >= 500) return 'GOLD';
+  if (points >= 200) return 'SILVER';
   return 'BRONZE';
 }
 
