@@ -111,7 +111,7 @@ export default function LoginPage() {
             <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#0F3A2E] to-[#C7A35A] bg-clip-text text-transparent mb-2 drop-shadow-lg">
               Emperor Coffee
             </h1>
-            <p className="text-[#0F3A2E] dark:text-[#C7A35A] text-lg">
+            <p className="text-5xl font-extrabold bg-gradient-to-r from-[#0F3A2E] to-[#C7A35A] bg-clip-text text-transparent mb-2 drop-shadow-lg">
               Multi-Branch Point of Sale System
             </p>
           </div>
