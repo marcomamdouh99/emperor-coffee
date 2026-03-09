@@ -32,8 +32,8 @@ export async function awardLoyaltyPoints(customerId: string, orderId: string, am
     throw new Error('Amount must be positive');
   }
 
-  // Calculate points
-  const points = amount * LOYALTY_CONFIG.pointsPerCurrency;
+  // Calculate points (1 point per 10 EGP, using floor to get integer points)
+  const points = Math.floor(amount * LOYALTY_CONFIG.pointsPerCurrency);
 
   if (points <= 0) {
     throw new Error('No points to earn');

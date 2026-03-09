@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'earn') {
       const validatedData = earnPointsSchema.parse(body);
-      const points = validatedData.amount * LOYALTY_CONFIG.pointsPerCurrency;
+      const points = Math.floor(validatedData.amount * LOYALTY_CONFIG.pointsPerCurrency);
 
       if (points <= 0) {
         return NextResponse.json(
