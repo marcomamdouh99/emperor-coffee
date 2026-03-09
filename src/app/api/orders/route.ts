@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { validateRequest, orderCreateSchema, formatZodErrors } from '@/lib/validators';
 import { parsePaginationParams, buildPaginatedResponse, defaultPagination } from '@/lib/pagination';
 import { logOrderCreated, logPromoCodeApplied } from '@/lib/audit-logger';
+import { calculateOrderTax, calculateTotalAmount } from '@/lib/tax-calculation';
 
 /**
  * Get or create "Loyalty Discounts" cost category for a branch
@@ -306,13 +307,18 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+    
+    // Get branch information for tax calculation
+    const branch = await db.branch.findUnique({
+      where: { id: branchId },
+    });
+
     // Calculate order totals and validate menu items
     let subtotal = 0;
     const orderItemsToCreate = [];
     const inventoryDeductions = [];
 
     for (const item of items) {
-      // Get menu item with variants
       const menuItem = await db.menuItem.findUnique({
         where: { id: item.menuItemId },
         include: {
@@ -429,7 +435,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const totalAmount = subtotal + (deliveryFee || 0) - (loyaltyDiscount || 0) - (promoDiscount || 0);
+    // Calculate tax based on branch settings
+    const { taxAmount, taxEnabled } = calculateOrderTax(subtotal, branch);
+    const totalAmount = calculateTotalAmount(subtotal, taxAmount, deliveryFee || 0, loyaltyDiscount || 0, promoDiscount || 0);
 
     // Use the shift ID for tracking (if a shift was found)
     // For CASHIER, it's their own shift; for ADMIN/BRANCH_MANAGER, it's any open shift from the branch
@@ -451,6 +459,8 @@ export async function POST(request: NextRequest) {
           orderTimestamp: new Date(),
           cashierId,
           subtotal,
+          taxAmount,
+          taxEnabled,
           totalAmount,
           paymentMethod,
           orderType: orderType || 'dine-in',

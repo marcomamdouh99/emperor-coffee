@@ -26,6 +26,8 @@ export interface ReceiptData {
   deliveryAddress?: string;
   items: ReceiptItem[];
   subtotal: number;
+  taxAmount?: number;  // Tax amount (only when taxEnabled)
+  taxEnabled?: boolean;  // Whether tax was enabled
   deliveryFee?: number;
   loyaltyDiscount?: number;
   loyaltyPointsRedeemed?: number;
@@ -461,6 +463,15 @@ export function generateReceiptESCPOS(data: ReceiptData): Uint8Array {
     encoder.text(`Promo Code ${data.promoCode ? `(${data.promoCode})` : ''}:`)
       .align('right')
       .text(`-${formatMoney(data.promoDiscount)}`)
+      .align('left')
+      .newLine();
+  }
+
+  // Tax - Only show when tax is enabled and amount > 0
+  if (data.taxEnabled && data.taxAmount && data.taxAmount > 0) {
+    encoder.text(`Tax (${(data.taxRate || 0)}%):`)
+      .align('right')
+      .text(formatMoney(data.taxAmount))
       .align('left')
       .newLine();
   }

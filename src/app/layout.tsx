@@ -1,4 +1,4 @@
-import { type Metadata } from "next";
+import { type Metadata, type Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,7 +23,6 @@ export const metadata: Metadata = {
   keywords: ["POS", "Coffee", "Franchise", "Multi-branch", "Emperor Coffee", "Offline", "PWA"],
   authors: [{ name: "Emperor Coffee" }],
   manifest: "/manifest.json",
-  themeColor: "#059669",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -38,12 +37,14 @@ export const metadata: Metadata = {
     description: "Multi-branch coffee shop management system with offline support",
     type: "website",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: "#059669",
 };
 
 export default function RootLayout({

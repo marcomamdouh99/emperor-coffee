@@ -76,6 +76,9 @@ model Branch {
   updatedAt         DateTime  @updatedAt
   serialYear        Int       @default(2024)
   lastSerial        Int       @default(0)
+  // Egyptian Tax System - Branch Level
+  taxEnabled          Boolean   @default(false) // Enable tax collection for this branch
+  taxRate             Float     @default(0.14) // Default 14% VAT rate
 
   users                   User[]
   customers               Customer[]
@@ -492,6 +495,7 @@ model Order {
   orderTimestamp    DateTime @default(now())
   cashierId         String
   subtotal          Float
+  taxAmount         Float    @default(0)  // Tax amount calculated at order level
   totalAmount       Float
   paymentMethod     String
   orderType         String   @default("dine-in") // 'dine-in' | 'take-away' | 'delivery'
@@ -511,6 +515,7 @@ model Order {
   promoDiscount     Float    @default(0) // Promo discount amount
   cardReferenceNumber String? // Card transaction reference number
   paymentMethodDetail String? // Card payment detail: 'CARD', 'INSTAPAY', 'MOBILE_WALLET'
+  taxEnabled        Boolean  @default(false) // Whether tax was enabled for this order
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
