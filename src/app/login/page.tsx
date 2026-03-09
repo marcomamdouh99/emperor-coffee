@@ -89,8 +89,8 @@ export default function LoginPage() {
           <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="coffee-bean-pattern" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
-                <ellipse cx="40" cy="40" rx="20" ry="15" fill="none" stroke="#C7A35A" strokeWidth="1.5" opacity="0.08" transform="rotate(30 40 40)"/>
-                <ellipse cx="40" cy="40" rx="18" ry="13" fill="none" stroke="#C7A35A" strokeWidth="1.5" opacity="0.06" transform="rotate(-20 40 40)"/>
+                <ellipse cx="40" cy="40" rx="20" ry="15" fill="none" stroke="#C7A35A" strokeWidth="1.5" opacity="0.58" transform="rotate(30 40 40)"/>
+                <ellipse cx="40" cy="40" rx="18" ry="13" fill="none" stroke="#C7A35A" strokeWidth="1.5" opacity="0.56" transform="rotate(-20 40 40)"/>
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#coffee-bean-pattern)"/>
@@ -111,7 +111,7 @@ export default function LoginPage() {
             <h1 className="text-5xl font-extrabold bg-gradient-to-r from-[#0F3A2E] to-[#C7A35A] bg-clip-text text-transparent mb-2 drop-shadow-lg">
               Emperor Coffee
             </h1>
-            <p className="text-[#0F3A2E] dark:text-[#FFFDF8] text-lg">
+            <p className="text-[#0F3A2E] dark:text-[#C7A35A] text-lg">
               Multi-Branch Point of Sale System
             </p>
           </div>
