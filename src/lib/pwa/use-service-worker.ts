@@ -20,7 +20,9 @@ export function useServiceWorker() {
   const [state, setState] = useState<ServiceWorkerState>(() => {
     let isSupported = false;
     try {
-      isSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator;
+      // Actually try to access navigator.serviceWorker to detect sandboxed environment
+      const sw = typeof window !== 'undefined' ? navigator.serviceWorker : undefined;
+      isSupported = !!sw;
     } catch (error) {
       // In sandboxed environment, serviceWorker access will throw
       isSupported = false;
@@ -41,7 +43,9 @@ export function useServiceWorker() {
     // Check if service workers are supported AND accessible (not sandboxed)
     let isSupported = false;
     try {
-      isSupported = 'serviceWorker' in navigator;
+      // Actually try to access navigator.serviceWorker to see if it throws
+      const sw = navigator.serviceWorker;
+      isSupported = !!sw;
     } catch (error) {
       console.warn('[PWA] Service workers not accessible (sandboxed environment):', error);
       return;
