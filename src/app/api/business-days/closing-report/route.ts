@@ -263,7 +263,7 @@ export async function GET(request: NextRequest) {
           totalSales += order.subtotal;
         }
 
-        const orderDiscount = (order.promoDiscount || 0);
+        const orderDiscount = (order.promoDiscount || 0) + (order.loyaltyDiscount || 0);
         if (orderTypeBreakdown[type]) {
           orderTypeBreakdown[type].discounts += orderDiscount;
         }
