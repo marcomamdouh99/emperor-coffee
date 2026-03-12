@@ -215,6 +215,11 @@ export async function GET(
         voidedAt: {
           gte: shift.startTime,
           lte: shiftEndTime
+        },
+        orderItem: {
+          order: {
+            branchId: shift.branchId
+          }
         }
       },
       orderBy: { voidedAt: 'desc' },
@@ -243,7 +248,8 @@ export async function GET(
         refundedAt: {
           gte: shift.startTime,
           lte: shiftEndTime
-        }
+        },
+        branchId: shift.branchId
       },
       select: {
         id: true,
@@ -258,6 +264,30 @@ export async function GET(
 
     // Calculate total refunds from orders that were refunded during this shift
     totalRefunds = refundedOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+
+    // Debug logging
+    console.log('[Shift Closing Report] Shift:', {
+      id: shift.id,
+      branchId: shift.branchId,
+      startTime: shift.startTime,
+      endTime: shiftEndTime
+    });
+    console.log('[Shift Closing Report] Voided Items:', {
+      count: voidedItems.length,
+      totalAmount: totalVoidedAmount,
+      items: voidedItems.map(v => ({
+        id: v.id,
+        voidedAt: v.voidedAt,
+        voidedSubtotal: v.voidedSubtotal,
+        orderId: v.orderItem.order.id,
+        orderNumber: v.orderItem.order.orderNumber,
+        orderBranchId: shift.branchId
+      }))
+    });
+    console.log('[Shift Closing Report] Refunded Orders:', {
+      count: refundedOrders.length,
+      totalAmount: totalRefunds
+    });
 
     // Get order IDs for this shift (for loyalty and promo filtering)
     const orderIds = shift.orders.map(o => o.id);

@@ -678,13 +678,14 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[85vh] max-h-[90vh] p-0 flex flex-col overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[85vh] p-0 flex flex-col">
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle>Shift Closing Receipt</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6">
-          <div className="py-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full px-6">
+            <div className="py-6 space-y-6">
             {loading && (
               <div className="flex items-center justify-center py-8 px-6">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -867,6 +868,7 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
             )}
           </div>
         </ScrollArea>
+        </div>
 
         <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
           <Button variant="outline" onClick={onClose}>
