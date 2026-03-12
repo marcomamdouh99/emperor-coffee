@@ -110,12 +110,14 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
   useEffect(() => {
     if (open) {
       const loadData = async () => {
-        // If shiftData prop is provided and has necessary fields, use it directly
-        if (shiftData && (shiftData.shiftNumber || shiftData.closingRevenue !== undefined || shiftData.closingOrders !== undefined)) {
-          console.log('[Shift Closing Receipt] Using provided shiftData prop:', shiftData);
+        // Only use shiftData directly for offline shifts (temp IDs)
+        // For online shifts, always fetch from API to get complete order data
+        if (shiftData && shiftData.id && shiftData.id.startsWith('temp-') && (shiftData.shiftNumber || shiftData.closingRevenue !== undefined || shiftData.closingOrders !== undefined)) {
+          console.log('[Shift Closing Receipt] Using provided shiftData prop (offline shift):', shiftData);
           await loadReceiptFromShiftData(shiftData);
         } else if (shiftId) {
-          // Otherwise fetch by ID
+          // For online shifts, always fetch from API
+          console.log('[Shift Closing Receipt] Fetching shift data from API for shiftId:', shiftId);
           fetchShiftData();
         }
       };
