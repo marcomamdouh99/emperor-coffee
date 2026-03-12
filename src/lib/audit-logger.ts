@@ -11,6 +11,7 @@ export async function createAuditLog(params: {
   entityId?: string | null;
   oldValue?: string | null;
   newValue?: string | null;
+  branchId?: string;
 }) {
   try {
     // Get IP address from headers
@@ -33,6 +34,7 @@ export async function createAuditLog(params: {
         newValue: params.newValue || null,
         ipAddress,
         currentHash,
+        branchId: params.branchId || null,
       },
     });
 
@@ -80,52 +82,56 @@ export async function logOrderCreated(userId: string, orderId: string, orderDeta
 /**
  * Log order refund
  */
-export async function logOrderRefunded(userId: string, orderId: string, refundReason: string) {
+export async function logOrderRefunded(userId: string, orderId: string, refundReason: string, branchId?: string) {
   return createAuditLog({
     userId,
     actionType: 'order_refunded',
     entityType: 'Order',
     entityId: orderId,
     newValue: refundReason,
+    branchId,
   });
 }
 
 /**
  * Log shift opening
  */
-export async function logShiftOpened(userId: string, shiftId: string, openingCash: number) {
+export async function logShiftOpened(userId: string, shiftId: string, openingCash: number, branchId?: string) {
   return createAuditLog({
     userId,
     actionType: 'shift_opened',
     entityType: 'Shift',
     entityId: shiftId,
     newValue: `Opening Cash: ${openingCash}`,
+    branchId,
   });
 }
 
 /**
  * Log shift closing
  */
-export async function logShiftClosed(userId: string, shiftId: string, closingCash: number) {
+export async function logShiftClosed(userId: string, shiftId: string, closingCash: number, branchId?: string) {
   return createAuditLog({
     userId,
     actionType: 'shift_closed',
     entityType: 'Shift',
     entityId: shiftId,
     newValue: `Closing Cash: ${closingCash}`,
+    branchId,
   });
 }
 
 /**
  * Log business day opening
  */
-export async function logDayOpened(userId: string, dayId: string, openingCash: number) {
+export async function logDayOpened(userId: string, dayId: string, openingCash: number, branchId?: string) {
   return createAuditLog({
     userId,
     actionType: 'day_opened',
     entityType: 'BusinessDay',
     entityId: dayId,
     newValue: `Opening Cash: ${openingCash}`,
+    branchId,
   });
 }
 
@@ -289,5 +295,20 @@ export async function logWasteLogged(userId: string, wasteLogId: string, ingredi
     entityType: 'WasteLog',
     entityId: wasteLogId,
     newValue: `${ingredientName}: ${quantity}`,
+  });
+}
+
+
+/**
+ * Log item voided
+ */
+export async function logItemVoided(userId: string, orderItemId: string, itemName: string, quantity: number, reason: string, branchId?: string) {
+  return createAuditLog({
+    userId,
+    actionType: item_voided,
+    entityType: OrderItem,
+    entityId: orderItemId,
+    newValue: `Voided ${quantity}x ${itemName} - ${reason}`,
+    branchId,
   });
 }

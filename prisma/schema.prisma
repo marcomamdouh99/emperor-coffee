@@ -606,11 +606,13 @@ model AuditLog {
   ipAddress    String?
   previousHash String?
   currentHash  String
+  branchId     String?
   user         User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([timestamp])
   @@index([actionType])
+  @@index([branchId])
 }
 
 model Shift {
@@ -633,6 +635,8 @@ model Shift {
   dayId                   String?
   closingPromoDiscounts   Float?         @default(0)
   closingDailyExpenses    Float?         @default(0)
+  closingVoidedItems      Int?           @default(0)
+  closingRefunds          Int?           @default(0)
   paymentBreakdown        Json?
   costs                   BranchCost[]
   dailyExpenses           DailyExpense[]

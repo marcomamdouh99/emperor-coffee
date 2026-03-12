@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       include: {
         items: true,
         branch: true,
+        shift: true,
       },
     });
 
@@ -83,6 +84,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate that there's an active shift for the order
+    if (order.shiftId) {
+      const shift = await db.shift.findUnique({
+        where: { id: order.shiftId },
+      });
+
+      if (!shift || shift.isClosed) {
+        return NextResponse.json(
+          { error: 'Cannot refund order: Shift is not active' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Process refund with inventory restoration
     await db.$transaction(async (tx) => {
       // Mark order as refunded
@@ -93,6 +108,18 @@ export async function POST(request: NextRequest) {
           refundReason: reason,
         },
       });
+
+      // Update shift to track refunds for closing report
+      if (order.shiftId) {
+        await tx.shift.update({
+          where: { id: order.shiftId },
+          data: {
+            closingRefunds: {
+              increment: 1,
+            },
+          },
+        });
+      }
 
       // Restore inventory for each item in the order
       for (const orderItem of order.items) {
@@ -210,16 +237,17 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Create audit log
+      // Create audit log with proper action type
       await tx.auditLog.create({
         data: {
           userId: user.id,
-          actionType: 'ORDER_REFUND',
-          entityType: 'ORDER',
+          actionType: 'order_refunded',
+          entityType: 'Order',
           entityId: orderId,
           oldValue: order.isRefunded.toString(),
           newValue: 'true',
           currentHash: `refund-${orderId}-${Date.now()}`,
+          branchId: order.branchId,
         },
       });
     });

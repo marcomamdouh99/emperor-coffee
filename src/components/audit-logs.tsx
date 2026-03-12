@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Filter, Download, Clock, User, FileText, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
+import { useAuth } from '@/lib/auth-context';
 import { format } from 'date-fns';
 
 interface AuditLogEntry {
@@ -38,6 +39,7 @@ interface User {
 
 export default function AuditLogs() {
   const { t, language } = useI18n();
+  const { user: currentUser } = useAuth();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,7 @@ export default function AuditLogs() {
     'logout',
     'order_created',
     'order_refunded',
+    'item_voided',
     'shift_opened',
     'shift_closed',
     'day_opened',
@@ -104,7 +107,14 @@ export default function AuditLogs() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/branches/users');
+      const params = new URLSearchParams();
+      
+      // For Branch Manager, only fetch users from their branch
+      if (currentUser?.role === 'BRANCH_MANAGER' && currentUser.branchId) {
+        params.append('branchId', currentUser.branchId);
+      }
+      
+      const response = await fetch(`/api/users?${params.toString()}`);
       const data = await response.json();
       if (response.ok && data.users) {
         setUsers(data.users);
@@ -121,6 +131,11 @@ export default function AuditLogs() {
         limit: limit.toString(),
         offset: offset.toString(),
       });
+
+      // For Branch Manager, only fetch logs from their branch
+      if (currentUser?.role === 'BRANCH_MANAGER' && currentUser.branchId) {
+        params.append('branchId', currentUser.branchId);
+      }
 
       if (selectedUser !== 'all') params.append('userId', selectedUser);
       if (selectedAction !== 'all') params.append('actionType', selectedAction);
@@ -167,6 +182,7 @@ export default function AuditLogs() {
       logout: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
       order_created: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
       order_refunded: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      item_voided: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
       shift_opened: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
       shift_closed: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
       day_opened: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',

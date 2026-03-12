@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const branchId = searchParams.get('branchId');
     const actionType = searchParams.get('actionType');
     const entityType = searchParams.get('entityType');
     const startDate = searchParams.get('startDate');
@@ -21,6 +22,10 @@ export async function GET(request: NextRequest) {
 
     if (userId && userId !== 'all') {
       where.userId = userId;
+    }
+
+    if (branchId && branchId !== 'all') {
+      where.branchId = branchId;
     }
 
     if (actionType && actionType !== 'all') {
@@ -41,7 +46,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch audit logs
+    // Fetch audit logs with user and branch info
     const logs = await db.auditLog.findMany({
       where,
       orderBy: { timestamp: 'desc' },
@@ -54,6 +59,7 @@ export async function GET(request: NextRequest) {
             username: true,
             name: true,
             role: true,
+            branchId: true,
           },
         },
       },

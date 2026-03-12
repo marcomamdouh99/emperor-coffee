@@ -258,6 +258,85 @@ export async function GET(
       categoryBreakdown: categories
     };
 
+    // Get voided items for this shift
+    const voidedItems = await db.voidedItem.findMany({
+      where: {
+        shiftId: shiftId,
+      },
+      orderBy: { voidedAt: 'desc' },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: Int,
+            orderTimestamp: DateTime,
+          },
+        },
+        orderItem: {
+          select: {
+            itemName: String,
+            quantity: Int,
+            unitPrice: Float,
+            voidedQuantity: Int,
+            voidedSubtotal: Float,
+            voidedReason: String,
+            voidedAt: DateTime,
+            voidedBy: String,
+          },
+        },
+      },
+    });
+
+    const totalVoidedAmount = voidedItems.reduce((sum, item) => sum + item.voidedSubtotal, 0);
+
+    // Get loyalty transactions for this shift
+    const loyaltyTransactions = await db.loyaltyTransaction.findMany({
+      where: {
+        shiftId,
+      },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: Int,
+            subtotal: Float,
+            createdAt: DateTime,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const totalLoyaltyDiscounts = loyaltyTransactions
+      .filter(tx => tx.type === 'REDEEMED')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    // Get promo code usage for this shift
+    const promoUsages = await db.promotionUsageLog.findMany({
+      where: {
+        order: {
+          shiftId,
+        },
+      },
+      include: {
+        promo: {
+          select: {
+            code: String,
+            discountAmount: Float,
+            order: {
+              select: {
+                orderNumber: Int,
+                subtotal: Float,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const totalPromoDiscounts = promoUsages.reduce((sum, usage) => sum + usage.discountAmount, 0);
+
     return NextResponse.json({
       success: true,
       report
