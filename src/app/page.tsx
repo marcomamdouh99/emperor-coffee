@@ -322,6 +322,9 @@ export default function POSDashboard() {
 
         // If no open shift, check for open business day
         if (!hasPOSAccess) {
+          let apiResponseSuccessful = false;
+
+          // Try API first
           try {
             const response = await fetch(`/api/business-days/status?branchId=${user.branchId}`);
             const data = await response.json();
@@ -330,13 +333,16 @@ export default function POSDashboard() {
               console.log('[Dashboard] Business day is open from API, allowing POS access');
               hasPOSAccess = true;
               accessReason = 'Open business day from API';
+              apiResponseSuccessful = true;
             } else {
-              console.log('[Dashboard] Business day not open from API, checking offline...');
+              console.log('[Dashboard] Business day not open from API (status:', response.status, '), checking offline...');
             }
           } catch (error) {
-            console.error('[Dashboard] Failed to fetch business day status from API, checking local storage:', error);
+            console.error('[Dashboard] Failed to fetch business day status from API (network error), checking local storage:', error);
+          }
 
-            // Check local storage for offline business day
+          // Always check local storage as fallback (whether API succeeded or not)
+          if (!apiResponseSuccessful) {
             try {
               const { getLocalStorageService } = await import('@/lib/storage/local-storage');
               const localStorageService = getLocalStorageService();
@@ -354,7 +360,7 @@ export default function POSDashboard() {
                 hasPOSAccess = true;
                 accessReason = 'Open business day from localStorage';
               } else {
-                console.log('[Dashboard] No open business day in local storage');
+                console.log('[Dashboard] No open business day in local storage for branch:', user.branchId);
               }
             } catch (dbError) {
               console.error('[Dashboard] Failed to check local storage for business day:', dbError);
