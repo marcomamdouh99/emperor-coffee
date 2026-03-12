@@ -270,7 +270,7 @@ export default function POSDashboard() {
     if (user && user.role === 'CASHIER' && user.branchId) {
       const checkPOSAccess = async () => {
         let hasOpenShift = false;
-        
+
         // First check for open shift (online or offline)
         try {
           const params = new URLSearchParams({
@@ -282,28 +282,35 @@ export default function POSDashboard() {
           const data = await response.json();
 
           if (response.ok && data.shifts && data.shifts.length > 0) {
+            console.log('[Dashboard] Found open shift from API:', data.shifts[0]);
             hasOpenShift = true;
+          } else {
+            console.log('[Dashboard] No open shift from API, checking offline...');
           }
         } catch (error) {
           console.error('[Dashboard] Failed to fetch current shift from API, checking local storage:', error);
-          
+
           // Check local storage for offline shift
           try {
             const { getLocalStorageService } = await import('@/lib/storage/local-storage');
             const localStorageService = getLocalStorageService();
             await localStorageService.init();
             const allShifts = await localStorageService.getAllShifts();
-            
+
+            console.log('[Dashboard] All shifts in localStorage:', allShifts);
+
             const offlineShift = allShifts.find(
-              (s: any) => 
-                s.cashierId === user.id && 
-                s.branchId === user.branchId && 
+              (s: any) =>
+                s.cashierId === user.id &&
+                s.branchId === user.branchId &&
                 !s.isClosed
             );
-            
+
             if (offlineShift) {
               console.log('[Dashboard] Found open shift in local storage:', offlineShift);
               hasOpenShift = true;
+            } else {
+              console.log('[Dashboard] No open shift in local storage');
             }
           } catch (dbError) {
             console.error('[Dashboard] Failed to check local storage for shift:', dbError);
@@ -317,19 +324,23 @@ export default function POSDashboard() {
             const data = await response.json();
 
             if (response.ok && data.status === 'OPEN' && data.businessDay) {
-              console.log('[Dashboard] Business day is open, allowing POS access');
+              console.log('[Dashboard] Business day is open from API, allowing POS access');
               hasOpenShift = true;
+            } else {
+              console.log('[Dashboard] Business day not open from API, checking offline...');
             }
           } catch (error) {
             console.error('[Dashboard] Failed to fetch business day status from API, checking local storage:', error);
-            
+
             // Check local storage for offline business day
             try {
               const { getLocalStorageService } = await import('@/lib/storage/local-storage');
               const localStorageService = getLocalStorageService();
               await localStorageService.init();
               const businessDays = await localStorageService.getBusinessDays();
-              
+
+              console.log('[Dashboard] All business days in localStorage:', businessDays);
+
               const openBusinessDay = businessDays.find(
                 (bd: any) => bd.branchId === user.branchId && bd.isOpen
               );
@@ -337,6 +348,8 @@ export default function POSDashboard() {
               if (openBusinessDay) {
                 console.log('[Dashboard] Found open business day in local storage:', openBusinessDay);
                 hasOpenShift = true;
+              } else {
+                console.log('[Dashboard] No open business day in local storage');
               }
             } catch (dbError) {
               console.error('[Dashboard] Failed to check local storage for business day:', dbError);
@@ -344,11 +357,15 @@ export default function POSDashboard() {
           }
         }
 
+        console.log('[Dashboard] Final hasOpenShift value:', hasOpenShift);
         setHasOpenShift(hasOpenShift);
 
         // Auto-redirect to shifts tab if currently on POS and no access
         if (!hasOpenShift && activeTab === 'pos') {
+          console.log('[Dashboard] No POS access, redirecting to shifts tab');
           setActiveTab('shifts');
+        } else if (hasOpenShift) {
+          console.log('[Dashboard] POS access granted');
         }
       };
 
@@ -360,14 +377,25 @@ export default function POSDashboard() {
         await checkPOSAccess();
       };
 
+      // Create proper event handler functions that can be removed
+      const handleRefreshShiftStatus = async () => {
+        console.log('[Dashboard] refreshShiftStatus event received');
+        await refreshOnTabChange();
+      };
+
+      const handleRefreshBusinessDayStatus = async () => {
+        console.log('[Dashboard] refreshBusinessDayStatus event received');
+        await refreshOnTabChange();
+      };
+
       // Listen for custom event to refresh status
-      window.addEventListener('refreshShiftStatus', refreshOnTabChange);
+      window.addEventListener('refreshShiftStatus', handleRefreshShiftStatus);
       // Listen for business day status changes
-      window.addEventListener('refreshBusinessDayStatus', refreshOnTabChange);
+      window.addEventListener('refreshBusinessDayStatus', handleRefreshBusinessDayStatus);
 
       return () => {
-        window.removeEventListener('refreshShiftStatus', refreshOnTabChange);
-        window.removeEventListener('refreshBusinessDayStatus', refreshOnTabChange);
+        window.removeEventListener('refreshShiftStatus', handleRefreshShiftStatus);
+        window.removeEventListener('refreshBusinessDayStatus', handleRefreshBusinessDayStatus);
       };
     }
   }, [user, activeTab, user?.branchId]);

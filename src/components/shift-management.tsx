@@ -835,7 +835,10 @@ export default function ShiftManagement() {
             businessDayId: data.businessDay.id,
           });
           // Notify parent component to refresh business day status (for POS tab visibility)
-          window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
+          // Small delay to ensure state is updated
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
+          }, 100);
           return;
         } else {
           // API failed - check if it's a network error
@@ -872,7 +875,10 @@ export default function ShiftManagement() {
         businessDayId: offlineBusinessDay.id,
       });
       // Notify parent component to refresh business day status (for POS tab visibility)
-      window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
+      // Small delay to ensure localStorage is updated
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
+      }, 100);
     } catch (error) {
       console.error('[Shift Management] Failed to open business day:', error);
       
@@ -896,7 +902,10 @@ export default function ShiftManagement() {
             businessDayId: offlineBusinessDay.id,
           });
           // Notify parent component to refresh business day status (for POS tab visibility)
-          window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
+          // Small delay to ensure localStorage is updated
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
+          }, 100);
         } catch (offlineError) {
           console.error('[Business Day] Offline business day creation also failed:', offlineError);
           alert(`Failed to open business day offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
@@ -1049,7 +1058,10 @@ export default function ShiftManagement() {
             refetchShifts();
             fetchCurrentShift();
             // Notify parent component to refresh shift status (for POS tab visibility)
-            window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+            // Small delay to ensure state is updated
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+            }, 100);
           } else {
             // API failed - check if it's a network error
             const isNetworkError = !response.ok && (
@@ -1075,7 +1087,10 @@ export default function ShiftManagement() {
                 setShiftNotes('');
                 fetchCurrentShift();
                 // Notify parent component to refresh shift status (for POS tab visibility)
-                window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+                // Small delay to ensure localStorage is updated
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+                }, 100);
               } catch (offlineError) {
                 console.error('[Shift] Offline shift creation failed:', offlineError);
                 alert(`Failed to create shift offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
@@ -1095,7 +1110,10 @@ export default function ShiftManagement() {
             setShiftNotes('');
             fetchCurrentShift();
             // Notify parent component to refresh shift status (for POS tab visibility)
-            window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+            // Small delay to ensure localStorage is updated
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+            }, 100);
           } catch (offlineError) {
             console.error('[Shift] Offline shift creation failed:', offlineError);
             alert(`Failed to create shift offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
@@ -1136,7 +1154,10 @@ export default function ShiftManagement() {
             setShiftNotes('');
             fetchCurrentShift();
             // Notify parent component to refresh shift status (for POS tab visibility)
-            window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+            // Small delay to ensure localStorage is updated
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('refreshShiftStatus'));
+            }, 100);
             return;
           } catch (offlineError) {
             console.error('[Shift] Offline shift creation also failed:', offlineError);
