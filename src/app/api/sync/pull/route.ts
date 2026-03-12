@@ -75,36 +75,36 @@ export async function POST(request: NextRequest) {
     // ============================================
     // Sync Categories & Menu Items (Menu Version)
     // ============================================
-    if (force || syncStatus.pendingDownloads.menu) {
-      console.log(`[Sync Pull] Syncing menu items for branch ${branchId}...`);
+    // Always pull menu items for offline use, not just when version changes
+    // This ensures category mapping works in offline receipts
+    console.log(`[Sync Pull] Syncing menu items for branch ${branchId}...`);
 
-      // Get all active categories and menu items
-      const [categories, menuItems] = await Promise.all([
-        db.category.findMany({ where: { isActive: true } }),
-        db.menuItem.findMany({
-          where: { isActive: true },
-          include: {
-            category: true,
-            variants: {
-              where: { isActive: true },
-              include: {
-                variantOption: true
-              }
+    // Get all active categories and menu items
+    const [categories, menuItems] = await Promise.all([
+      db.category.findMany({ where: { isActive: true } }),
+      db.menuItem.findMany({
+        where: { isActive: true },
+        include: {
+          category: true,
+          variants: {
+            where: { isActive: true },
+            include: {
+              variantOption: true
             }
           }
-        })
-      ]);
+        }
+      })
+    ]);
 
-      dataToReturn.categories = categories;
-      dataToReturn.menuItems = menuItems;
+    dataToReturn.categories = categories;
+    dataToReturn.menuItems = menuItems;
 
-      // For a centralized system, data is already in the database
-      // We just need to update the branch's version
-      await incrementVersion(branchId, 'menuVersion');
+    // For a centralized system, data is already in the database
+    // We just need to update the branch's version
+    await incrementVersion(branchId, 'menuVersion');
 
-      totalRecordsProcessed += categories.length + menuItems.length;
-      updates.push(`Menu: ${categories.length} categories, ${menuItems.length} items`);
-    }
+    totalRecordsProcessed += categories.length + menuItems.length;
+    updates.push(`Menu: ${categories.length} categories, ${menuItems.length} items`);
 
     // ============================================
     // Sync Pricing (Pricing Version)

@@ -118,12 +118,20 @@ function getOperationPriority(type: OperationTypeType): number {
 const tempIdToRealIdMap = new Map<string, string>();
 
 export async function POST(request: NextRequest) {
+  console.log('[BatchPush] Starting batch push request...');
+
   // Clear the temp ID mapping at the start of each request
   tempIdToRealIdMap.clear();
 
   try {
     const body: BatchPushRequest = await request.json();
     const { branchId, operations } = body;
+
+    console.log('[BatchPush] Received request:', {
+      branchId,
+      operationsCount: operations?.length || 0,
+      operationTypes: operations?.map(op => op.type)
+    });
 
     if (!branchId) {
       return NextResponse.json(
@@ -183,6 +191,8 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < sortedOperations.length; i++) {
       const operation = sortedOperations[i];
 
+      console.log(`[BatchPush] Processing operation ${i + 1}/${sortedOperations.length}: ${operation.type}`);
+
       try {
         await processOperation(operation, branchId);
 
@@ -192,14 +202,17 @@ export async function POST(request: NextRequest) {
         }
 
         results.processed++;
+        console.log(`[BatchPush] Successfully processed operation ${i + 1}: ${operation.type}`);
       } catch (error) {
         results.failed++;
         results.failedIds.push(`op-${i}`);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         results.errors.push(`${operation.type}: ${errorMessage}`);
-        console.error(`[BatchPush] Failed to process operation ${i}:`, error);
+        console.error(`[BatchPush] Failed to process operation ${i + 1} (${operation.type}):`, error);
       }
     }
+
+    console.log(`[BatchPush] Finished processing all operations. Processed: ${results.processed}, Failed: ${results.failed}`);
 
     // Auto-resolve any conflicts that were detected
     const autoResolvedConflicts = await conflictManager.autoResolveConflicts();
@@ -212,6 +225,14 @@ export async function POST(request: NextRequest) {
       results.idMappings[tempId] = realId;
     });
     console.log(`[BatchPush] Generated ${Object.keys(results.idMappings).length} ID mappings`);
+
+    console.log(`[BatchPush] Returning response:`, {
+      success: results.failed === 0,
+      processed: results.processed,
+      failed: results.failed,
+      conflictsDetected: results.conflictsDetected,
+      conflictsResolved: results.conflictsResolved,
+    });
 
     // Record sync history if any operations were processed
     if (results.processed > 0) {
@@ -245,6 +266,8 @@ export async function POST(request: NextRequest) {
       conflictStats: conflictManager.getConflictStats(),
       idMappings: results.idMappings, // Return ID mappings for frontend to update localStorage
     });
+
+    console.log('[BatchPush] Response sent successfully');
   } catch (error) {
     console.error('[BatchPush] Error:', error);
     return NextResponse.json(
