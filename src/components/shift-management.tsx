@@ -71,17 +71,17 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
   try {
     console.log('[Shift] Creating shift offline, shiftData:', shiftData);
 
-    // Import localStorageService
-    const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-    const localStorageService = getLocalStorageService();
-    console.log('[Shift] localStorageService imported');
+    // Import IndexedDB storage
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    console.log('[Shift] IndexedDB storage imported');
 
     // Initialize storage if not already initialized
-    await localStorageService.init();
-    console.log('[Shift] localStorageService initialized');
+    await indexedDBStorage.init();
+    console.log('[Shift] IndexedDB storage initialized');
 
     // Get branches to find branch name
-    const branches = await localStorageService.getBranches();
+    const branches = await indexedDBStorage.getAllBranches();
     const branch = branches.find((b: any) => b.id === shiftData.branchId);
     const branchName = branch?.branchName || 'Unknown Branch';
 
@@ -115,13 +115,10 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
     console.log('[Shift] Created shift object:', newShift);
 
     // Save shift to IndexedDB
-    await localStorageService.saveShift(newShift);
+    await indexedDBStorage.put('shifts', newShift);
     console.log('[Shift] Shift saved to IndexedDB');
 
-    // Queue operation for sync - use IndexedDB for operations
-    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
-    const indexedDBStorage = getIndexedDBStorage();
-    await indexedDBStorage.init();
+    // Queue operation for sync
     await indexedDBStorage.addOperation({
       type: 'CREATE_SHIFT',
       data: {
@@ -234,18 +231,18 @@ async function closeShiftOffline(
   try {
     console.log('[Shift] Closing shift offline, shift:', shift);
 
-    // Import localStorageService
-    const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-    const localStorageService = getLocalStorageService();
-    console.log('[Shift] localStorageService imported');
+    // Import IndexedDB storage
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    console.log('[Shift] IndexedDB storage imported');
 
     // Initialize storage if not already initialized
-    await localStorageService.init();
-    console.log('[Shift] localStorageService initialized');
+    await indexedDBStorage.init();
+    console.log('[Shift] IndexedDB storage initialized');
 
     // Get all orders for this shift to calculate actual revenue
     // Revenue should exclude delivery fees (courier takes them)
-    const allOrders = await localStorageService.getAllOrders();
+    const allOrders = await indexedDBStorage.getAllOrders();
     const shiftOrders = allOrders.filter((order: any) => order.shiftId === shift.id);
 
     console.log('[Shift] Found orders for shift:', shiftOrders.length);
@@ -298,13 +295,10 @@ async function closeShiftOffline(
     console.log('[Shift] Updated shift object:', updatedShift);
 
     // Save updated shift to IndexedDB
-    await localStorageService.saveShift(updatedShift);
+    await indexedDBStorage.put('shifts', updatedShift);
     console.log('[Shift] Shift updated in IndexedDB');
 
-    // Queue operation for sync - use IndexedDB for operations
-    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
-    const indexedDBStorage = getIndexedDBStorage();
-    await indexedDBStorage.init();
+    // Queue operation for sync
     await indexedDBStorage.addOperation({
       type: 'CLOSE_SHIFT',
       data: {
@@ -441,10 +435,10 @@ export default function ShiftManagement() {
       // Also fetch offline shifts from IndexedDB to merge with API shifts
       const mergeShifts = async () => {
         try {
-          const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-          const localStorageService = getLocalStorageService();
-          await localStorageService.init();
-          const offlineShifts = await localStorageService.getShifts();
+          const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+          const indexedDBStorage = getIndexedDBStorage();
+          await indexedDBStorage.init();
+          const offlineShifts = await indexedDBStorage.getAllShifts();
           console.log('[Shift Management] Offline shifts:', offlineShifts);
 
           // Helper function to check if two shifts are duplicates (same cashier, same startTime within 1 minute)
@@ -588,10 +582,9 @@ export default function ShiftManagement() {
       if (user.role === 'ADMIN' && branches.length > 0) {
         // For admins, check if there are cached shifts in IndexedDB
         // to find which branch has shifts, otherwise default to first branch
-        import('@/lib/storage/local-storage').then(({ getLocalStorageService }) => {
-          const localStorageService = getLocalStorageService();
-          return localStorageService.init().then(() => localStorageService.getShifts());
-        }).then((cachedShifts) => {
+        const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+        const indexedDBStorage = getIndexedDBStorage();
+        indexedDBStorage.init().then(() => indexedDBStorage.getAllShifts()).then((cachedShifts) => {
           console.log('[Shift Management] Cached shifts for admin branch selection:', cachedShifts.length);
 
           if (cachedShifts.length > 0) {
@@ -687,10 +680,10 @@ export default function ShiftManagement() {
         setSelectedShift(data.shifts[0]);
       } else {
         // API failed or no shift found - check IndexedDB for offline shift
-        const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-        const localStorageService = getLocalStorageService();
-        await localStorageService.init();
-        const allShifts = await localStorageService.getShifts();
+        const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+        const indexedDBStorage = getIndexedDBStorage();
+        await indexedDBStorage.init();
+        const allShifts = await indexedDBStorage.getAllShifts();
 
         // Find open shift for this cashier and branch
         const offlineShift = allShifts.find(
@@ -712,10 +705,10 @@ export default function ShiftManagement() {
 
       // On error, check IndexedDB
       try {
-        const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-        const localStorageService = getLocalStorageService();
-        await localStorageService.init();
-        const allShifts = await localStorageService.getShifts();
+        const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+        const indexedDBStorage = getIndexedDBStorage();
+        await indexedDBStorage.init();
+        const allShifts = await indexedDBStorage.getAllShifts();
 
         const offlineShift = allShifts.find(
           (s: any) =>
@@ -765,8 +758,14 @@ export default function ShiftManagement() {
       console.error('[Shift Management] Failed to fetch business day status from API:', error);
     }
 
-    // Always check localStorage as fallback
+    // Always check IndexedDB as fallback
     try {
+      const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+      const indexedDBStorage = getIndexedDBStorage();
+      await indexedDBStorage.init();
+
+      // Note: Business days are NOT stored in IndexedDB, they're in localStorage
+      // This is a temporary fallback for checking business day status
       const { getLocalStorageService } = await import('@/lib/storage/local-storage');
       const localStorageService = getLocalStorageService();
       await localStorageService.init();
@@ -1154,16 +1153,20 @@ export default function ShiftManagement() {
     try {
       console.log('[Day Closing] Closing business day offline, businessDayId:', businessDayId);
 
-      // Import localStorageService
+      // Import IndexedDB storage for orders and shifts
+      const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+      const indexedDBStorage = getIndexedDBStorage();
+      console.log('[Day Closing] IndexedDB storage imported');
+
+      await indexedDBStorage.init();
+      console.log('[Day Closing] IndexedDB storage initialized');
+
+      // Import localStorage for business days (they're still in localStorage)
       const { getLocalStorageService } = await import('@/lib/storage/local-storage');
       const localStorageService = getLocalStorageService();
-      console.log('[Day Closing] localStorageService imported');
-
-      // Initialize storage if not already initialized
       await localStorageService.init();
-      console.log('[Day Closing] localStorageService initialized');
 
-      // Get the business day
+      // Get the business day from localStorage
       const businessDays = await localStorageService.getBusinessDays();
       const businessDay = businessDays.find((bd: any) => bd.id === businessDayId);
 
@@ -1173,9 +1176,9 @@ export default function ShiftManagement() {
 
       console.log('[Day Closing] Found business day:', businessDay);
 
-      // Get all orders for this business day
-      const allOrders = await localStorageService.getAllOrders();
-      const allShifts = await localStorageService.getShifts();
+      // Get all orders for this business day from IndexedDB
+      const allOrders = await indexedDBStorage.getAllOrders();
+      const allShifts = await indexedDBStorage.getAllShifts();
 
       // Get shift IDs for this business day
       const dayShiftIds = allShifts
@@ -1254,14 +1257,11 @@ export default function ShiftManagement() {
 
       console.log('[Day Closing] Updated business day object:', updatedBusinessDay);
 
-      // Save updated business day to IndexedDB
+      // Save updated business day to localStorage
       await localStorageService.saveBusinessDay(updatedBusinessDay);
-      console.log('[Day Closing] Business day updated in IndexedDB');
+      console.log('[Day Closing] Business day updated in localStorage');
 
-      // Queue operation for sync - use IndexedDB for operations
-      const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
-      const indexedDBStorage = getIndexedDBStorage();
-      await indexedDBStorage.init();
+      // Queue operation for sync
       await indexedDBStorage.addOperation({
         type: 'CLOSE_BUSINESS_DAY',
         data: {
@@ -1886,12 +1886,12 @@ export default function ShiftManagement() {
   // Helper function to calculate cash revenue from offline orders
   const calculateOfflineShiftCashRevenue = async (shiftId: string) => {
     try {
-      const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-      const localStorageService = getLocalStorageService();
-      await localStorageService.init();
+      const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+      const indexedDBStorage = getIndexedDBStorage();
+      await indexedDBStorage.init();
 
       // Get all orders for this shift
-      const allOrders = await localStorageService.getAllOrders();
+      const allOrders = await indexedDBStorage.getAllOrders();
       const shiftOrders = allOrders.filter((order: any) => order.shiftId === shiftId);
 
       console.log('[Shift Management] Offline orders for shift:', shiftOrders.length);

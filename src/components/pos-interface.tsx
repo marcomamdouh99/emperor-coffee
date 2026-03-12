@@ -36,21 +36,21 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
     console.log('[Order] Creating order offline, orderData:', orderData);
     console.log('[Order] Cart items:', cartItems);
 
-    // Import localStorageService
-    const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-    const localStorageService = getLocalStorageService();
-    console.log('[Order] localStorageService imported');
+    // Import IndexedDB storage (not localStorage)
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    console.log('[Order] IndexedDB storage imported');
 
     // Initialize storage if not already initialized
-    await localStorageService.init();
-    console.log('[Order] localStorageService initialized');
+    await indexedDBStorage.init();
+    console.log('[Order] IndexedDB storage initialized');
 
     // Create a temporary order ID (will be replaced on sync)
     const tempId = `temp-order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     console.log('[Order] Created tempId:', tempId);
 
-    // Get the last order number from local storage to generate a new one
-    const allOrders = await localStorageService.getAllOrders();
+    // Get the last order number from IndexedDB to generate a new one
+    const allOrders = await indexedDBStorage.getAllOrders();
     const lastOrderNum = allOrders.reduce((max: number, order: any) => {
       return order.orderNumber ? Math.max(max, order.orderNumber) : max;
     }, 0);
@@ -140,7 +140,7 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
     console.log('[Order] Created order object:', newOrder);
 
     // Save order to IndexedDB
-    await localStorageService.saveOrder(newOrder);
+    await indexedDBStorage.put('orders', newOrder);
     console.log('[Order] Order saved to IndexedDB');
 
     // Update shift statistics
@@ -148,7 +148,7 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
       console.log('[Order] Updating shift statistics for shift:', shift.id);
 
       // Get all shifts from IndexedDB and find the current one
-      const allShifts = await localStorageService.getAllShifts();
+      const allShifts = await indexedDBStorage.getAllShifts();
       const currentShift = allShifts.find((s: any) => s.id === shift.id);
 
       if (currentShift) {
@@ -163,7 +163,7 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
         };
 
         // Save updated shift to IndexedDB
-        await localStorageService.saveShift(updatedShift);
+        await indexedDBStorage.put('shifts', updatedShift);
         console.log('[Order] Shift statistics updated:', updatedShift);
 
         // Update the local shift object reference
@@ -173,10 +173,7 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
       }
     }
 
-    // Queue operation for sync - use IndexedDB for operations so they can be synced
-    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
-    const indexedDBStorage = getIndexedDBStorage();
-    await indexedDBStorage.init();
+    // Queue operation for sync
     await indexedDBStorage.addOperation({
       type: 'CREATE_ORDER',
       data: {
