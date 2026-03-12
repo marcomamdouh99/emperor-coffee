@@ -279,6 +279,18 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
       const localStorageService = getLocalStorageService();
       await localStorageService.init();
 
+      // Fetch menu items to get category information
+      const menuItems = await localStorageService.getAllMenuItems();
+      const menuItemCategoryMap = new Map<string, string>();
+
+      menuItems.forEach((menuItem: any) => {
+        if (menuItem.id && menuItem.category) {
+          menuItemCategoryMap.set(menuItem.id, menuItem.category);
+        }
+      });
+
+      console.log('[Shift Closing Receipt] Built category map for', menuItemCategoryMap.size, 'menu items');
+
       const allOrders = await localStorageService.getAllOrders();
       const shiftOrders = allOrders.filter((order: any) => order.shiftId === shift.id);
 
@@ -301,7 +313,23 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
 
         if (order.items) {
           order.items.forEach((item: any) => {
-            const category = item.menuItem?.category || item.categoryName || 'Uncategorized';
+            // Get category from menu item map, fallback to itemName's category, then 'Uncategorized'
+            let category = menuItemCategoryMap.get(item.menuItemId);
+
+            if (!category) {
+              // Try to get from item.menuItem.category (if available)
+              category = item.menuItem?.category;
+            }
+
+            if (!category) {
+              // Try to get from item.categoryName (if available)
+              category = item.categoryName;
+            }
+
+            if (!category) {
+              // Fallback to 'Uncategorized'
+              category = 'Uncategorized';
+            }
 
             if (!categoryMap.has(category)) {
               categoryMap.set(category, {
@@ -521,6 +549,18 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
       orderTypeBreakdown[type].total = orderTypeBreakdown[type].value - orderTypeBreakdown[type].discounts;
     });
 
+    // Fetch menu items to get category information
+    const menuItems = await localStorageService.getAllMenuItems();
+    const menuItemCategoryMap = new Map<string, string>();
+
+    menuItems.forEach((menuItem: any) => {
+      if (menuItem.id && menuItem.category) {
+        menuItemCategoryMap.set(menuItem.id, menuItem.category);
+      }
+    });
+
+    console.log('[Shift Closing Receipt] Built category map for', menuItemCategoryMap.size, 'menu items (offline)');
+
     // Group items by category
     const categoryMap = new Map<string, {
       categoryName: string;
@@ -538,7 +578,23 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
 
       if (order.items) {
         order.items.forEach((item: any) => {
-          const category = item.menuItem?.category || 'Uncategorized';
+          // Get category from menu item map, fallback to item.menuItem.category, then 'Uncategorized'
+          let category = menuItemCategoryMap.get(item.menuItemId);
+
+          if (!category) {
+            // Try to get from item.menuItem.category (if available)
+            category = item.menuItem?.category;
+          }
+
+          if (!category) {
+            // Try to get from item.categoryName (if available)
+            category = item.categoryName;
+          }
+
+          if (!category) {
+            // Fallback to 'Uncategorized'
+            category = 'Uncategorized';
+          }
 
           if (!categoryMap.has(category)) {
             categoryMap.set(category, {
@@ -552,7 +608,7 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
           catData.totalSales += item.subtotal || 0;
 
           const itemId = item.menuItemId + (item.menuItemVariantId ? `_${item.menuItemVariantId}` : '');
-          const itemName = item.menuItemVariant?.variantOption?.name 
+          const itemName = item.menuItemVariant?.variantOption?.name
             ? `${item.itemName} (${item.menuItemVariant.variantOption.name})`
             : item.itemName;
 

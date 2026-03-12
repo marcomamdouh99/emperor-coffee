@@ -118,8 +118,11 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
     await localStorageService.saveShift(newShift);
     console.log('[Shift] Shift saved to IndexedDB');
 
-    // Queue operation for sync
-    await localStorageService.addOperation({
+    // Queue operation for sync - use IndexedDB for operations
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    await indexedDBStorage.init();
+    await indexedDBStorage.addOperation({
       type: 'CREATE_SHIFT',
       data: {
         ...shiftData,
@@ -134,9 +137,8 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
         branchName: newShift.branchName,
       },
       branchId: shiftData.branchId,
-      retryCount: 0,
     });
-    console.log('[Shift] Operation queued for sync');
+    console.log('[Shift] Operation queued for sync (IndexedDB)');
 
     console.log('[Shift] Shift created offline successfully:', newShift);
   } catch (error) {
@@ -198,8 +200,11 @@ async function openBusinessDayOffline(businessDayData: any, user: any): Promise<
     const savedDay = verifyBusinessDays.find((bd: any) => bd.id === tempId);
     console.log('[Business Day] Verification - found saved day:', savedDay);
 
-    // Queue operation for sync
-    await localStorageService.addOperation({
+    // Queue operation for sync - use IndexedDB for operations
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    await indexedDBStorage.init();
+    await indexedDBStorage.addOperation({
       type: 'OPEN_BUSINESS_DAY',
       data: {
         ...businessDayData,
@@ -207,9 +212,8 @@ async function openBusinessDayOffline(businessDayData: any, user: any): Promise<
         openedAt: newBusinessDay.openedAt,
       },
       branchId: businessDayData.branchId,
-      retryCount: 0,
     });
-    console.log('[Business Day] Operation queued for sync');
+    console.log('[Business Day] Operation queued for sync (IndexedDB)');
 
     console.log('[Business Day] Returning new business day:', newBusinessDay);
     return newBusinessDay;
@@ -297,8 +301,11 @@ async function closeShiftOffline(
     await localStorageService.saveShift(updatedShift);
     console.log('[Shift] Shift updated in IndexedDB');
 
-    // Queue operation for sync
-    await localStorageService.addOperation({
+    // Queue operation for sync - use IndexedDB for operations
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    await indexedDBStorage.init();
+    await indexedDBStorage.addOperation({
       type: 'CLOSE_SHIFT',
       data: {
         id: shift.id,
@@ -315,9 +322,8 @@ async function closeShiftOffline(
         branchName: updatedShift.branchName,
       },
       branchId: shift.branchId,
-      retryCount: 0,
     });
-    console.log('[Shift] Close operation queued for sync');
+    console.log('[Shift] Close operation queued for sync (IndexedDB)');
 
     console.log('[Shift] Shift closed offline successfully:', updatedShift);
 
@@ -1252,8 +1258,11 @@ export default function ShiftManagement() {
       await localStorageService.saveBusinessDay(updatedBusinessDay);
       console.log('[Day Closing] Business day updated in IndexedDB');
 
-      // Queue operation for sync
-      await localStorageService.addOperation({
+      // Queue operation for sync - use IndexedDB for operations
+      const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+      const indexedDBStorage = getIndexedDBStorage();
+      await indexedDBStorage.init();
+      await indexedDBStorage.addOperation({
         type: 'CLOSE_BUSINESS_DAY',
         data: {
           id: businessDayId,
@@ -1277,9 +1286,8 @@ export default function ShiftManagement() {
           },
         },
         branchId: businessDay.branchId,
-        retryCount: 0,
       });
-      console.log('[Day Closing] Close operation queued for sync');
+      console.log('[Day Closing] Close operation queued for sync (IndexedDB)');
     } catch (error) {
       console.error('[Day Closing] Failed to close business day offline:', error);
       console.error('[Day Closing] Error stack:', error instanceof Error ? error.stack : 'No stack');

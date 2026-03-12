@@ -12,9 +12,11 @@ export async function GET(request: NextRequest) {
 
     const dateFilter: any = {};
     if (startDate || endDate) {
-      dateFilter.createdAt = {};
-      if (startDate) dateFilter.createdAt.gte = new Date(startDate);
-      if (endDate) dateFilter.createdAt.lte = new Date(endDate);
+      // Use orderTimestamp for date filtering instead of createdAt
+      // This ensures offline orders with correct orderTimestamp are included
+      dateFilter.orderTimestamp = {};
+      if (startDate) dateFilter.orderTimestamp.gte = new Date(startDate);
+      if (endDate) dateFilter.orderTimestamp.lte = new Date(endDate);
     }
 
     if (!branchId) {

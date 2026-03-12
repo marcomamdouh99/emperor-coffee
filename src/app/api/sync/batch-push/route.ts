@@ -524,6 +524,7 @@ async function createOrder(data: any, branchId: string): Promise<void> {
     orderTimestamp: data.orderTimestamp ? new Date(data.orderTimestamp) : new Date(data.createdAt),
     createdAt: new Date(data.createdAt),
     updatedAt: new Date(data.updatedAt),
+    synced: true, // Mark as synced since this is coming from the sync API
   };
 
   // Add subtotal if available

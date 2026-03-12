@@ -173,8 +173,11 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
       }
     }
 
-    // Queue operation for sync
-    await localStorageService.addOperation({
+    // Queue operation for sync - use IndexedDB for operations so they can be synced
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    await indexedDBStorage.init();
+    await indexedDBStorage.addOperation({
       type: 'CREATE_ORDER',
       data: {
         ...orderData,
@@ -193,9 +196,8 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
         updatedAt: newOrder.updatedAt,
       },
       branchId: orderData.branchId,
-      retryCount: 0,
     });
-    console.log('[Order] Operation queued for sync');
+    console.log('[Order] Operation queued for sync (IndexedDB)');
 
     // Award loyalty points immediately (if customer linked and not refunded)
     if (!orderData.isRefunded && orderData.customerId && !orderData.customerId.startsWith('temp-')) {
