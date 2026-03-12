@@ -279,23 +279,25 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
     let totalSales = 0;
 
     try {
-      const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-      const localStorageService = getLocalStorageService();
-      await localStorageService.init();
+      const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+      const indexedDBStorage = getIndexedDBStorage();
+      await indexedDBStorage.init();
 
-      // Fetch menu items to get category information
-      const menuItems = await localStorageService.getAllMenuItems();
+      // Fetch menu items from IndexedDB to get category information
+      const menuItems = await indexedDBStorage.getAllMenuItems();
       const menuItemCategoryMap = new Map<string, string>();
 
+      console.log('[Shift Closing Receipt] Loaded', menuItems.length, 'menu items from IndexedDB');
+
       menuItems.forEach((menuItem: any) => {
-        if (menuItem.id && menuItem.category) {
-          menuItemCategoryMap.set(menuItem.id, menuItem.category);
+        if (menuItem.id && menuItem.categoryRel) {
+          menuItemCategoryMap.set(menuItem.id, menuItem.categoryRel.name);
         }
       });
 
       console.log('[Shift Closing Receipt] Built category map for', menuItemCategoryMap.size, 'menu items');
 
-      const allOrders = await localStorageService.getAllOrders();
+      const allOrders = await indexedDBStorage.getAllOrders();
       const shiftOrders = allOrders.filter((order: any) => order.shiftId === shift.id);
 
       console.log('[Shift Closing Receipt] Found orders for category breakdown:', shiftOrders.length);
@@ -476,22 +478,22 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
 
   // Generate closing report from local storage data
   const fetchOfflineShiftReport = async () => {
-    const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-    const localStorageService = getLocalStorageService();
-    await localStorageService.init();
+    const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+    const indexedDBStorage = getIndexedDBStorage();
+    await indexedDBStorage.init();
 
     // Get shift data
-    const shifts = await localStorageService.getAllShifts();
+    const shifts = await indexedDBStorage.getAllShifts();
     const shift = shifts.find((s: any) => s.id === shiftId);
 
     if (!shift) {
-      throw new Error('Shift not found in local storage');
+      throw new Error('Shift not found in IndexedDB');
     }
 
-    console.log('[Shift Closing Receipt] Found shift in local storage:', shift);
+    console.log('[Shift Closing Receipt] Found shift in IndexedDB:', shift);
 
     // Get orders for this shift
-    const allOrders = await localStorageService.getAllOrders();
+    const allOrders = await indexedDBStorage.getAllOrders();
     const shiftOrders = allOrders.filter((order: any) => order.shiftId === shiftId);
 
     console.log('[Shift Closing Receipt] Found orders:', shiftOrders.length);
@@ -553,13 +555,15 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
       orderTypeBreakdown[type].total = orderTypeBreakdown[type].value - orderTypeBreakdown[type].discounts;
     });
 
-    // Fetch menu items to get category information
-    const menuItems = await localStorageService.getAllMenuItems();
+    // Fetch menu items from IndexedDB to get category information
+    const menuItems = await indexedDBStorage.getAllMenuItems();
     const menuItemCategoryMap = new Map<string, string>();
 
+    console.log('[Shift Closing Receipt] Loaded', menuItems.length, 'menu items from IndexedDB for offline report');
+
     menuItems.forEach((menuItem: any) => {
-      if (menuItem.id && menuItem.category) {
-        menuItemCategoryMap.set(menuItem.id, menuItem.category);
+      if (menuItem.id && menuItem.categoryRel) {
+        menuItemCategoryMap.set(menuItem.id, menuItem.categoryRel.name);
       }
     });
 

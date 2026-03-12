@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       db.menuItem.findMany({
         where: { isActive: true },
         include: {
-          category: true,
+          categoryRel: true,
           variants: {
             where: { isActive: true },
             include: {
