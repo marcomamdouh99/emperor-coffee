@@ -62,10 +62,12 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
 
       return {
         menuItemId: cartItem.menuItemId,
+        itemName: cartItem.name, // Include item name for receipt
         quantity: cartItem.quantity,
+        unitPrice,
+        subtotal: totalPrice, // Include subtotal for receipt
         menuItemVariantId: cartItem.variantId || null,
         customVariantValue: cartItem.customVariantValue || null,
-        unitPrice,
         totalPrice,
         specialInstructions: cartItem.note || null,
       };
@@ -103,6 +105,20 @@ async function createOrderOffline(orderData: any, shift: any, cartItems: CartIte
       shiftId: shift.id,
       // Include transaction hash for tamper detection
       transactionHash,
+      // Include items for receipt display
+      items: preparedItems.map(item => ({
+        id: `${tempId}-${item.menuItemId}-${item.menuItemVariantId || 'no-variant'}`,
+        menuItemId: item.menuItemId,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.subtotal,
+        recipeVersion: 1,
+        menuItemVariantId: item.menuItemVariantId,
+        variantName: cartItems.find(c => c.menuItemId === item.menuItemId && c.variantId === item.menuItemVariantId)?.variantName,
+        specialInstructions: item.specialInstructions,
+        createdAt: new Date().toISOString(),
+      })),
       // Store additional fields that will be synced separately
       _offlineData: {
         items: preparedItems,

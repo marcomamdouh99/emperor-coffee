@@ -975,59 +975,297 @@ export default function ShiftManagement() {
     }
 
     try {
-      const response = await fetch('/api/business-days/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessDayId: businessDayStatus.businessDayId,
-          userId: user.id,
-          closingCash: 0, // Cash is handled per shift, not per day
-          notes: dayClosingNotes || undefined,
-        }),
-      });
+      // Check actual network connectivity before trying API
+      let isActuallyOnline = navigator.onLine;
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        console.log('[Day Closing] Business day closed successfully');
-        console.log('[Day Closing] Fetching closing report for businessDayId:', businessDayStatus.businessDayId);
-        
-        // Fetch closing report
+      if (navigator.onLine) {
+        // Verify with actual network request
         try {
-          const reportResponse = await fetch(`/api/business-days/closing-report?businessDayId=${businessDayStatus.businessDayId}`);
-          const reportData = await reportResponse.json();
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          await fetch('/api/branches', {
+            method: 'HEAD',
+            signal: controller.signal,
+            cache: 'no-store',
+          });
+          clearTimeout(timeoutId);
+          isActuallyOnline = true;
+        } catch (netError) {
+          console.log('[Day Closing] Network check failed, assuming offline:', netError);
+          isActuallyOnline = false;
+        }
+      }
 
-          console.log('[Day Closing] Report response status:', reportResponse.status);
-          console.log('[Day Closing] Report data:', reportData);
+      if (isActuallyOnline) {
+        const response = await fetch('/api/business-days/close', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessDayId: businessDayStatus.businessDayId,
+            userId: user.id,
+            closingCash: 0, // Cash is handled per shift, not per day
+            notes: dayClosingNotes || undefined,
+          }),
+        });
 
-          if (reportResponse.ok && reportData.success) {
-            console.log('[Day Closing] Setting closing report and opening dialog');
-            setClosingReport(reportData.report);
-            setClosingReportOpen(true);
-          } else {
-            console.error('[Day Closing] Report fetch failed:', reportData.error);
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          console.log('[Day Closing] Business day closed successfully');
+          console.log('[Day Closing] Fetching closing report for businessDayId:', businessDayStatus.businessDayId);
+          
+          // Fetch closing report
+          try {
+            const reportResponse = await fetch(`/api/business-days/closing-report?businessDayId=${businessDayStatus.businessDayId}`);
+            const reportData = await reportResponse.json();
+
+            console.log('[Day Closing] Report response status:', reportResponse.status);
+            console.log('[Day Closing] Report data:', reportData);
+
+            if (reportResponse.ok && reportData.success) {
+              console.log('[Day Closing] Setting closing report and opening dialog');
+              setClosingReport(reportData.report);
+              setClosingReportOpen(true);
+            } else {
+              console.error('[Day Closing] Report fetch failed:', reportData.error);
+              alert('Business day closed but failed to fetch closing report');
+            }
+          } catch (reportError) {
+            console.error('[Shift Management] Failed to fetch closing report:', reportError);
             alert('Business day closed but failed to fetch closing report');
           }
-        } catch (reportError) {
-          console.error('[Shift Management] Failed to fetch closing report:', reportError);
-          alert('Business day closed but failed to fetch closing report');
-        }
 
-        alert('Business day closed successfully!');
-        setCloseDayDialogOpen(false);
-        setDayClosingNotes('');
-        // Preserve businessDayId for the closing receipt dialog
-        setBusinessDayStatus(prev => ({ ...prev, isOpen: false }));
-        refetchShifts();
+          alert('Business day closed successfully!');
+          setCloseDayDialogOpen(false);
+          setDayClosingNotes('');
+          // Preserve businessDayId for the closing receipt dialog
+          setBusinessDayStatus(prev => ({ ...prev, isOpen: false }));
+          refetchShifts();
+        } else {
+          console.error('[Day Closing] Close API failed:', data);
+          // Check if it's a network error and try offline fallback
+          const isNetworkError = !response.ok && (
+            response.status === 0 || // Network error
+            response.type === 'error' ||
+            response.statusText === 'Failed to fetch' ||
+            data.error?.includes('Failed to fetch') ||
+            data.error?.includes('network') ||
+            data.error?.includes('ENOTFOUND') ||
+            data.error?.includes('ERR_NAME_NOT_RESOLVED') ||
+            data.error?.includes('TypeError') ||
+            data.error?.includes('net::ERR_NAME_NOT_RESOLVED')
+          );
+
+          if (isNetworkError) {
+            console.log('[Day Closing] Network error detected, trying offline mode');
+            try {
+              await closeBusinessDayOffline(businessDayStatus.businessDayId, user.id, dayClosingNotes);
+              alert('Business day closed (offline mode - will sync when online)');
+              setCloseDayDialogOpen(false);
+              setDayClosingNotes('');
+              setBusinessDayStatus(prev => ({ ...prev, isOpen: false }));
+              refetchShifts();
+            } catch (offlineError) {
+              console.error('[Day Closing] Offline business day closing failed:', offlineError);
+              alert(`Failed to close business day offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
+            }
+          } else {
+            alert(data.error || 'Failed to close business day');
+          }
+        }
       } else {
-        console.error('[Day Closing] Close API failed:', data);
-        alert(data.error || 'Failed to close business day');
+        // Offline mode - close business day locally
+        console.log('[Day Closing] Offline mode detected, closing business day locally');
+        try {
+          await closeBusinessDayOffline(businessDayStatus.businessDayId, user.id, dayClosingNotes);
+          alert('Business day closed (offline mode - will sync when online)');
+          setCloseDayDialogOpen(false);
+          setDayClosingNotes('');
+          setBusinessDayStatus(prev => ({ ...prev, isOpen: false }));
+          refetchShifts();
+        } catch (offlineError) {
+          console.error('[Day Closing] Offline business day closing failed:', offlineError);
+          alert(`Failed to close business day offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
+        }
       }
     } catch (error) {
       console.error('[Shift Management] Failed to close business day:', error);
-      alert('Failed to close business day');
+      
+      // Check if it's a network error and try offline fallback
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('network') ||
+        error.message.includes('ERR_NAME_NOT_RESOLVED') ||
+        error.name === 'TypeError'
+      );
+
+      if (isNetworkError) {
+        console.log('[Day Closing] Network error detected, trying to close business day locally');
+        try {
+          await closeBusinessDayOffline(businessDayStatus.businessDayId, user.id, dayClosingNotes);
+          alert('Business day closed (offline mode - will sync when online)');
+          setCloseDayDialogOpen(false);
+          setDayClosingNotes('');
+          setBusinessDayStatus(prev => ({ ...prev, isOpen: false }));
+          refetchShifts();
+          return;
+        } catch (offlineError) {
+          console.error('[Day Closing] Offline business day closing also failed:', offlineError);
+          alert(`Failed to close business day offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
+        }
+      }
+
+      alert(`Failed to close business day: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
+
+  // Helper function to close business day offline
+  async function closeBusinessDayOffline(
+    businessDayId: string,
+    userId: string,
+    notes: string
+  ): Promise<void> {
+    try {
+      console.log('[Day Closing] Closing business day offline, businessDayId:', businessDayId);
+
+      // Import localStorageService
+      const { getLocalStorageService } = await import('@/lib/storage/local-storage');
+      const localStorageService = getLocalStorageService();
+      console.log('[Day Closing] localStorageService imported');
+
+      // Initialize storage if not already initialized
+      await localStorageService.init();
+      console.log('[Day Closing] localStorageService initialized');
+
+      // Get the business day
+      const businessDays = await localStorageService.getBusinessDays();
+      const businessDay = businessDays.find((bd: any) => bd.id === businessDayId);
+
+      if (!businessDay) {
+        throw new Error('Business day not found in local storage');
+      }
+
+      console.log('[Day Closing] Found business day:', businessDay);
+
+      // Get all orders for this business day
+      const allOrders = await localStorageService.getAllOrders();
+      const allShifts = await localStorageService.getShifts();
+
+      // Get shift IDs for this business day
+      const dayShiftIds = allShifts
+        .filter((shift: any) => shift.dayId === businessDayId)
+        .map((shift: any) => shift.id);
+
+      console.log('[Day Closing] Shifts for this business day:', dayShiftIds);
+
+      // Get orders for all shifts in this business day
+      const dayOrders = allOrders.filter((order: any) => dayShiftIds.includes(order.shiftId));
+
+      console.log('[Day Closing] Orders for this business day:', dayOrders.length);
+
+      // Calculate totals
+      const totalOrders = dayOrders.length;
+      const subtotal = dayOrders.reduce((sum: number, order: any) => sum + (order.subtotal || 0), 0);
+      const deliveryFees = dayOrders.reduce((sum: number, order: any) => sum + (order.deliveryFee || 0), 0);
+      const totalSales = dayOrders.reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0);
+      const taxAmount = dayOrders.reduce((sum: number, order: any) => sum + ((order.totalAmount || 0) - (order.subtotal || 0)), 0);
+
+      // Count orders by type
+      const dineInOrders = dayOrders.filter((order: any) => order.orderType === 'dine-in').length;
+      const takeAwayOrders = dayOrders.filter((order: any) => order.orderType === 'take-away').length;
+      const deliveryOrders = dayOrders.filter((order: any) => order.orderType === 'delivery').length;
+
+      // Calculate sales by type
+      const dineInSales = dayOrders
+        .filter((order: any) => order.orderType === 'dine-in')
+        .reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0);
+      const takeAwaySales = dayOrders
+        .filter((order: any) => order.orderType === 'take-away')
+        .reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0);
+      const deliverySales = dayOrders
+        .filter((order: any) => order.orderType === 'delivery')
+        .reduce((sum: number, order: any) => sum + (order.totalAmount || 0), 0);
+
+      // Count total shifts
+      const totalShifts = dayShiftIds.length;
+
+      console.log('[Day Closing] Calculated totals:', {
+        totalOrders,
+        subtotal,
+        deliveryFees,
+        totalSales,
+        taxAmount,
+        dineInOrders,
+        takeAwayOrders,
+        deliveryOrders,
+        dineInSales,
+        takeAwaySales,
+        deliverySales,
+        totalShifts,
+      });
+
+      // Update business day object
+      const updatedBusinessDay = {
+        ...businessDay,
+        closedBy: userId,
+        closedAt: new Date().toISOString(),
+        isOpen: false,
+        totalOrders,
+        totalSales,
+        subtotal,
+        taxAmount,
+        deliveryFees,
+        dineInOrders,
+        takeAwayOrders,
+        deliveryOrders,
+        dineInSales,
+        takeAwaySales,
+        deliverySales,
+        totalShifts,
+        notes: notes || businessDay.notes,
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log('[Day Closing] Updated business day object:', updatedBusinessDay);
+
+      // Save updated business day to IndexedDB
+      await localStorageService.saveBusinessDay(updatedBusinessDay);
+      console.log('[Day Closing] Business day updated in IndexedDB');
+
+      // Queue operation for sync
+      await localStorageService.addOperation({
+        type: 'CLOSE_BUSINESS_DAY',
+        data: {
+          id: businessDayId,
+          branchId: businessDay.branchId,
+          closedBy: userId,
+          closedAt: updatedBusinessDay.closedAt,
+          notes: notes || undefined,
+          totals: {
+            totalOrders,
+            totalSales,
+            subtotal,
+            taxAmount,
+            deliveryFees,
+            dineInOrders,
+            takeAwayOrders,
+            deliveryOrders,
+            dineInSales,
+            takeAwaySales,
+            deliverySales,
+            totalShifts,
+          },
+        },
+        branchId: businessDay.branchId,
+        retryCount: 0,
+      });
+      console.log('[Day Closing] Close operation queued for sync');
+    } catch (error) {
+      console.error('[Day Closing] Failed to close business day offline:', error);
+      console.error('[Day Closing] Error stack:', error instanceof Error ? error.stack : 'No stack');
+      throw error;
+    }
+  }
 
   const handleOpenShift = async () => {
     console.log('[Shift Management] handleOpenShift called');
@@ -1607,9 +1845,88 @@ export default function ShiftManagement() {
             wallet: totals.wallet,
           });
         }
+      } else {
+        // API failed - try offline fallback
+        console.log('[Shift Management] API failed, calculating cash revenue from offline orders');
+        await calculateOfflineShiftCashRevenue(shiftId);
       }
     } catch (error) {
       console.error('[Shift Management] Failed to fetch cash revenue:', error);
+      // Try offline fallback
+      console.log('[Shift Management] Fetch failed, calculating cash revenue from offline orders');
+      await calculateOfflineShiftCashRevenue(shiftId);
+    }
+  };
+
+  // Helper function to calculate cash revenue from offline orders
+  const calculateOfflineShiftCashRevenue = async (shiftId: string) => {
+    try {
+      const { getLocalStorageService } = await import('@/lib/storage/local-storage');
+      const localStorageService = getLocalStorageService();
+      await localStorageService.init();
+
+      // Get all orders for this shift
+      const allOrders = await localStorageService.getAllOrders();
+      const shiftOrders = allOrders.filter((order: any) => order.shiftId === shiftId);
+
+      console.log('[Shift Management] Offline orders for shift:', shiftOrders.length);
+
+      // Calculate revenue by payment method
+      let cash = 0;
+      let card = 0;
+      let instapay = 0;
+      let wallet = 0;
+      let voidedItems = 0;
+      let refunds = 0;
+
+      shiftOrders.forEach((order: any) => {
+        const paymentMethod = order.paymentMethod?.toLowerCase();
+        if (paymentMethod === 'cash') {
+          cash += order.totalAmount || 0;
+        } else if (paymentMethod === 'card') {
+          card += order.totalAmount || 0;
+        } else if (paymentMethod === 'instapay') {
+          instapay += order.totalAmount || 0;
+        } else if (paymentMethod === 'mobile_wallet' || paymentMethod === 'wallet') {
+          wallet += order.totalAmount || 0;
+        }
+
+        // Check for voided items
+        if (order.items) {
+          order.items.forEach((item: any) => {
+            if (item.isVoided) {
+              voidedItems += item.quantity || 0;
+            }
+          });
+        }
+
+        // Check for refunds
+        if (order.isRefunded) {
+          refunds += order.totalAmount || 0;
+        }
+      });
+
+      setShiftCashRevenue(cash);
+      setCurrentVoidedItems(voidedItems);
+      setCurrentRefunds(refunds);
+      setPaymentBreakdown({
+        cash,
+        card,
+        instapay,
+        wallet,
+        total: cash + card + instapay + wallet,
+      });
+
+      console.log('[Shift Management] Offline cash revenue calculated:', {
+        cash,
+        card,
+        instapay,
+        wallet,
+        voidedItems,
+        refunds,
+      });
+    } catch (error) {
+      console.error('[Shift Management] Failed to calculate offline cash revenue:', error);
     }
   };
 
