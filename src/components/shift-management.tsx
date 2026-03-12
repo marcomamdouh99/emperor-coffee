@@ -1000,6 +1000,9 @@ export default function ShiftManagement() {
       return;
     }
 
+    // Check if business day ID is temporary (created offline)
+    const isTempBusinessDay = businessDayStatus.businessDayId.startsWith('temp-');
+
     try {
       // Check actual network connectivity before trying API
       let isActuallyOnline = navigator.onLine;
@@ -1020,6 +1023,23 @@ export default function ShiftManagement() {
           console.log('[Day Closing] Network check failed, assuming offline:', netError);
           isActuallyOnline = false;
         }
+      }
+
+      // If it's a temporary business day, close it offline (it needs to sync first)
+      if (isTempBusinessDay) {
+        console.log('[Day Closing] Temporary business day detected, closing offline');
+        try {
+          await closeBusinessDayOffline(businessDayStatus.businessDayId, user.id, dayClosingNotes);
+          alert('Business day closed (offline mode - will sync when online)');
+          setCloseDayDialogOpen(false);
+          setDayClosingNotes('');
+          setBusinessDayStatus(prev => ({ ...prev, isOpen: false }));
+          refetchShifts();
+        } catch (offlineError) {
+          console.error('[Day Closing] Offline business day closing failed:', offlineError);
+          alert(`Failed to close business day: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
+        }
+        return;
       }
 
       if (isActuallyOnline) {
@@ -1069,9 +1089,10 @@ export default function ShiftManagement() {
           refetchShifts();
         } else {
           console.error('[Day Closing] Close API failed:', data);
-          // Check if it's a network error and try offline fallback
+          // Check if it's a network error or "not found" error and try offline fallback
           const isNetworkError = !response.ok && (
             response.status === 0 || // Network error
+            response.status === 404 || // Not found - could be temp ID not synced
             response.type === 'error' ||
             response.statusText === 'Failed to fetch' ||
             data.error?.includes('Failed to fetch') ||
@@ -1079,11 +1100,12 @@ export default function ShiftManagement() {
             data.error?.includes('ENOTFOUND') ||
             data.error?.includes('ERR_NAME_NOT_RESOLVED') ||
             data.error?.includes('TypeError') ||
-            data.error?.includes('net::ERR_NAME_NOT_RESOLVED')
+            data.error?.includes('net::ERR_NAME_NOT_RESOLVED') ||
+            data.error?.includes('Business day not found')
           );
 
           if (isNetworkError) {
-            console.log('[Day Closing] Network error detected, trying offline mode');
+            console.log('[Day Closing] Network/Not found error detected, trying offline mode');
             try {
               await closeBusinessDayOffline(businessDayStatus.businessDayId, user.id, dayClosingNotes);
               alert('Business day closed (offline mode - will sync when online)');
