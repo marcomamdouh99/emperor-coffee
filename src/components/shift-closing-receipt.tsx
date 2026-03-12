@@ -109,14 +109,18 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
   // Fetch shift closing data when dialog opens, or use provided shiftData
   useEffect(() => {
     if (open) {
-      // If shiftData prop is provided and has necessary fields, use it directly
-      if (shiftData && (shiftData.shiftNumber || shiftData.closingRevenue !== undefined || shiftData.closingOrders !== undefined)) {
-        console.log('[Shift Closing Receipt] Using provided shiftData prop:', shiftData);
-        loadReceiptFromShiftData(shiftData);
-      } else if (shiftId) {
-        // Otherwise fetch by ID
-        fetchShiftData();
-      }
+      const loadData = async () => {
+        // If shiftData prop is provided and has necessary fields, use it directly
+        if (shiftData && (shiftData.shiftNumber || shiftData.closingRevenue !== undefined || shiftData.closingOrders !== undefined)) {
+          console.log('[Shift Closing Receipt] Using provided shiftData prop:', shiftData);
+          await loadReceiptFromShiftData(shiftData);
+        } else if (shiftId) {
+          // Otherwise fetch by ID
+          fetchShiftData();
+        }
+      };
+
+      loadData();
     }
   }, [open, shiftId, shiftData]);
 
@@ -233,21 +237,21 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
   };
 
   // Load receipt data from shiftData prop (offline mode)
-  const loadReceiptFromShiftData = (shift: any) => {
+  const loadReceiptFromShiftData = async (shift: any) => {
     console.log('[Shift Closing Receipt] Loading receipt from shiftData:', shift);
-    
+
     // Generate shift number if not available
     const shiftNumber = shift.shiftNumber || shift.closingOrders || shift.openingOrders || 1;
     const startTime = shift.startTime || new Date().toISOString();
     const endTime = shift.endTime || new Date().toISOString();
-    
+
     // Extract cashier info from shiftData
     const cashierName = shift.cashier?.name || shift.cashierName || shift.cashierUsername || 'Unknown';
     const cashierUsername = shift.cashier?.username || shift.cashierUsername || 'unknown';
-    
+
     // Extract branch info from shiftData
     const branchName = shift.branch?.branchName || shift.branchName || 'Unknown Branch';
-    
+
     // Extract payment breakdown
     const paymentBreakdown = shift.paymentBreakdown || {
       cash: 0,
@@ -256,7 +260,7 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
       wallet: 0,
       total: 0
     };
-    
+
     // Calculate totals from payment breakdown or orders
     let cash = 0, card = 0, instapay = 0, wallet = 0;
     if (paymentBreakdown) {
@@ -265,7 +269,93 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
       instapay = paymentBreakdown.instapay || 0;
       wallet = paymentBreakdown.wallet || 0;
     }
-    
+
+    // Fetch orders from local storage to build category breakdown
+    let categoryBreakdown: any[] = [];
+    let totalSales = 0;
+
+    try {
+      const { getLocalStorageService } = await import('@/lib/storage/local-storage');
+      const localStorageService = getLocalStorageService();
+      await localStorageService.init();
+
+      const allOrders = await localStorageService.getAllOrders();
+      const shiftOrders = allOrders.filter((order: any) => order.shiftId === shift.id);
+
+      console.log('[Shift Closing Receipt] Found orders for category breakdown:', shiftOrders.length);
+
+      // Group items by category
+      const categoryMap = new Map<string, {
+        categoryName: string;
+        totalSales: number;
+        items: Map<string, {
+          itemId: string;
+          itemName: string;
+          quantity: number;
+          totalPrice: number;
+        }>;
+      }>();
+
+      shiftOrders.forEach((order: any) => {
+        if (order.isRefunded) return;
+
+        if (order.items) {
+          order.items.forEach((item: any) => {
+            const category = item.menuItem?.category || item.categoryName || 'Uncategorized';
+
+            if (!categoryMap.has(category)) {
+              categoryMap.set(category, {
+                categoryName: category,
+                totalSales: 0,
+                items: new Map()
+              });
+            }
+
+            const catData = categoryMap.get(category)!;
+            catData.totalSales += item.subtotal || 0;
+            totalSales += item.subtotal || 0;
+
+            const itemId = item.menuItemId + (item.menuItemVariantId ? `_${item.menuItemVariantId}` : '');
+            const itemName = item.menuItemVariant?.variantOption?.name
+              ? `${item.itemName || item.name} (${item.menuItemVariant.variantOption.name})`
+              : (item.itemName || item.name || 'Unknown Item');
+
+            if (!catData.items.has(itemId)) {
+              catData.items.set(itemId, {
+                itemId,
+                itemName,
+                quantity: 0,
+                totalPrice: 0
+              });
+            }
+
+            const itemData = catData.items.get(itemId)!;
+            itemData.quantity += item.quantity || 0;
+            itemData.totalPrice += item.subtotal || 0;
+          });
+        }
+      });
+
+      // Convert to array
+      categoryBreakdown = Array.from(categoryMap.values())
+        .filter(cat => cat.totalSales > 0)
+        .map(cat => ({
+          categoryName: cat.categoryName,
+          totalSales: cat.totalSales,
+          items: Array.from(cat.items.values()).map(item => ({
+            itemId: item.itemId,
+            itemName: item.itemName,
+            quantity: item.quantity,
+            totalPrice: item.totalPrice
+          }))
+        }))
+        .sort((a, b) => b.totalSales - a.totalSales);
+
+      console.log('[Shift Closing Receipt] Category breakdown:', categoryBreakdown);
+    } catch (error) {
+      console.error('[Shift Closing Receipt] Error building category breakdown:', error);
+    }
+
     // Generate report structure
     const report = {
       shift: {
@@ -303,7 +393,7 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
         'delivery': { value: 0, discounts: 0, count: 0, total: 0 }
       },
       totals: {
-        sales: shift.closingRevenue || 0,
+        sales: totalSales > 0 ? totalSales : (shift.closingRevenue || 0),
         discounts: 0,
         deliveryFees: 0,
         refunds: 0,
@@ -318,13 +408,13 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
         closingCashBalance: shift.closingCash || 0,
         overShort: shift.closingCash ? (shift.closingCash - ((shift.openingCash || 0) + cash)) : 0
       },
-      categoryBreakdown: [],
+      categoryBreakdown,
       voidedItems: [],
       refundedOrders: []
     };
-    
+
     setFullReportData(report);
-    
+
     // Transform to ShiftClosingReportData format
     const transformedData: ShiftClosingReportData = {
       storeName: 'Emperor Coffee',
@@ -336,12 +426,20 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
         cashier: report.shift.cashier
       },
       paymentSummary: report.paymentSummary,
-      categoryBreakdown: [],
+      categoryBreakdown: report.categoryBreakdown.map(cat => ({
+        categoryName: cat.categoryName,
+        totalSales: cat.totalSales,
+        items: cat.items.map(item => ({
+          itemName: item.itemName,
+          quantity: item.quantity,
+          totalPrice: item.totalPrice
+        }))
+      })),
       fontSize: 'medium'
     };
-    
+
     setData(transformedData);
-    console.log('[Shift Closing Receipt] Receipt loaded from shiftData');
+    console.log('[Shift Closing Receipt] Receipt loaded from shiftData with', categoryBreakdown.length, 'categories');
   };
 
   // Generate closing report from local storage data

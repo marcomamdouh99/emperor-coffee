@@ -20,6 +20,8 @@ const OperationType = {
   CREATE_SHIFT: 'CREATE_SHIFT',
   UPDATE_SHIFT: 'UPDATE_SHIFT',
   CLOSE_SHIFT: 'CLOSE_SHIFT',
+  OPEN_BUSINESS_DAY: 'OPEN_BUSINESS_DAY',
+  CLOSE_BUSINESS_DAY: 'CLOSE_BUSINESS_DAY',
   CREATE_CUSTOMER: 'CREATE_CUSTOMER',
   UPDATE_CUSTOMER: 'UPDATE_CUSTOMER',
   UPDATE_USER: 'UPDATE_USER',
@@ -334,6 +336,14 @@ async function processOperation(operation: SyncOperation, branchId: string): Pro
 
     case OperationType.CLOSE_SHIFT:
       await closeShift(operation.data, branchId);
+      break;
+
+    case OperationType.OPEN_BUSINESS_DAY:
+      await openBusinessDay(operation.data, branchId);
+      break;
+
+    case OperationType.CLOSE_BUSINESS_DAY:
+      await closeBusinessDay(operation.data, branchId);
       break;
 
     case OperationType.CREATE_CUSTOMER:
@@ -1159,6 +1169,135 @@ async function closeShift(data: any, branchId: string): Promise<void> {
   });
 
   console.log(`[BatchPush] Shift ${shiftId} closed successfully`);
+}
+
+/**
+ * Open business day
+ * Creates a new business day in the database
+ */
+async function openBusinessDay(data: any, branchId: string): Promise<void> {
+  console.log('[BatchPush] Opening business day with data:', JSON.stringify(data, null, 2));
+
+  // Check if business day already exists by checking for duplicate within time window
+  const openedAt = new Date(data.openedAt);
+  const timeWindowStart = new Date(openedAt.getTime() - 60000); // 60 seconds before
+  const timeWindowEnd = new Date(openedAt.getTime() + 60000);   // 60 seconds after
+
+  const existingBusinessDay = await db.businessDay.findFirst({
+    where: {
+      branchId,
+      openedAt: {
+        gte: timeWindowStart,
+        lte: timeWindowEnd,
+      },
+      isOpen: true,
+    },
+    orderBy: { openedAt: 'desc' },
+  });
+
+  if (existingBusinessDay) {
+    console.log(`[BatchPush] Found open business day ${existingBusinessDay.id}, skipping creation`);
+    // Map the temp ID to the existing real ID for future operations
+    if (data.id && data.id.startsWith('temp-')) {
+      tempIdToRealIdMap.set(data.id, existingBusinessDay.id);
+    }
+    return;
+  }
+
+  // If this has a temporary ID, check if we already mapped it
+  if (data.id && data.id.startsWith('temp-')) {
+    const existingRealId = tempIdToRealIdMap.get(data.id);
+    if (existingRealId) {
+      console.log(`[BatchPush] Temp ID ${data.id} already mapped to ${existingRealId}, skipping creation`);
+      return;
+    }
+  }
+
+  // Create the business day
+  const businessDayData: any = {
+    branchId,
+    openedAt: new Date(data.openedAt),
+    isOpen: true,
+    openedById: data.openedById,
+  };
+
+  // Only use provided ID if it's not a temporary ID
+  if (!data.id || !data.id.startsWith('temp-')) {
+    businessDayData.id = data.id;
+  }
+
+  const newBusinessDay = await db.businessDay.create({ data: businessDayData });
+
+  // Map the temp ID to the new real ID for future operations
+  if (data.id && data.id.startsWith('temp-')) {
+    tempIdToRealIdMap.set(data.id, newBusinessDay.id);
+    console.log(`[BatchPush] Mapped temp ID ${data.id} to real ID ${newBusinessDay.id}`);
+  }
+
+  console.log(`[BatchPush] Business day ${newBusinessDay.id} opened successfully`);
+}
+
+/**
+ * Close business day
+ * Closes an existing business day with calculated totals
+ */
+async function closeBusinessDay(data: any, branchId: string): Promise<void> {
+  console.log('[BatchPush] Closing business day with data:', JSON.stringify(data, null, 2));
+
+  // If the business day has a temporary ID, find the real ID
+  let businessDayId = data.id;
+  if (data.id && data.id.startsWith('temp-')) {
+    // Check if we have a mapping for this temp ID
+    const mappedId = tempIdToRealIdMap.get(data.id);
+    if (mappedId) {
+      businessDayId = mappedId;
+      console.log(`[BatchPush] Found mapped real ID ${businessDayId} for temp ID ${data.id}`);
+    } else {
+      // Try to find the business day by matching criteria
+      const businessDay = await db.businessDay.findFirst({
+        where: {
+          branchId,
+          isOpen: true,
+        },
+        orderBy: { openedAt: 'desc' },
+      });
+
+      if (businessDay) {
+        businessDayId = businessDay.id;
+        console.log(`[BatchPush] Found real business day ID ${businessDayId} for temp ID ${data.id}`);
+        tempIdToRealIdMap.set(data.id, businessDayId);
+      } else {
+        throw new Error(`Could not find real business day for temp ID: ${data.id}`);
+      }
+    }
+  }
+
+  // Close the business day with provided totals
+  await db.businessDay.update({
+    where: { id: businessDayId },
+    data: {
+      closedAt: new Date(data.closedAt || new Date()),
+      isOpen: false,
+      closedById: data.closedBy,
+      notes: data.notes || null,
+      totalOrders: data.totals?.totalOrders || 0,
+      totalSales: data.totals?.totalSales || 0,
+      subtotal: data.totals?.subtotal || 0,
+      taxAmount: data.totals?.taxAmount || 0,
+      deliveryFees: data.totals?.deliveryFees || 0,
+      loyaltyDiscounts: data.totals?.loyaltyDiscounts || 0,
+      cashSales: data.totals?.cashSales || 0,
+      cardSales: data.totals?.cardSales || 0,
+      dineInOrders: data.totals?.dineInOrders || 0,
+      dineInSales: data.totals?.dineInSales || 0,
+      takeAwayOrders: data.totals?.takeAwayOrders || 0,
+      takeAwaySales: data.totals?.takeAwaySales || 0,
+      deliveryOrders: data.totals?.deliveryOrders || 0,
+      deliverySales: data.totals?.deliverySales || 0,
+    },
+  });
+
+  console.log(`[BatchPush] Business day ${businessDayId} closed successfully`);
 }
 
 /**
