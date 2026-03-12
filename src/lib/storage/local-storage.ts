@@ -20,6 +20,8 @@ export enum OperationType {
   CREATE_SHIFT = 'CREATE_SHIFT',
   UPDATE_SHIFT = 'UPDATE_SHIFT',
   CLOSE_SHIFT = 'CLOSE_SHIFT',
+  OPEN_BUSINESS_DAY = 'OPEN_BUSINESS_DAY',
+  CLOSE_BUSINESS_DAY = 'CLOSE_BUSINESS_DAY',
   CREATE_WASTE_LOG = 'CREATE_WASTE_LOG',
   CREATE_TRANSFER = 'CREATE_TRANSFER',
   UPDATE_INVENTORY = 'UPDATE_INVENTORY',
@@ -69,6 +71,7 @@ const STORAGE_KEYS = {
   USERS: 'users',
   ORDERS: 'orders',
   SHIFTS: 'shifts',
+  BUSINESS_DAYS: 'business_days',
   WASTE_LOGS: 'waste_logs',
   BRANCHES: 'branches',
   DELIVERY_AREAS: 'delivery_areas',
@@ -373,6 +376,38 @@ class LocalStorageService {
       return itemsStr ? JSON.parse(itemsStr) : [];
     } catch (error) {
       console.error('[LocalStorageService] Error getting shifts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Save a single business day
+   */
+  async saveBusinessDay(businessDay: any): Promise<void> {
+    try {
+      const businessDays = await this.getBusinessDays();
+      const index = businessDays.findIndex((b: any) => b.id === businessDay.id);
+      if (index >= 0) {
+        businessDays[index] = businessDay;
+      } else {
+        businessDays.push(businessDay);
+      }
+      localStorage.setItem(STORAGE_KEYS.BUSINESS_DAYS, JSON.stringify(businessDays));
+      console.log('[LocalStorageService] Saved business day:', businessDay.id);
+    } catch (error) {
+      console.error('[LocalStorageService] Error saving business day:', error);
+    }
+  }
+
+  /**
+   * Get all business days
+   */
+  async getBusinessDays(): Promise<any[]> {
+    try {
+      const itemsStr = localStorage.getItem(STORAGE_KEYS.BUSINESS_DAYS);
+      return itemsStr ? JSON.parse(itemsStr) : [];
+    } catch (error) {
+      console.error('[LocalStorageService] Error getting business days:', error);
       return [];
     }
   }

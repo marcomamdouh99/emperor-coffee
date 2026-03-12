@@ -139,6 +139,55 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
   }
 }
 
+// Helper function to open business day offline
+async function openBusinessDayOffline(businessDayData: any, user: any): Promise<any> {
+  try {
+    console.log('[Business Day] Opening business day offline, data:', businessDayData);
+
+    const { getLocalStorageService } = await import('@/lib/storage/local-storage');
+    const localStorageService = getLocalStorageService();
+    await localStorageService.init();
+
+    // Create a temporary business day ID
+    const tempId = `temp-day-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const newBusinessDay = {
+      id: tempId,
+      branchId: businessDayData.branchId,
+      openedBy: user.id,
+      openedAt: new Date().toISOString(),
+      isOpen: true,
+      openingCash: 0,
+      notes: businessDayData.notes,
+      totalOrders: 0,
+      totalSales: 0,
+      shifts: [],
+    };
+
+    // Save business day to local storage
+    await localStorageService.saveBusinessDay(newBusinessDay);
+    console.log('[Business Day] Business day saved to local storage');
+
+    // Queue operation for sync
+    await localStorageService.addOperation({
+      type: 'OPEN_BUSINESS_DAY',
+      data: {
+        ...businessDayData,
+        id: tempId,
+        openedAt: newBusinessDay.openedAt,
+      },
+      branchId: businessDayData.branchId,
+      retryCount: 0,
+    });
+    console.log('[Business Day] Operation queued for sync');
+
+    return newBusinessDay;
+  } catch (error) {
+    console.error('[Business Day] Failed to open business day offline, error:', error);
+    throw error;
+  }
+}
+
 // Helper function to close shift offline
 async function closeShiftOffline(
   shift: any,
@@ -657,6 +706,35 @@ export default function ShiftManagement() {
       }
     } catch (error) {
       console.error('[Shift Management] Failed to fetch business day status:', error);
+
+      // Check offline storage for business day status
+      try {
+        const { getLocalStorageService } = await import('@/lib/storage/local-storage');
+        const localStorageService = getLocalStorageService();
+        await localStorageService.init();
+
+        const businessDays = await localStorageService.getBusinessDays();
+        const openBusinessDay = businessDays.find(
+          (bd: any) => bd.branchId === selectedBranch && bd.isOpen
+        );
+
+        if (openBusinessDay) {
+          console.log('[Shift Management] Found open business day in local storage:', openBusinessDay);
+          setBusinessDayStatus({
+            isOpen: true,
+            businessDayId: openBusinessDay.id,
+          });
+        } else {
+          setBusinessDayStatus({
+            isOpen: false,
+          });
+        }
+      } catch (dbError) {
+        console.error('[Shift Management] Failed to check local storage for business day:', dbError);
+        setBusinessDayStatus({
+          isOpen: false,
+        });
+      }
     }
   };
 
@@ -709,33 +787,118 @@ export default function ShiftManagement() {
       return;
     }
 
+    const businessDayData = {
+      branchId: selectedBranch,
+      userId: user.id,
+      notes: dayOpeningNotes || undefined,
+    };
+
     try {
-      const response = await fetch('/api/business-days/open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          branchId: selectedBranch,
-          userId: user.id,
-          notes: dayOpeningNotes || undefined,
-        }),
-      });
+      // Check actual network connectivity
+      let isActuallyOnline = navigator.onLine;
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        alert('Business day opened successfully!');
-        setOpenDayDialogOpen(false);
-        setDayOpeningNotes('');
-        setBusinessDayStatus({
-          isOpen: true,
-          businessDayId: data.businessDay.id,
-        });
-      } else {
-        alert(data.error || 'Failed to open business day');
+      if (navigator.onLine) {
+        // Verify with actual network request
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          await fetch('/api/branches', {
+            method: 'HEAD',
+            signal: controller.signal,
+            cache: 'no-store',
+          });
+          clearTimeout(timeoutId);
+          isActuallyOnline = true;
+          console.log('[Business Day] Network check passed, trying API...');
+        } catch (netError) {
+          console.log('[Business Day] Network check failed, assuming offline:', netError.message);
+          isActuallyOnline = false;
+        }
       }
+
+      if (isActuallyOnline) {
+        // Try API first
+        const response = await fetch('/api/business-days/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(businessDayData),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          alert('Business day opened successfully!');
+          setOpenDayDialogOpen(false);
+          setDayOpeningNotes('');
+          setBusinessDayStatus({
+            isOpen: true,
+            businessDayId: data.businessDay.id,
+          });
+          return;
+        } else {
+          // API failed - check if it's a network error
+          const isNetworkError = !response.ok && (
+            response.status === 0 ||
+            response.type === 'error' ||
+            response.statusText === 'Failed to fetch' ||
+            data.error?.includes('Failed to fetch') ||
+            data.error?.includes('network') ||
+            data.error?.includes('ENOTFOUND') ||
+            data.error?.includes('ERR_NAME_NOT_RESOLVED') ||
+            data.error?.includes('TypeError') ||
+            data.error?.includes('Failed to fetch\n')
+          );
+
+          if (isNetworkError) {
+            console.log('[Business Day] Network error detected, trying offline mode');
+            // Fall through to offline mode
+          } else {
+            alert(data.error || 'Failed to open business day');
+            return;
+          }
+        }
+      }
+
+      // Offline mode - create business day locally
+      console.log('[Business Day] Offline mode detected, creating business day locally');
+      const offlineBusinessDay = await openBusinessDayOffline(businessDayData, user);
+      alert('Business day opened (offline mode - will sync when online)');
+      setOpenDayDialogOpen(false);
+      setDayOpeningNotes('');
+      setBusinessDayStatus({
+        isOpen: true,
+        businessDayId: offlineBusinessDay.id,
+      });
     } catch (error) {
       console.error('[Shift Management] Failed to open business day:', error);
-      alert('Failed to open business day');
+      
+      // Check if it's a network error and try offline fallback
+      const isNetworkError = error instanceof Error && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('network') ||
+        error.name === 'TypeError' &&
+        error.message.includes('Failed to fetch')
+      );
+
+      if (isNetworkError) {
+        console.log('[Business Day] Network error detected, trying to create business day locally');
+        try {
+          const offlineBusinessDay = await openBusinessDayOffline(businessDayData, user);
+          alert('Business day opened (offline mode - will sync when online)');
+          setOpenDayDialogOpen(false);
+          setDayOpeningNotes('');
+          setBusinessDayStatus({
+            isOpen: true,
+            businessDayId: offlineBusinessDay.id,
+          });
+          return;
+        } catch (offlineError) {
+          console.error('[Business Day] Offline business day creation also failed:', offlineError);
+          alert(`Failed to open business day offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
+        }
+      }
+
+      alert(`Failed to open business day: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
