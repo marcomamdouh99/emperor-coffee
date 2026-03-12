@@ -575,10 +575,51 @@ export default function POSInterface() {
             if (response.ok && data.shifts && data.shifts.length > 0) {
               setCurrentShift(data.shifts[0]);
             } else {
-              setCurrentShift(null);
+              // API failed or no shift found - check IndexedDB for offline shift
+              const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+              const indexedDBStorage = getIndexedDBStorage();
+              await indexedDBStorage.init();
+              const allShifts = await indexedDBStorage.getAllShifts();
+              
+              const offlineShift = allShifts.find(
+                (s: any) => 
+                  s.cashierId === user.id && 
+                  s.branchId === branchId && 
+                  !s.isClosed
+              );
+              
+              if (offlineShift) {
+                console.log('[POS] Using offline shift on visibility change:', offlineShift);
+                setCurrentShift(offlineShift);
+              } else {
+                setCurrentShift(null);
+              }
             }
           } catch (error) {
             console.error('Failed to refresh shift on tab visibility:', error);
+            // Try IndexedDB on error
+            try {
+              const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+              const indexedDBStorage = getIndexedDBStorage();
+              await indexedDBStorage.init();
+              const allShifts = await indexedDBStorage.getAllShifts();
+              
+              const offlineShift = allShifts.find(
+                (s: any) => 
+                  s.cashierId === user.id && 
+                  s.branchId === user.branchId && 
+                  !s.isClosed
+              );
+              
+              if (offlineShift) {
+                setCurrentShift(offlineShift);
+              } else {
+                setCurrentShift(null);
+              }
+            } catch (dbError) {
+              console.error('Failed to fetch offline shift on visibility change:', dbError);
+              setCurrentShift(null);
+            }
           }
         };
         fetchCurrentShift();
@@ -625,10 +666,10 @@ export default function POSInterface() {
           setCurrentShift(data.shifts[0]);
         } else {
           // API failed or no shift found - check IndexedDB for offline shift
-          const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-          const localStorageService = getLocalStorageService();
-          await localStorageService.init();
-          const allShifts = await localStorageService.getAllShifts();
+          const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+          const indexedDBStorage = getIndexedDBStorage();
+          await indexedDBStorage.init();
+          const allShifts = await indexedDBStorage.getAllShifts();
           
           // Find open shift for this cashier and branch
           const offlineShift = allShifts.find(
@@ -650,10 +691,10 @@ export default function POSInterface() {
         
         // On error, check IndexedDB
         try {
-          const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-          const localStorageService = getLocalStorageService();
-          await localStorageService.init();
-          const allShifts = await localStorageService.getAllShifts();
+          const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+          const indexedDBStorage = getIndexedDBStorage();
+          await indexedDBStorage.init();
+          const allShifts = await indexedDBStorage.getAllShifts();
           
           const offlineShift = allShifts.find(
             (s: any) => 
@@ -663,6 +704,7 @@ export default function POSInterface() {
           );
           
           if (offlineShift) {
+            console.log('[POS] Using offline shift from error handler:', offlineShift);
             setCurrentShift(offlineShift);
           } else {
             setCurrentShift(null);
