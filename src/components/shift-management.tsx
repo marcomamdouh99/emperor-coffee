@@ -143,13 +143,30 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
 async function openBusinessDayOffline(businessDayData: any, user: any): Promise<any> {
   try {
     console.log('[Business Day] Opening business day offline, data:', businessDayData);
+    console.log('[Business Day] User data:', { id: user.id, username: user.username });
 
     const { getLocalStorageService } = await import('@/lib/storage/local-storage');
     const localStorageService = getLocalStorageService();
+    console.log('[Business Day] localStorageService imported');
     await localStorageService.init();
+    console.log('[Business Day] localStorageService initialized');
+
+    // Check if there's already an open business day for this branch
+    const existingBusinessDays = await localStorageService.getBusinessDays();
+    console.log('[Business Day] Existing business days:', existingBusinessDays);
+
+    const existingOpenDay = existingBusinessDays.find(
+      (bd: any) => bd.branchId === businessDayData.branchId && bd.isOpen
+    );
+
+    if (existingOpenDay) {
+      console.log('[Business Day] Business day already open for this branch:', existingOpenDay);
+      return existingOpenDay;
+    }
 
     // Create a temporary business day ID
     const tempId = `temp-day-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log('[Business Day] Creating new business day with ID:', tempId);
 
     const newBusinessDay = {
       id: tempId,
@@ -164,9 +181,16 @@ async function openBusinessDayOffline(businessDayData: any, user: any): Promise<
       shifts: [],
     };
 
+    console.log('[Business Day] New business day object:', newBusinessDay);
+
     // Save business day to local storage
     await localStorageService.saveBusinessDay(newBusinessDay);
-    console.log('[Business Day] Business day saved to local storage');
+    console.log('[Business Day] Business day saved to local storage with ID:', tempId);
+
+    // Verify it was saved
+    const verifyBusinessDays = await localStorageService.getBusinessDays();
+    const savedDay = verifyBusinessDays.find((bd: any) => bd.id === tempId);
+    console.log('[Business Day] Verification - found saved day:', savedDay);
 
     // Queue operation for sync
     await localStorageService.addOperation({
@@ -181,9 +205,11 @@ async function openBusinessDayOffline(businessDayData: any, user: any): Promise<
     });
     console.log('[Business Day] Operation queued for sync');
 
+    console.log('[Business Day] Returning new business day:', newBusinessDay);
     return newBusinessDay;
   } catch (error) {
     console.error('[Business Day] Failed to open business day offline, error:', error);
+    console.error('[Business Day] Error stack:', error instanceof Error ? error.stack : 'No stack');
     throw error;
   }
 }
@@ -688,9 +714,13 @@ export default function ShiftManagement() {
   const fetchBusinessDayStatus = async () => {
     if (!selectedBranch) return;
 
+    console.log('[Shift Management] fetchBusinessDayStatus called for branch:', selectedBranch);
+
     try {
       const response = await fetch(`/api/business-days/status?branchId=${selectedBranch}`);
       const data = await response.json();
+
+      console.log('[Shift Management] API response for business day status:', data);
 
       if (response.ok) {
         if (data.status === 'OPEN' && data.businessDay) {
@@ -698,43 +728,47 @@ export default function ShiftManagement() {
             isOpen: true,
             businessDayId: data.businessDay.id,
           });
+          return; // Successfully got open business day from API
         } else {
-          setBusinessDayStatus({
-            isOpen: false,
-          });
+          console.log('[Shift Management] API returned no open business day, checking localStorage');
         }
+      } else {
+        console.log('[Shift Management] API returned error:', response.status, 'checking localStorage');
       }
     } catch (error) {
-      console.error('[Shift Management] Failed to fetch business day status:', error);
+      console.error('[Shift Management] Failed to fetch business day status from API:', error);
+    }
 
-      // Check offline storage for business day status
-      try {
-        const { getLocalStorageService } = await import('@/lib/storage/local-storage');
-        const localStorageService = getLocalStorageService();
-        await localStorageService.init();
+    // Always check localStorage as fallback
+    try {
+      const { getLocalStorageService } = await import('@/lib/storage/local-storage');
+      const localStorageService = getLocalStorageService();
+      await localStorageService.init();
 
-        const businessDays = await localStorageService.getBusinessDays();
-        const openBusinessDay = businessDays.find(
-          (bd: any) => bd.branchId === selectedBranch && bd.isOpen
-        );
+      const businessDays = await localStorageService.getBusinessDays();
+      console.log('[Shift Management] All business days in localStorage:', businessDays);
 
-        if (openBusinessDay) {
-          console.log('[Shift Management] Found open business day in local storage:', openBusinessDay);
-          setBusinessDayStatus({
-            isOpen: true,
-            businessDayId: openBusinessDay.id,
-          });
-        } else {
-          setBusinessDayStatus({
-            isOpen: false,
-          });
-        }
-      } catch (dbError) {
-        console.error('[Shift Management] Failed to check local storage for business day:', dbError);
+      const openBusinessDay = businessDays.find(
+        (bd: any) => bd.branchId === selectedBranch && bd.isOpen
+      );
+
+      if (openBusinessDay) {
+        console.log('[Shift Management] Found open business day in local storage:', openBusinessDay);
+        setBusinessDayStatus({
+          isOpen: true,
+          businessDayId: openBusinessDay.id,
+        });
+      } else {
+        console.log('[Shift Management] No open business day found in localStorage for branch:', selectedBranch);
         setBusinessDayStatus({
           isOpen: false,
         });
       }
+    } catch (dbError) {
+      console.error('[Shift Management] Failed to check local storage for business day:', dbError);
+      setBusinessDayStatus({
+        isOpen: false,
+      });
     }
   };
 
@@ -867,6 +901,7 @@ export default function ShiftManagement() {
       // Offline mode - create business day locally
       console.log('[Business Day] Offline mode detected, creating business day locally');
       const offlineBusinessDay = await openBusinessDayOffline(businessDayData, user);
+      console.log('[Business Day] Offline business day created:', offlineBusinessDay);
       alert('Business day opened (offline mode - will sync when online)');
       setOpenDayDialogOpen(false);
       setDayOpeningNotes('');
@@ -874,6 +909,8 @@ export default function ShiftManagement() {
         isOpen: true,
         businessDayId: offlineBusinessDay.id,
       });
+      // Refresh business day status to ensure it's updated
+      await fetchBusinessDayStatus();
       // Notify parent component to refresh business day status (for POS tab visibility)
       // Small delay to ensure localStorage is updated
       setTimeout(() => {
@@ -894,6 +931,7 @@ export default function ShiftManagement() {
         console.log('[Business Day] Network error detected, trying to create business day locally');
         try {
           const offlineBusinessDay = await openBusinessDayOffline(businessDayData, user);
+          console.log('[Business Day] Offline business day created (network error fallback):', offlineBusinessDay);
           alert('Business day opened (offline mode - will sync when online)');
           setOpenDayDialogOpen(false);
           setDayOpeningNotes('');
@@ -901,6 +939,8 @@ export default function ShiftManagement() {
             isOpen: true,
             businessDayId: offlineBusinessDay.id,
           });
+          // Refresh business day status to ensure it's updated
+          await fetchBusinessDayStatus();
           // Notify parent component to refresh business day status (for POS tab visibility)
           // Small delay to ensure localStorage is updated
           setTimeout(() => {
@@ -991,12 +1031,16 @@ export default function ShiftManagement() {
 
   const handleOpenShift = async () => {
     console.log('[Shift Management] handleOpenShift called');
+    console.log('[Shift Management] Current business day status:', businessDayStatus);
+
     // Check if business day is open
     if (!businessDayStatus.isOpen) {
+      console.log('[Shift Management] Business day is not open, preventing shift opening');
       alert('You must open the business day before opening a shift');
       return;
     }
 
+    console.log('[Shift Management] Business day is open, proceeding to open shift');
     console.log('[Shift Management] user:', user);
 
     if (user?.role === 'CASHIER') {

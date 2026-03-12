@@ -269,7 +269,8 @@ export default function POSDashboard() {
   useEffect(() => {
     if (user && user.role === 'CASHIER' && user.branchId) {
       const checkPOSAccess = async () => {
-        let hasOpenShift = false;
+        let hasPOSAccess = false;
+        let accessReason = '';
 
         // First check for open shift (online or offline)
         try {
@@ -283,7 +284,8 @@ export default function POSDashboard() {
 
           if (response.ok && data.shifts && data.shifts.length > 0) {
             console.log('[Dashboard] Found open shift from API:', data.shifts[0]);
-            hasOpenShift = true;
+            hasPOSAccess = true;
+            accessReason = 'Open shift from API';
           } else {
             console.log('[Dashboard] No open shift from API, checking offline...');
           }
@@ -308,7 +310,8 @@ export default function POSDashboard() {
 
             if (offlineShift) {
               console.log('[Dashboard] Found open shift in local storage:', offlineShift);
-              hasOpenShift = true;
+              hasPOSAccess = true;
+              accessReason = 'Open shift from localStorage';
             } else {
               console.log('[Dashboard] No open shift in local storage');
             }
@@ -318,14 +321,15 @@ export default function POSDashboard() {
         }
 
         // If no open shift, check for open business day
-        if (!hasOpenShift) {
+        if (!hasPOSAccess) {
           try {
             const response = await fetch(`/api/business-days/status?branchId=${user.branchId}`);
             const data = await response.json();
 
             if (response.ok && data.status === 'OPEN' && data.businessDay) {
               console.log('[Dashboard] Business day is open from API, allowing POS access');
-              hasOpenShift = true;
+              hasPOSAccess = true;
+              accessReason = 'Open business day from API';
             } else {
               console.log('[Dashboard] Business day not open from API, checking offline...');
             }
@@ -347,7 +351,8 @@ export default function POSDashboard() {
 
               if (openBusinessDay) {
                 console.log('[Dashboard] Found open business day in local storage:', openBusinessDay);
-                hasOpenShift = true;
+                hasPOSAccess = true;
+                accessReason = 'Open business day from localStorage';
               } else {
                 console.log('[Dashboard] No open business day in local storage');
               }
@@ -357,15 +362,15 @@ export default function POSDashboard() {
           }
         }
 
-        console.log('[Dashboard] Final hasOpenShift value:', hasOpenShift);
-        setHasOpenShift(hasOpenShift);
+        console.log('[Dashboard] Final POS access decision:', { hasPOSAccess, accessReason });
+        setHasOpenShift(hasPOSAccess);
 
         // Auto-redirect to shifts tab if currently on POS and no access
-        if (!hasOpenShift && activeTab === 'pos') {
+        if (!hasPOSAccess && activeTab === 'pos') {
           console.log('[Dashboard] No POS access, redirecting to shifts tab');
           setActiveTab('shifts');
-        } else if (hasOpenShift) {
-          console.log('[Dashboard] POS access granted');
+        } else if (hasPOSAccess) {
+          console.log('[Dashboard] POS access granted because:', accessReason);
         }
       };
 
