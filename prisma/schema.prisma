@@ -330,7 +330,7 @@ model InventoryTransaction {
 
 model CostCategory {
   id          String       @id @default(cuid())
-  name        String       @unique
+  name        String
   description String?
   icon        String?
   sortOrder   Int          @default(0)
