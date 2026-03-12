@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clock, DollarSign, ShoppingCart, Play, Square, AlertCircle, Calendar, User, TrendingUp, Store, CreditCard, Wallet, CircleDollarSign, Activity, Smartphone } from 'lucide-react';
+import { Clock, DollarSign, ShoppingCart, Play, Square, AlertCircle, Calendar, User, TrendingUp, Store, CreditCard, Wallet, CircleDollarSign, Activity, Smartphone, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n-context';
 import { formatCurrency } from '@/lib/utils';
@@ -277,6 +277,10 @@ export default function ShiftManagement() {
   // Daily Expenses for current shift
   const [currentDailyExpenses, setCurrentDailyExpenses] = useState(0);
   const [loadingExpenses, setLoadingExpenses] = useState(false);
+
+  // Voided items and refunds for current shift
+  const [currentVoidedItems, setCurrentVoidedItems] = useState(0);
+  const [currentRefunds, setCurrentRefunds] = useState(0);
 
 
   // Offline-capable data fetching for branches
@@ -1350,6 +1354,8 @@ export default function ShiftManagement() {
         if (data.success && data.report?.totals) {
           const totals = data.report.totals;
           setShiftCashRevenue(totals.cash || 0);
+          setCurrentVoidedItems(totals.voidedItems || 0);
+          setCurrentRefunds(totals.refunds || 0);
           // Also pre-populate the payment breakdown with actual values
           setPaymentBreakdown({
             cash: totals.cash || 0,
@@ -1359,6 +1365,8 @@ export default function ShiftManagement() {
             total: (totals.cash || 0) + (totals.card || 0) + (totals.instapay || 0) + (totals.wallet || 0),
           });
           console.log('[Shift Management] Cash revenue fetched:', totals.cash);
+          console.log('[Shift Management] Voided items:', totals.voidedItems);
+          console.log('[Shift Management] Refunds:', totals.refunds);
           console.log('[Shift Management] Payment breakdown pre-populated:', {
             cash: totals.cash,
             card: totals.card,
@@ -1378,8 +1386,8 @@ export default function ShiftManagement() {
     // Always use shiftCashRevenue (fetched from closing-report API)
     // This gives us the accurate cash breakdown from the shift's orders
     const cashRevenueDuringShift = shiftCashRevenue;
-    // Expected Cash = Opening + Cash Revenue - Daily Expenses
-    const expectedCash = selectedShift.openingCash + cashRevenueDuringShift - currentDailyExpenses;
+    // Expected Cash = Opening + Cash Revenue - Daily Expenses - Voided Items - Refunds
+    const expectedCash = selectedShift.openingCash + cashRevenueDuringShift - currentDailyExpenses - currentVoidedItems - currentRefunds;
     const actualCash = parseFloat(closingCash) || 0;
     const discrepancy = actualCash - expectedCash;
 
@@ -2283,6 +2291,32 @@ export default function ShiftManagement() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Voided Items & Refunds */}
+                  <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-red-600 dark:text-red-400">
+                        <span className="inline-flex items-center gap-1">
+                          <X className="h-4 w-4" />
+                          Voided Items
+                        </span>
+                      </span>
+                      <span className="font-bold text-red-700 dark:text-red-300">
+                        -{formatCurrency(currentVoidedItems, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-red-600 dark:text-red-400">
+                        <span className="inline-flex items-center gap-1">
+                          <RefreshCw className="h-4 w-4" />
+                          Refunds
+                        </span>
+                      </span>
+                      <span className="font-bold text-red-700 dark:text-red-300">
+                        -{formatCurrency(currentRefunds, currency)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Expected Cash */}
@@ -2291,13 +2325,13 @@ export default function ShiftManagement() {
                     <div>
                       <div className="text-sm text-slate-600 dark:text-slate-400">Expected Cash</div>
                       <div className="text-xs text-slate-500">
-                        Opening + Cash Revenue - Daily Expenses
+                        Opening + Cash Revenue - Expenses - Voids - Refunds
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-xl md:text-2xl font-bold text-amber-700 dark:text-amber-300">
                         {formatCurrency(
-                          selectedShift.openingCash + shiftCashRevenue - currentDailyExpenses,
+                          selectedShift.openingCash + shiftCashRevenue - currentDailyExpenses - currentVoidedItems - currentRefunds,
                           currency
                         )}
                       </div>

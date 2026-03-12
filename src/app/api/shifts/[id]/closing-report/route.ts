@@ -10,7 +10,6 @@ export async function GET(
   try {
     const { id: shiftId } = await params;
 
-
     // Get shift with all related data
     const shift = await db.shift.findUnique({
       where: { id: shiftId },
@@ -207,13 +206,15 @@ export async function GET(
     });
     const totalDailyExpenses = dailyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-    // Get voided items for this shift through Order -> OrderItem -> VoidedItem
-    const voidedItems = await db.voidedItem.findMany({
+    // Get order IDs for this shift (for filtering related data)
+    const orderIds = shift.orders.map(o => o.id);
+    const orderItemIds = shift.orders.flatMap(o => o.items.map(i => i.id));
+
+    // Get voided items for this shift
+    const voidedItems = orderItemIds.length > 0 ? await db.voidedItem.findMany({
       where: {
-        orderItem: {
-          order: {
-            shiftId: shiftId
-          }
+        orderItemId: {
+          in: orderItemIds
         }
       },
       orderBy: { voidedAt: 'desc' },
@@ -228,52 +229,37 @@ export async function GET(
             voidReason: true,
             voidedAt: true,
             voidedBy: true,
-            order: {
-              select: {
-                orderNumber: true,
-                orderTimestamp: true,
-              }
-            }
+            orderId: true
           }
         }
       }
-    });
+    }) : [];
 
     const totalVoidedAmount = voidedItems.reduce((sum, item) => sum + item.voidedSubtotal, 0);
 
-    // Get loyalty transactions for this shift through Order
-    const loyaltyTransactions = await db.loyaltyTransaction.findMany({
+    // Get loyalty transactions for this shift
+    const loyaltyTransactions = orderIds.length > 0 ? await db.loyaltyTransaction.findMany({
       where: {
-        order: {
-          shiftId,
-        },
-      },
-      include: {
-        order: {
-          select: {
-            id: true,
-            orderNumber: true,
-            subtotal: true,
-            createdAt: true,
-          },
+        orderId: {
+          in: orderIds
         },
       },
       orderBy: { createdAt: 'desc' },
-    });
+    }) : [];
 
     const totalLoyaltyDiscounts = loyaltyTransactions
       .filter(tx => tx.type === 'REDEEMED')
       .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
-    // Get promo code usage for this shift through Order
-    const promoUsages = await db.promotionUsageLog.findMany({
+    // Get promo code usage for this shift
+    const promoUsages = orderIds.length > 0 ? await db.promotionUsageLog.findMany({
       where: {
-        order: {
-          shiftId,
+        orderId: {
+          in: orderIds
         },
       },
       orderBy: { usedAt: 'desc' },
-    });
+    }) : [];
 
     const totalPromoDiscounts = promoUsages.reduce((sum, usage) => sum + usage.discountAmount, 0);
 
@@ -283,6 +269,9 @@ export async function GET(
 
     // Generate shift number from orders count or closing orders
     const shiftNumber = Math.max(shift.openingOrders, shift.closingOrders || 0, shift.orders.length);
+
+    // Create order map for looking up order details
+    const orderMap = new Map(shift.orders.map(o => [o.id, o]));
 
     // Generate report
     const report = {
@@ -329,36 +318,45 @@ export async function GET(
         overShort: overShort
       },
       categoryBreakdown: categories,
-      voidedItems: voidedItems.map(vi => ({
-        id: vi.id,
-        itemName: vi.orderItem.itemName,
-        voidedQuantity: vi.voidedQuantity,
-        unitPrice: vi.unitPrice,
-        voidedSubtotal: vi.voidedSubtotal,
-        reason: vi.reason,
-        voidedBy: vi.voidedBy,
-        voidedAt: vi.voidedAt,
-        orderNumber: vi.orderItem.order?.orderNumber,
-        orderTimestamp: vi.orderItem.order?.orderTimestamp,
-      })),
-      loyaltyTransactions: loyaltyTransactions.map(lt => ({
-        id: lt.id,
-        customerId: lt.customerId,
-        points: lt.points,
-        type: lt.type,
-        amount: lt.amount,
-        notes: lt.notes,
-        createdAt: lt.createdAt,
-        orderNumber: lt.order?.orderNumber,
-      })),
-      promoUsages: promoUsages.map(pu => ({
-        id: pu.id,
-        code: pu.code,
-        discountAmount: pu.discountAmount,
-        orderSubtotal: pu.orderSubtotal,
-        usedAt: pu.usedAt,
-        orderNumber: pu.orderId ? shift.orders.find(o => o.id === pu.orderId)?.orderNumber : null,
-      }))
+      voidedItems: voidedItems.map(vi => {
+        const order = orderMap.get(vi.orderItem.orderId);
+        return {
+          id: vi.id,
+          itemName: vi.orderItem.itemName,
+          voidedQuantity: vi.voidedQuantity,
+          unitPrice: vi.unitPrice,
+          voidedSubtotal: vi.voidedSubtotal,
+          reason: vi.reason,
+          voidedBy: vi.voidedBy,
+          voidedAt: vi.voidedAt,
+          orderNumber: order?.orderNumber,
+          orderTimestamp: order?.orderTimestamp,
+        };
+      }),
+      loyaltyTransactions: loyaltyTransactions.map(lt => {
+        const order = orderMap.get(lt.orderId || '');
+        return {
+          id: lt.id,
+          customerId: lt.customerId,
+          points: lt.points,
+          type: lt.type,
+          amount: lt.amount,
+          notes: lt.notes,
+          createdAt: lt.createdAt,
+          orderNumber: order?.orderNumber,
+        };
+      }),
+      promoUsages: promoUsages.map(pu => {
+        const order = orderMap.get(pu.orderId || '');
+        return {
+          id: pu.id,
+          code: pu.code,
+          discountAmount: pu.discountAmount,
+          orderSubtotal: pu.orderSubtotal,
+          usedAt: pu.usedAt,
+          orderNumber: order?.orderNumber,
+        };
+      })
     };
 
     return NextResponse.json({
