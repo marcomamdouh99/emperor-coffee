@@ -579,16 +579,16 @@ export default function ReportsDashboard() {
   return (
     <div className="space-y-6">
       {/* Header Controls */}
-      <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+      <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-slate-200">
         <CardContent className="pt-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-md">
                 <BarChart3 className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Executive Dashboard</h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400">Real-time performance insights</p>
+                <h2 className="text-2xl font-bold text-slate-900">Executive Dashboard</h2>
+                <p className="text-sm text-slate-600">Real-time performance insights</p>
               </div>
             </div>
 
