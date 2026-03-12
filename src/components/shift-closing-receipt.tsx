@@ -678,14 +678,12 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[85vh] p-0 flex flex-col">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+      <DialogContent className="max-w-4xl p-0 flex flex-col" style={{ height: '85vh' }}>
+        <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <DialogTitle>Shift Closing Receipt</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ScrollArea className="h-full px-6">
-            <div className="py-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6" style={{ minHeight: 0 }}>
             {loading && (
               <div className="flex items-center justify-center py-8 px-6">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -703,7 +701,7 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
             )}
 
             {!loading && !error && data && (
-              <>
+              <div className="space-y-6">
                 {/* Paper 1: Payment Summary */}
                 <Card>
                   <CardHeader className="pb-3">
@@ -864,13 +862,12 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
                     </div>
                   </CardContent>
                 </Card>
-              </>
+              </div>
             )}
-          </div>
-        </ScrollArea>
+
         </div>
 
-        <DialogFooter className="px-6 pb-6 pt-4 border-t shrink-0">
+        <DialogFooter className="px-6 pb-6 pt-4 border-t flex-shrink-0">
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
