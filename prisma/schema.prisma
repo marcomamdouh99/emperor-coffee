@@ -419,6 +419,7 @@ model Order {
   deliveryFee         Float                  @default(0)
   isRefunded          Boolean                @default(false)
   refundReason        String?
+  refundedAt          DateTime?
   transactionHash     String                 @unique
   synced              Boolean                @default(false)
   shiftId             String?
@@ -458,6 +459,8 @@ model Order {
   @@index([courierId])
   @@index([promoCodeId])
   @@index([tableId])
+  @@index([isRefunded])
+  @@index([refundedAt])
 }
 
 model DeliveryArea {

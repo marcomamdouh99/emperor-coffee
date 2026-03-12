@@ -51,6 +51,7 @@ interface ApiResponse {
       discounts: number;
       deliveryFees: number;
       refunds: number;
+      voidedItems: number;
       card: number;
       instapay: number;
       wallet: number;
@@ -185,6 +186,7 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     const totalDiscounts = fullReportData.totals.discounts || 0;
     const totalDeliveryFees = fullReportData.totals.deliveryFees || 0;
     const totalRefunds = fullReportData.totals.refunds || 0;
+    const totalVoidedItems = fullReportData.totals.voidedItems || 0;
     const totalCard = fullReportData.totals.card || 0;
     const totalInstapay = fullReportData.totals.instapay || 0;
     const totalWallet = fullReportData.totals.wallet || 0;
@@ -445,7 +447,11 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     </div>
     <div class="total-row">
       <span>Total Refunds:</span>
-      <span>${formatCurrency(totalRefunds)}</span>
+      <span>-${formatCurrency(totalRefunds)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Voided Items:</span>
+      <span>-${formatCurrency(totalVoidedItems)}</span>
     </div>
     <div class="total-row">
       <span>Total Card:</span>

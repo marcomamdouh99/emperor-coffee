@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
         data: {
           isRefunded: true,
           refundReason: reason,
+          refundedAt: new Date(),
         },
       });
 

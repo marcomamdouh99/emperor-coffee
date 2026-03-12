@@ -206,38 +206,61 @@ export async function GET(
     });
     const totalDailyExpenses = dailyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-    // Get order IDs for this shift (for filtering related data)
-    const orderIds = shift.orders.map(o => o.id);
-    const orderItemIds = shift.orders.flatMap(o => o.items.map(i => i.id));
-
-    // Get voided items for this shift
-    const voidedItems = orderItemIds.length > 0 ? await db.voidedItem.findMany({
+    // Get voided items that were voided during this shift's time range
+    // This includes voids from past orders that were processed during this shift
+    const shiftEndTime = shift.endTime || new Date();
+    const voidedItems = await db.voidedItem.findMany({
       where: {
-        orderItemId: {
-          in: orderItemIds
+        voidedAt: {
+          gte: shift.startTime,
+          lte: shiftEndTime
         }
       },
       orderBy: { voidedAt: 'desc' },
       include: {
         orderItem: {
-          select: {
-            id: true,
-            itemName: true,
-            quantity: true,
-            unitPrice: true,
-            isVoided: true,
-            voidReason: true,
-            voidedAt: true,
-            voidedBy: true,
-            orderId: true
+          include: {
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                orderTimestamp: true
+              }
+            }
           }
         }
       }
-    }) : [];
+    });
 
     const totalVoidedAmount = voidedItems.reduce((sum, item) => sum + item.voidedSubtotal, 0);
 
-    // Get loyalty transactions for this shift
+    // Get orders that were refunded during this shift's time range
+    // This includes refunds from past orders that were processed during this shift
+    const refundedOrders = await db.order.findMany({
+      where: {
+        isRefunded: true,
+        refundedAt: {
+          gte: shift.startTime,
+          lte: shiftEndTime
+        }
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        orderTimestamp: true,
+        totalAmount: true,
+        refundReason: true,
+        refundedAt: true,
+        paymentMethod: true
+      }
+    });
+
+    const totalRefunds = refundedOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+
+    // Get order IDs for this shift (for loyalty and promo filtering)
+    const orderIds = shift.orders.map(o => o.id);
+
+    // Get loyalty transactions for orders made during this shift
     const loyaltyTransactions = orderIds.length > 0 ? await db.loyaltyTransaction.findMany({
       where: {
         orderId: {
@@ -251,7 +274,7 @@ export async function GET(
       .filter(tx => tx.type === 'REDEEMED')
       .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
-    // Get promo code usage for this shift
+    // Get promo code usage for orders made during this shift
     const promoUsages = orderIds.length > 0 ? await db.promotionUsageLog.findMany({
       where: {
         orderId: {
@@ -272,6 +295,9 @@ export async function GET(
 
     // Create order map for looking up order details
     const orderMap = new Map(shift.orders.map(o => [o.id, o]));
+
+    // Create refunded order map for looking up details
+    const refundedOrderMap = new Map(refundedOrders.map(o => [o.id, o]));
 
     // Generate report
     const report = {
@@ -319,7 +345,6 @@ export async function GET(
       },
       categoryBreakdown: categories,
       voidedItems: voidedItems.map(vi => {
-        const order = orderMap.get(vi.orderItem.orderId);
         return {
           id: vi.id,
           itemName: vi.orderItem.itemName,
@@ -329,10 +354,19 @@ export async function GET(
           reason: vi.reason,
           voidedBy: vi.voidedBy,
           voidedAt: vi.voidedAt,
-          orderNumber: order?.orderNumber,
-          orderTimestamp: order?.orderTimestamp,
+          orderNumber: vi.orderItem.order.orderNumber,
+          orderTimestamp: vi.orderItem.order.orderTimestamp,
         };
       }),
+      refundedOrders: refundedOrders.map(ro => ({
+        id: ro.id,
+        orderNumber: ro.orderNumber,
+        orderTimestamp: ro.orderTimestamp,
+        refundAmount: ro.totalAmount,
+        refundReason: ro.refundReason,
+        refundedAt: ro.refundedAt,
+        paymentMethod: ro.paymentMethod
+      })),
       loyaltyTransactions: loyaltyTransactions.map(lt => {
         const order = orderMap.get(lt.orderId || '');
         return {

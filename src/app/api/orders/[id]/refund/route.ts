@@ -92,6 +92,7 @@ export async function POST(
         data: {
           isRefunded: true,
           refundReason: reason || 'No reason provided',
+          refundedAt: new Date(),
         },
       });
 
