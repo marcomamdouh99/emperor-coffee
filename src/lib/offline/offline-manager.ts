@@ -130,6 +130,7 @@ class OfflineManager {
     }
 
     this.lastConnectivityCheck = now;
+    console.log('[OfflineManager] Checking actual network connectivity...');
 
     try {
       const controller = new AbortController();
@@ -145,13 +146,17 @@ class OfflineManager {
       
       // Only update if status changed
       if (!this.isOnline) {
+        console.log('[OfflineManager] Network check successful - setting online');
         this.isOnline = true;
         await storageService.updateSyncState({ isOnline: true });
+      } else {
+        console.log('[OfflineManager] Network check successful - already online');
       }
     } catch (err) {
-      console.log('[OfflineManager] Network check failed, setting offline');
+      console.log('[OfflineManager] Network check failed, setting offline:', err);
       // Only update if status changed
       if (this.isOnline) {
+        console.log('[OfflineManager] Setting offline status');
         this.isOnline = false;
         await storageService.updateSyncState({ isOnline: false });
       }
@@ -169,11 +174,11 @@ class OfflineManager {
 
     // Debounce the online check
     this.connectivityCheckTimeout = setTimeout(async () => {
-      console.log('[OfflineManager] Browser says online, verifying...');
+      console.log('[OfflineManager] Browser says online, verifying connectivity...');
       await this.checkActualConnectivity();
 
       if (this.isOnline) {
-        console.log('[OfflineManager] Connection restored');
+        console.log('[OfflineManager] Connection restored, triggering sync...');
         await storageService.updateSyncState({ isOnline: true });
         this.notifyListeners(SyncStatus.IDLE, { message: 'Back online' });
 
@@ -181,7 +186,10 @@ class OfflineManager {
         this.startAutoSync();
 
         // Trigger immediate sync (with small delay to ensure everything is ready)
-        setTimeout(() => this.syncAll(), 1000);
+        setTimeout(() => {
+          console.log('[OfflineManager] Triggering immediate sync after connection restored...');
+          this.syncAll();
+        }, 1000);
       } else {
         console.log('[OfflineManager] Still offline despite browser event');
       }
@@ -340,19 +348,25 @@ class OfflineManager {
     // Safety timeout to clear lock if sync gets stuck (60 seconds)
     const timeoutId = setTimeout(() => {
       if (this.isSyncing) {
-        console.warn('[OfflineManager] Sync timeout, clearing lock');
+        console.warn('[OfflineManager] Sync timeout after 60 seconds, clearing lock');
         this.isSyncing = false;
       }
     }, 60000);
 
     try {
       console.log('[OfflineManager] Starting sync...');
+      console.log('[OfflineManager] Branch ID:', this.branchId);
+      console.log('[OfflineManager] Online status:', this.isOnline);
 
       // First, try to pull latest data from server (non-blocking on failure)
+      console.log('[OfflineManager] Step 1: Pulling data...');
       await this.pullData();
+      console.log('[OfflineManager] Step 1: Pull completed');
 
       // Then, push pending operations
+      console.log('[OfflineManager] Step 2: Pushing operations...');
       const result = await this.pushOperations();
+      console.log('[OfflineManager] Step 2: Push completed:', result);
 
       // Update sync state
       await storageService.updateSyncState({
@@ -376,7 +390,7 @@ class OfflineManager {
         this.notifyListeners(SyncStatus.ERROR, { message: 'Sync completed with errors', errors: result.errors });
       }
 
-      console.log('[OfflineManager] Sync completed:', result);
+      console.log('[OfflineManager] Sync completed successfully:', result);
       return result;
     } catch (error) {
       console.error('[OfflineManager] Sync error:', error);
@@ -523,13 +537,23 @@ class OfflineManager {
     };
 
     try {
+      console.log('[OfflineManager] pushOperations: Getting pending operations...');
       // Get pending operations in batches
       let operations = await storageService.getPendingOperations();
+      console.log('[OfflineManager] pushOperations: Found', operations.length, 'pending operations');
+      console.log('[OfflineManager] pushOperations: Operations:', operations.map(op => ({ id: op.id, type: op.type })));
 
+      let batchNumber = 0;
       while (operations.length > 0) {
+        batchNumber++;
+        console.log(`[OfflineManager] Processing batch ${batchNumber} of ${operations.length} operations...`);
+        
         // Process batch
         const batch = operations.slice(0, CONFIG.BATCH_SIZE);
+        console.log(`[OfflineManager] Batch ${batchNumber} size:`, batch.length, 'operations');
+        
         const batchResult = await this.pushBatch(batch);
+        console.log(`[OfflineManager] Batch ${batchNumber} result:`, batchResult);
 
         result.operationsProcessed += batchResult.processed;
         result.operationsFailed += batchResult.failed;
@@ -542,6 +566,7 @@ class OfflineManager {
         // Remove successful operations
         for (const op of batch) {
           if (!batchResult.failedIds.includes(op.id)) {
+            console.log(`[OfflineManager] Removing successful operation: ${op.id} (${op.type})`);
             await storageService.removeOperation(op.id);
           } else {
             // Increment retry count and check if max retries exceeded
@@ -560,6 +585,7 @@ class OfflineManager {
 
         // Get next batch
         operations = await storageService.getPendingOperations();
+        console.log(`[OfflineManager] After batch ${batchNumber}, remaining operations:`, operations.length);
 
         // Small delay between batches
         if (operations.length > 0) {
@@ -567,6 +593,7 @@ class OfflineManager {
         }
       }
 
+      console.log('[OfflineManager] pushOperations completed:', result);
       return result;
     } catch (error) {
       console.error('[OfflineManager] Push error:', error);
@@ -595,6 +622,12 @@ class OfflineManager {
     };
 
     try {
+      console.log('[OfflineManager] pushBatch: Starting batch push with', operations.length, 'operations');
+      
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 55000); // 55 second timeout (less than 60s sync timeout)
+
       const response = await fetch('/api/sync/batch-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -606,13 +639,21 @@ class OfflineManager {
             timestamp: op.timestamp,
           })),
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
+      console.log('[OfflineManager] pushBatch: Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`Batch push failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('[OfflineManager] pushBatch: API error:', response.status, errorText);
+        throw new Error(`Batch push failed: ${response.statusText} - ${errorText}`);
       }
 
       const batchResult = await response.json();
+      console.log('[OfflineManager] pushBatch: Batch result:', batchResult);
 
       result.processed = batchResult.processed || operations.length;
       result.failed = batchResult.failed || 0;
@@ -623,16 +664,24 @@ class OfflineManager {
       // Store id mappings for future lookups (e.g., viewing offline-closed shifts online)
       if (Object.keys(result.idMappings).length > 0) {
         await storageService.saveIdMappings(result.idMappings);
-        console.log('[OfflineManager] Saved', Object.keys(result.idMappings).length, 'ID mappings:', result.idMappings);
+        console.log('[OfflineManager] Saved', Object.keys(result.idMappings).length, 'ID mappings');
       }
 
+      console.log('[OfflineManager] pushBatch: Completed successfully');
       return result;
-    } catch (error) {
-      console.error('[OfflineManager] Batch push error:', error);
+    } catch (error: any) {
+      console.error('[OfflineManager] pushBatch error:', error);
+      
       // Mark all as failed
       result.failed = operations.length;
       result.failedIds = operations.map(op => op.id);
-      result.errors.push(error instanceof Error ? error.message : 'Unknown error');
+      
+      if (error.name === 'AbortError') {
+        result.errors.push(`Request timeout after 55 seconds`);
+      } else {
+        result.errors.push(error instanceof Error ? error.message : 'Unknown error');
+      }
+      
       return result;
     }
   }
