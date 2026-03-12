@@ -96,8 +96,9 @@ export async function GET(
 
     shift.orders.forEach(order => {
       if (order.isRefunded) {
-        totalRefunds += order.totalAmount;
-        return; // Skip refunded orders from sales calculations
+        // Skip refunded orders from sales calculations
+        // Refunds are now calculated based on when they were performed (not order creation)
+        return;
       }
 
       const type = order.orderType || 'dine-in';
@@ -255,7 +256,8 @@ export async function GET(
       }
     });
 
-    const totalRefunds = refundedOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    // Calculate total refunds from orders that were refunded during this shift
+    totalRefunds = refundedOrders.reduce((sum, order) => sum + order.totalAmount, 0);
 
     // Get order IDs for this shift (for loyalty and promo filtering)
     const orderIds = shift.orders.map(o => o.id);
