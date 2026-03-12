@@ -207,8 +207,78 @@ export async function GET(
     });
     const totalDailyExpenses = dailyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-    // Calculate cash balance (subtract daily expenses)
-    const expectedCash = shift.openingCash + cashTotal - totalDailyExpenses;
+    // Get voided items for this shift through Order -> OrderItem -> VoidedItem
+    const voidedItems = await db.voidedItem.findMany({
+      where: {
+        orderItem: {
+          order: {
+            shiftId: shiftId
+          }
+        }
+      },
+      orderBy: { voidedAt: 'desc' },
+      include: {
+        orderItem: {
+          select: {
+            id: true,
+            itemName: true,
+            quantity: true,
+            unitPrice: true,
+            isVoided: true,
+            voidReason: true,
+            voidedAt: true,
+            voidedBy: true,
+            order: {
+              select: {
+                orderNumber: true,
+                orderTimestamp: true,
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const totalVoidedAmount = voidedItems.reduce((sum, item) => sum + item.voidedSubtotal, 0);
+
+    // Get loyalty transactions for this shift through Order
+    const loyaltyTransactions = await db.loyaltyTransaction.findMany({
+      where: {
+        order: {
+          shiftId,
+        },
+      },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            subtotal: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const totalLoyaltyDiscounts = loyaltyTransactions
+      .filter(tx => tx.type === 'REDEEMED')
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+    // Get promo code usage for this shift through Order
+    const promoUsages = await db.promotionUsageLog.findMany({
+      where: {
+        order: {
+          shiftId,
+        },
+      },
+      orderBy: { usedAt: 'desc' },
+    });
+
+    const totalPromoDiscounts = promoUsages.reduce((sum, usage) => sum + usage.discountAmount, 0);
+
+    // Calculate cash balance (subtract daily expenses, voided items, and refunds)
+    const expectedCash = shift.openingCash + cashTotal - totalDailyExpenses - totalVoidedAmount - totalRefunds;
     const overShort = shift.closingCash ? shift.closingCash - expectedCash : null;
 
     // Generate shift number from orders count or closing orders
@@ -245,6 +315,9 @@ export async function GET(
         discounts: totalDiscounts,
         deliveryFees: totalDeliveryFees,
         refunds: totalRefunds,
+        voidedItems: totalVoidedAmount,
+        loyaltyDiscounts: totalLoyaltyDiscounts,
+        promoDiscounts: totalPromoDiscounts,
         card: cardTotal,
         instapay: instapayTotal,
         wallet: walletTotal,
@@ -255,87 +328,38 @@ export async function GET(
         closingCashBalance: shift.closingCash || 0,
         overShort: overShort
       },
-      categoryBreakdown: categories
+      categoryBreakdown: categories,
+      voidedItems: voidedItems.map(vi => ({
+        id: vi.id,
+        itemName: vi.orderItem.itemName,
+        voidedQuantity: vi.voidedQuantity,
+        unitPrice: vi.unitPrice,
+        voidedSubtotal: vi.voidedSubtotal,
+        reason: vi.reason,
+        voidedBy: vi.voidedBy,
+        voidedAt: vi.voidedAt,
+        orderNumber: vi.orderItem.order?.orderNumber,
+        orderTimestamp: vi.orderItem.order?.orderTimestamp,
+      })),
+      loyaltyTransactions: loyaltyTransactions.map(lt => ({
+        id: lt.id,
+        customerId: lt.customerId,
+        points: lt.points,
+        type: lt.type,
+        amount: lt.amount,
+        notes: lt.notes,
+        createdAt: lt.createdAt,
+        orderNumber: lt.order?.orderNumber,
+      })),
+      promoUsages: promoUsages.map(pu => ({
+        id: pu.id,
+        code: pu.code,
+        discountAmount: pu.discountAmount,
+        orderSubtotal: pu.orderSubtotal,
+        usedAt: pu.usedAt,
+        orderNumber: pu.orderId ? shift.orders.find(o => o.id === pu.orderId)?.orderNumber : null,
+      }))
     };
-
-    // Get voided items for this shift
-    const voidedItems = await db.voidedItem.findMany({
-      where: {
-        shiftId: shiftId,
-      },
-      orderBy: { voidedAt: 'desc' },
-      include: {
-        order: {
-          select: {
-            id: true,
-            orderNumber: Int,
-            orderTimestamp: DateTime,
-          },
-        },
-        orderItem: {
-          select: {
-            itemName: String,
-            quantity: Int,
-            unitPrice: Float,
-            voidedQuantity: Int,
-            voidedSubtotal: Float,
-            voidedReason: String,
-            voidedAt: DateTime,
-            voidedBy: String,
-          },
-        },
-      },
-    });
-
-    const totalVoidedAmount = voidedItems.reduce((sum, item) => sum + item.voidedSubtotal, 0);
-
-    // Get loyalty transactions for this shift
-    const loyaltyTransactions = await db.loyaltyTransaction.findMany({
-      where: {
-        shiftId,
-      },
-      include: {
-        order: {
-          select: {
-            id: true,
-            orderNumber: Int,
-            subtotal: Float,
-            createdAt: DateTime,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const totalLoyaltyDiscounts = loyaltyTransactions
-      .filter(tx => tx.type === 'REDEEMED')
-      .reduce((sum, tx) => sum + tx.amount, 0);
-
-    // Get promo code usage for this shift
-    const promoUsages = await db.promotionUsageLog.findMany({
-      where: {
-        order: {
-          shiftId,
-        },
-      },
-      include: {
-        promo: {
-          select: {
-            code: String,
-            discountAmount: Float,
-            order: {
-              select: {
-                orderNumber: Int,
-                subtotal: Float,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const totalPromoDiscounts = promoUsages.reduce((sum, usage) => sum + usage.discountAmount, 0);
 
     return NextResponse.json({
       success: true,
