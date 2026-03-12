@@ -270,8 +270,36 @@ export async function GET(
       id: shift.id,
       branchId: shift.branchId,
       startTime: shift.startTime,
-      endTime: shiftEndTime
+      endTime: shiftEndTime,
+      ordersCount: shift.orders.length
     });
+
+    console.log('[Shift Closing Report] Orders:', shift.orders.map(o => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      itemsCount: o.items.length,
+      isRefunded: o.isRefunded
+    })));
+
+    console.log('[Shift Closing Report] Order Items:', shift.orders.flatMap(o => o.items).map(item => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      itemName: item.itemName,
+      menuItem: item.menuItem ? {
+        id: item.menuItem.id,
+        name: item.menuItem.name,
+        category: item.menuItem.category
+      } : null,
+      quantity: item.quantity,
+      subtotal: item.subtotal
+    })));
+
+    console.log('[Shift Closing Report] Category Breakdown before filtering:', categories.map(c => ({
+      category: c.categoryName,
+      itemsCount: c.items.length,
+      totalSales: c.totalSales
+    })));
+
     console.log('[Shift Closing Report] Voided Items:', {
       count: voidedItems.length,
       totalAmount: totalVoidedAmount,

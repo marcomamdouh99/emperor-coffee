@@ -190,6 +190,8 @@ export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: Shift
       }
 
       const report = result.report;
+      console.log('[Shift Closing Receipt] API Response report:', report);
+      console.log('[Shift Closing Receipt] Category breakdown:', report.categoryBreakdown);
 
       // Save full report data for printing
       setFullReportData(report);
