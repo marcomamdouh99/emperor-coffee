@@ -801,7 +801,7 @@ export default function POSInterface() {
 
   // Auto-open numpad when variant dialog opens with custom input variant
   useEffect(() => {
-    if (variantDialogOpen && selectedVariant?.variantType.isCustomInput) {
+    if (variantDialogOpen && selectedVariant?.variantType?.isCustomInput) {
       // Small delay to ensure the dialog is fully rendered
       const timer = setTimeout(() => {
         openNumberPad(
@@ -902,7 +902,7 @@ export default function POSInterface() {
       setCustomVariantValue('');
       
       // Auto-select custom input variant if present
-      const customInputVariant = item.variants.find(v => v.variantType.isCustomInput);
+      const customInputVariant = item.variants.find(v => v.variantType?.isCustomInput);
       if (customInputVariant) {
         setSelectedVariant(customInputVariant);
       } else {
@@ -967,7 +967,7 @@ export default function POSInterface() {
 
   const handleVariantConfirm = () => {
     if (selectedItemForVariant) {
-      if (selectedVariant?.variantType.isCustomInput) {
+      if (selectedVariant?.variantType?.isCustomInput) {
         // For custom input variants, calculate price dynamically
         const multiplier = parseFloat(customVariantValue);
         if (isNaN(multiplier) || multiplier <= 0) {
@@ -3825,7 +3825,7 @@ export default function POSInterface() {
           </DialogHeader>
           <div className="space-y-3 py-4">
             {/* Check if any variant has custom input enabled */}
-            {selectedItemForVariant?.variants?.some(v => v.variantType.isCustomInput) ? (
+            {selectedItemForVariant?.variants?.some(v => v.variantType?.isCustomInput) ? (
               // Show custom input for custom input variants
               <div className="space-y-4">
                 <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
@@ -3988,7 +3988,7 @@ export default function POSInterface() {
               onClick={handleVariantConfirm}
               disabled={
                 !selectedVariant || 
-                (selectedVariant?.variantType.isCustomInput && !customVariantValue)
+                (selectedVariant?.variantType?.isCustomInput && !customVariantValue)
               }
               className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl h-11 px-6 font-semibold shadow-lg shadow-emerald-500/30"
             >

@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
           variants: {
             where: { isActive: true },
             include: {
+              variantType: true,
               variantOption: true
             }
           }
