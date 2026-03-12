@@ -24,8 +24,14 @@ export async function GET(request: NextRequest) {
       where.userId = userId;
     }
 
+    // For branch filtering, we need to handle two cases:
+    // 1. Logs where branchId is explicitly set to the branch
+    // 2. Logs created by users belonging to that branch (even if branchId is null)
     if (branchId && branchId !== 'all') {
-      where.branchId = branchId;
+      where.OR = [
+        { branchId: branchId },
+        { user: { branchId: branchId } }
+      ];
     }
 
     if (actionType && actionType !== 'all') {

@@ -305,8 +305,8 @@ export async function logWasteLogged(userId: string, wasteLogId: string, ingredi
 export async function logItemVoided(userId: string, orderItemId: string, itemName: string, quantity: number, reason: string, branchId?: string) {
   return createAuditLog({
     userId,
-    actionType: item_voided,
-    entityType: OrderItem,
+    actionType: 'item_voided',
+    entityType: 'OrderItem',
     entityId: orderItemId,
     newValue: `Voided ${quantity}x ${itemName} - ${reason}`,
     branchId,

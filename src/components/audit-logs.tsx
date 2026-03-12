@@ -57,29 +57,53 @@ export default function AuditLogs() {
   const [offset, setOffset] = useState(0);
   const limit = 50;
 
-  // Action types
-  const actionTypes = [
-    'login',
-    'logout',
-    'order_created',
-    'order_refunded',
-    'item_voided',
-    'shift_opened',
-    'shift_closed',
-    'day_opened',
-    'day_closed',
-    'inventory_adjusted',
-    'menu_updated',
-    'user_created',
-    'user_updated',
-    'user_deleted',
-    'branch_created',
-    'branch_updated',
-    'customer_created',
-    'customer_updated',
-    'promo_code_applied',
-    'waste_logged',
-  ];
+  // Action types based on user role
+  const getActionTypes = () => {
+    if (currentUser?.role === 'ADMIN') {
+      return [
+        'login',
+        'logout',
+        'order_created',
+        'order_refunded',
+        'item_voided',
+        'shift_opened',
+        'shift_closed',
+        'day_opened',
+        'day_closed',
+        'inventory_adjusted',
+        'menu_updated',
+        'user_created',
+        'user_updated',
+        'user_deleted',
+        'branch_created',
+        'branch_updated',
+        'customer_created',
+        'customer_updated',
+        'promo_code_applied',
+        'waste_logged',
+      ];
+    } else {
+      // Branch Manager and Cashier - only see relevant actions
+      return [
+        'login',
+        'logout',
+        'order_created',
+        'order_refunded',
+        'item_voided',
+        'shift_opened',
+        'shift_closed',
+        'day_opened',
+        'day_closed',
+        'inventory_adjusted',
+        'customer_created',
+        'customer_updated',
+        'promo_code_applied',
+        'waste_logged',
+      ];
+    }
+  };
+
+  const actionTypes = getActionTypes();
 
   // Entity types
   const entityTypes = [
