@@ -409,6 +409,8 @@ model Order {
   orderTimestamp      DateTime               @default(now())
   cashierId           String
   subtotal            Float
+  taxAmount           Float                  @default(0)
+  taxEnabled          Boolean               @default(false)
   totalAmount         Float
   paymentMethod       String
   orderType           String                 @default("dine-in")
