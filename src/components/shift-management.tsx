@@ -834,6 +834,8 @@ export default function ShiftManagement() {
             isOpen: true,
             businessDayId: data.businessDay.id,
           });
+          // Notify parent component to refresh business day status (for POS tab visibility)
+          window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
           return;
         } else {
           // API failed - check if it's a network error
@@ -869,6 +871,8 @@ export default function ShiftManagement() {
         isOpen: true,
         businessDayId: offlineBusinessDay.id,
       });
+      // Notify parent component to refresh business day status (for POS tab visibility)
+      window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
     } catch (error) {
       console.error('[Shift Management] Failed to open business day:', error);
       
@@ -891,7 +895,8 @@ export default function ShiftManagement() {
             isOpen: true,
             businessDayId: offlineBusinessDay.id,
           });
-          return;
+          // Notify parent component to refresh business day status (for POS tab visibility)
+          window.dispatchEvent(new CustomEvent('refreshBusinessDayStatus'));
         } catch (offlineError) {
           console.error('[Business Day] Offline business day creation also failed:', offlineError);
           alert(`Failed to open business day offline: ${offlineError instanceof Error ? offlineError.message : String(offlineError)}`);
