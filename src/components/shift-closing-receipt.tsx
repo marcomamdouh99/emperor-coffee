@@ -13,6 +13,7 @@ import { type ShiftClosingReportData } from '@/lib/escpos-encoder';
 
 interface ShiftClosingReceiptProps {
   shiftId: string;
+  shiftData?: any; // Optional shift data for offline mode
   open: boolean;
   onClose: () => void;
 }
@@ -98,18 +99,26 @@ interface ApiResponse {
   details?: string;
 }
 
-export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingReceiptProps) {
+export function ShiftClosingReceipt({ shiftId, shiftData, open, onClose }: ShiftClosingReceiptProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ShiftClosingReportData | null>(null);
   const [fullReportData, setFullReportData] = useState<ApiResponse['report'] | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
-  // Fetch shift closing data when dialog opens
+  // Fetch shift closing data when dialog opens, or use provided shiftData
   useEffect(() => {
-    if (open && shiftId) {
-      fetchShiftData();
+    if (open) {
+      // If shiftData prop is provided and has necessary fields, use it directly
+      if (shiftData && (shiftData.shiftNumber || shiftData.closingRevenue !== undefined || shiftData.closingOrders !== undefined)) {
+        console.log('[Shift Closing Receipt] Using provided shiftData prop:', shiftData);
+        loadReceiptFromShiftData(shiftData);
+      } else if (shiftId) {
+        // Otherwise fetch by ID
+        fetchShiftData();
+      }
     }
-  }, [open, shiftId]);
+  }, [open, shiftId, shiftData]);
 
   // Auto-print all three papers when data is loaded
   useEffect(() => {
@@ -145,8 +154,31 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
   const fetchShiftData = async () => {
     setLoading(true);
     setError(null);
+    setIsOfflineMode(false);
+
     try {
-      const response = await fetch(`/api/shifts/${shiftId}/closing-report`);
+      // Check if shiftId is a temporary ID and map it to real ID
+      let apiShiftId = shiftId;
+      if (shiftId.startsWith('temp-')) {
+        try {
+          const { getIndexedDBStorage } = await import('@/lib/storage/indexeddb-storage');
+          const storageService = getIndexedDBStorage();
+          await storageService.init();
+
+          const realId = await storageService.getRealIdFromTemp(shiftId);
+          if (realId) {
+            console.log('[Shift Closing Receipt] Mapped temp ID', shiftId, 'to real ID', realId);
+            apiShiftId = realId;
+          } else {
+            console.warn('[Shift Closing Receipt] No mapping found for temp ID', shiftId);
+          }
+        } catch (mapError) {
+          console.error('[Shift Closing Receipt] Error checking ID mapping:', mapError);
+        }
+      }
+
+      // Try API first
+      const response = await fetch(`/api/shifts/${apiShiftId}/closing-report`);
       const result: ApiResponse = await response.json();
 
       if (!result.success || !result.report) {
@@ -182,12 +214,371 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
       };
 
       setData(transformedData);
+      setIsOfflineMode(false);
     } catch (err: any) {
-      console.error('[Shift Closing Receipt Error]', err);
-      setError(err.message || 'Failed to load shift closing data');
+      console.error('[Shift Closing Receipt] API fetch failed:', err);
+
+      // Try to load from local storage (offline mode)
+      try {
+        console.log('[Shift Closing Receipt] Loading from local storage...');
+        await fetchOfflineShiftReport();
+        setIsOfflineMode(true);
+      } catch (offlineError: any) {
+        console.error('[Shift Closing Receipt] Offline fetch failed:', offlineError);
+        setError(err.message || 'Failed to load shift closing data');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load receipt data from shiftData prop (offline mode)
+  const loadReceiptFromShiftData = (shift: any) => {
+    console.log('[Shift Closing Receipt] Loading receipt from shiftData:', shift);
+    
+    // Generate shift number if not available
+    const shiftNumber = shift.shiftNumber || shift.closingOrders || shift.openingOrders || 1;
+    const startTime = shift.startTime || new Date().toISOString();
+    const endTime = shift.endTime || new Date().toISOString();
+    
+    // Extract cashier info from shiftData
+    const cashierName = shift.cashier?.name || shift.cashierName || shift.cashierUsername || 'Unknown';
+    const cashierUsername = shift.cashier?.username || shift.cashierUsername || 'unknown';
+    
+    // Extract branch info from shiftData
+    const branchName = shift.branch?.branchName || shift.branchName || 'Unknown Branch';
+    
+    // Extract payment breakdown
+    const paymentBreakdown = shift.paymentBreakdown || {
+      cash: 0,
+      card: 0,
+      instapay: 0,
+      wallet: 0,
+      total: 0
+    };
+    
+    // Calculate totals from payment breakdown or orders
+    let cash = 0, card = 0, instapay = 0, wallet = 0;
+    if (paymentBreakdown) {
+      cash = paymentBreakdown.cash || 0;
+      card = paymentBreakdown.card || 0;
+      instapay = paymentBreakdown.instapay || 0;
+      wallet = paymentBreakdown.wallet || 0;
+    }
+    
+    // Generate report structure
+    const report = {
+      shift: {
+        id: shift.id,
+        shiftNumber,
+        startTime,
+        endTime,
+        cashier: {
+          name: cashierName,
+          username: cashierUsername
+        },
+        branch: {
+          id: shift.branchId || '',
+          branchName
+        },
+        openingCash: shift.openingCash || 0,
+        closingCash: shift.closingCash || 0,
+        openingOrders: shift.openingOrders || 0,
+        closingOrders: shift.closingOrders || 0,
+        openingRevenue: shift.openingRevenue || 0,
+        closingRevenue: shift.closingRevenue || 0,
+        notes: shift.notes
+      },
+      paymentSummary: {
+        cash,
+        card,
+        instapay,
+        wallet,
+        other: 0,
+        total: cash + card + instapay + wallet
+      },
+      orderTypeBreakdown: {
+        'take-away': { value: 0, discounts: 0, count: 0, total: 0 },
+        'dine-in': { value: 0, discounts: 0, count: 0, total: 0 },
+        'delivery': { value: 0, discounts: 0, count: 0, total: 0 }
+      },
+      totals: {
+        sales: shift.closingRevenue || 0,
+        discounts: 0,
+        deliveryFees: 0,
+        refunds: 0,
+        voidedItems: 0,
+        card,
+        instapay,
+        wallet,
+        cash,
+        dailyExpenses: 0,
+        openingCashBalance: shift.openingCash || 0,
+        expectedCash: (shift.openingCash || 0) + cash,
+        closingCashBalance: shift.closingCash || 0,
+        overShort: shift.closingCash ? (shift.closingCash - ((shift.openingCash || 0) + cash)) : 0
+      },
+      categoryBreakdown: [],
+      voidedItems: [],
+      refundedOrders: []
+    };
+    
+    setFullReportData(report);
+    
+    // Transform to ShiftClosingReportData format
+    const transformedData: ShiftClosingReportData = {
+      storeName: 'Emperor Coffee',
+      branchName: report.shift.branch.branchName,
+      shift: {
+        shiftNumber: report.shift.shiftNumber,
+        startTime: report.shift.startTime,
+        endTime: report.shift.endTime,
+        cashier: report.shift.cashier
+      },
+      paymentSummary: report.paymentSummary,
+      categoryBreakdown: [],
+      fontSize: 'medium'
+    };
+    
+    setData(transformedData);
+    console.log('[Shift Closing Receipt] Receipt loaded from shiftData');
+  };
+
+  // Generate closing report from local storage data
+  const fetchOfflineShiftReport = async () => {
+    const { getLocalStorageService } = await import('@/lib/storage/local-storage');
+    const localStorageService = getLocalStorageService();
+    await localStorageService.init();
+
+    // Get shift data
+    const shifts = await localStorageService.getAllShifts();
+    const shift = shifts.find((s: any) => s.id === shiftId);
+
+    if (!shift) {
+      throw new Error('Shift not found in local storage');
+    }
+
+    console.log('[Shift Closing Receipt] Found shift in local storage:', shift);
+
+    // Get orders for this shift
+    const allOrders = await localStorageService.getAllOrders();
+    const shiftOrders = allOrders.filter((order: any) => order.shiftId === shiftId);
+
+    console.log('[Shift Closing Receipt] Found orders:', shiftOrders.length);
+
+    // Calculate payment breakdown
+    let cash = 0;
+    let card = 0;
+    let instapay = 0;
+    let wallet = 0;
+
+    shiftOrders.forEach((order: any) => {
+      const paymentMethod = order.paymentMethod?.toLowerCase();
+      if (paymentMethod === 'cash') {
+        cash += order.totalAmount || 0;
+      } else if (paymentMethod === 'card') {
+        const detail = order.paymentMethodDetail?.toUpperCase();
+        if (detail === 'INSTAPAY') {
+          instapay += order.totalAmount || 0;
+        } else if (detail === 'MOBILE_WALLET') {
+          wallet += order.totalAmount || 0;
+        } else {
+          card += order.totalAmount || 0;
+        }
+      }
+    });
+
+    // Calculate order type breakdown
+    const orderTypeBreakdown = {
+      'take-away': { value: 0, discounts: 0, count: 0, total: 0 },
+      'dine-in': { value: 0, discounts: 0, count: 0, total: 0 },
+      'delivery': { value: 0, discounts: 0, count: 0, total: 0 }
+    };
+
+    let totalSales = 0;
+    let totalDiscounts = 0;
+    let totalDeliveryFees = 0;
+
+    shiftOrders.forEach((order: any) => {
+      if (order.isRefunded) return;
+
+      const type = order.orderType || 'dine-in';
+      if (orderTypeBreakdown[type]) {
+        orderTypeBreakdown[type].value += order.subtotal || 0;
+        orderTypeBreakdown[type].count += 1;
+        totalSales += order.subtotal || 0;
+      }
+
+      const orderDiscount = (order.promoDiscount || 0) + (order.loyaltyDiscount || 0);
+      if (orderTypeBreakdown[type]) {
+        orderTypeBreakdown[type].discounts += orderDiscount;
+      }
+      totalDiscounts += orderDiscount;
+
+      totalDeliveryFees += order.deliveryFee || 0;
+    });
+
+    // Calculate totals per order type
+    Object.keys(orderTypeBreakdown).forEach(type => {
+      orderTypeBreakdown[type].total = orderTypeBreakdown[type].value - orderTypeBreakdown[type].discounts;
+    });
+
+    // Group items by category
+    const categoryMap = new Map<string, {
+      categoryName: string;
+      totalSales: number;
+      items: Map<string, {
+        itemId: string;
+        itemName: string;
+        quantity: number;
+        totalPrice: number;
+      }>;
+    }>();
+
+    shiftOrders.forEach((order: any) => {
+      if (order.isRefunded) return;
+
+      if (order.items) {
+        order.items.forEach((item: any) => {
+          const category = item.menuItem?.category || 'Uncategorized';
+
+          if (!categoryMap.has(category)) {
+            categoryMap.set(category, {
+              categoryName: category,
+              totalSales: 0,
+              items: new Map()
+            });
+          }
+
+          const catData = categoryMap.get(category)!;
+          catData.totalSales += item.subtotal || 0;
+
+          const itemId = item.menuItemId + (item.menuItemVariantId ? `_${item.menuItemVariantId}` : '');
+          const itemName = item.menuItemVariant?.variantOption?.name 
+            ? `${item.itemName} (${item.menuItemVariant.variantOption.name})`
+            : item.itemName;
+
+          if (!catData.items.has(itemId)) {
+            catData.items.set(itemId, {
+              itemId,
+              itemName,
+              quantity: 0,
+              totalPrice: 0
+            });
+          }
+
+          const itemData = catData.items.get(itemId)!;
+          itemData.quantity += item.quantity || 0;
+          itemData.totalPrice += item.subtotal || 0;
+        });
+      }
+    });
+
+    // Convert to array
+    const categoryBreakdown = Array.from(categoryMap.values())
+      .filter(cat => cat.totalSales > 0)
+      .map(cat => ({
+        categoryName: cat.categoryName,
+        totalSales: cat.totalSales,
+        items: Array.from(cat.items.values()).map(item => ({
+          itemId: item.itemId,
+          itemName: item.itemName,
+          quantity: item.quantity,
+          totalPrice: item.totalPrice
+        }))
+      }))
+      .sort((a, b) => b.totalSales - a.totalSales);
+
+    // Get daily expenses from localStorage
+    const totalDailyExpenses = 0; // Not tracked in localStorage yet
+
+    // Calculate expected cash
+    const expectedCash = (shift.openingCash || 0) + cash - totalDailyExpenses;
+    const overShort = shift.closingCash ? shift.closingCash - expectedCash : 0;
+
+    // Generate shift number
+    const shiftNumber = shift.openingOrders || shift.closingOrders || shiftOrders.length || 1;
+
+    // Create the full report data
+    const report = {
+      shift: {
+        id: shift.id,
+        shiftNumber,
+        startTime: shift.startTime,
+        endTime: shift.endTime || new Date().toISOString(),
+        cashier: {
+          name: shift.cashierName || 'Unknown',
+          username: shift.cashierUsername || 'Unknown'
+        },
+        branch: {
+          id: shift.branchId,
+          branchName: shift.branchName || 'Unknown Branch'
+        },
+        openingCash: shift.openingCash || 0,
+        closingCash: shift.closingCash || 0,
+        openingOrders: shift.openingOrders || 0,
+        closingOrders: shift.closingOrders || shiftOrders.length,
+        openingRevenue: shift.openingRevenue || 0,
+        closingRevenue: shift.closingRevenue || totalSales,
+        notes: shift.notes
+      },
+      paymentSummary: {
+        cash,
+        card,
+        instapay,
+        wallet,
+        other: 0,
+        total: cash + card + instapay + wallet
+      },
+      orderTypeBreakdown,
+      totals: {
+        sales: totalSales,
+        discounts: totalDiscounts,
+        deliveryFees: totalDeliveryFees,
+        refunds: 0,
+        voidedItems: 0,
+        card,
+        instapay,
+        wallet,
+        cash,
+        dailyExpenses: totalDailyExpenses,
+        openingCashBalance: shift.openingCash || 0,
+        expectedCash,
+        closingCashBalance: shift.closingCash || 0,
+        overShort
+      },
+      categoryBreakdown,
+      voidedItems: [],
+      refundedOrders: []
+    };
+
+    setFullReportData(report);
+
+    // Transform to ShiftClosingReportData format
+    const transformedData: ShiftClosingReportData = {
+      storeName: 'Emperor Coffee',
+      branchName: report.shift.branch.branchName,
+      shift: {
+        shiftNumber: report.shift.shiftNumber,
+        startTime: report.shift.startTime,
+        endTime: report.shift.endTime,
+        cashier: report.shift.cashier
+      },
+      paymentSummary: report.paymentSummary,
+      categoryBreakdown: report.categoryBreakdown.map(cat => ({
+        categoryName: cat.categoryName,
+        totalSales: cat.totalSales,
+        items: cat.items.map(item => ({
+          itemName: item.itemName,
+          quantity: item.quantity,
+          totalPrice: item.totalPrice
+        }))
+      })),
+      fontSize: 'medium'
+    };
+
+    setData(transformedData);
+    console.log('[Shift Closing Receipt] Offline report generated successfully');
   };
 
   const printThermalPaper1 = () => {

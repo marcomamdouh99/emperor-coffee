@@ -584,12 +584,14 @@ class OfflineManager {
     failed: number;
     failedIds: string[];
     errors: string[];
+    idMappings: Record<string, string>; // Temp ID -> Real ID mappings
   }> {
     const result = {
       processed: 0,
       failed: 0,
       failedIds: [] as string[],
       errors: [] as string[],
+      idMappings: {} as Record<string, string>,
     };
 
     try {
@@ -616,6 +618,13 @@ class OfflineManager {
       result.failed = batchResult.failed || 0;
       result.failedIds = batchResult.failedIds || [];
       result.errors = batchResult.errors || [];
+      result.idMappings = batchResult.idMappings || {};
+
+      // Store id mappings for future lookups (e.g., viewing offline-closed shifts online)
+      if (Object.keys(result.idMappings).length > 0) {
+        await storageService.saveIdMappings(result.idMappings);
+        console.log('[OfflineManager] Saved', Object.keys(result.idMappings).length, 'ID mappings:', result.idMappings);
+      }
 
       return result;
     } catch (error) {

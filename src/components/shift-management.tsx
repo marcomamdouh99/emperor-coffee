@@ -80,30 +80,33 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
     await localStorageService.init();
     console.log('[Shift] localStorageService initialized');
 
+    // Get branches to find branch name
+    const branches = await localStorageService.getBranches();
+    const branch = branches.find((b: any) => b.id === shiftData.branchId);
+    const branchName = branch?.branchName || 'Unknown Branch';
+
     // Create a temporary shift ID (will be replaced on sync)
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     console.log('[Shift] Created tempId:', tempId);
 
-    // Create shift object
+    // Create shift object with flattened cashier and branch info
     const newShift = {
       id: tempId,
       branchId: shiftData.branchId,
+      branchName: branchName,
       cashierId: shiftData.cashierId,
+      cashierName: user.name || user.username,
+      cashierUsername: user.username,
       dayId: shiftData.dayId,
       startTime: new Date().toISOString(),
       openingCash: shiftData.openingCash,
       openingOrders: 0,
       openingRevenue: 0,
+      shiftNumber: 1, // Start at 1 for the day
       isClosed: false,
       notes: shiftData.notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      // Include cashier info for display
-      cashier: {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-      },
       orderCount: 0,
       currentRevenue: 0,
       currentOrders: 0,
@@ -126,6 +129,9 @@ async function createShiftOffline(shiftData: any, user: any): Promise<void> {
         isClosed: newShift.isClosed,
         createdAt: newShift.createdAt,
         updatedAt: newShift.updatedAt,
+        cashierName: newShift.cashierName,
+        cashierUsername: newShift.cashierUsername,
+        branchName: newShift.branchName,
       },
       branchId: shiftData.branchId,
       retryCount: 0,
@@ -220,7 +226,7 @@ async function closeShiftOffline(
   closingCash: number,
   notes: string,
   paymentBreakdown: PaymentBreakdown
-): Promise<void> {
+): Promise<any> {
   try {
     console.log('[Shift] Closing shift offline, shift:', shift);
 
@@ -264,7 +270,7 @@ async function closeShiftOffline(
       openingCash: shift.openingCash || 0,
     });
 
-    // Update shift object with calculated closing data
+    // Update shift object with calculated closing data, preserving cashier and branch info
     const updatedShift = {
       ...shift,
       endTime: new Date().toISOString(),
@@ -276,6 +282,13 @@ async function closeShiftOffline(
       notes: notes || shift.notes,
       paymentBreakdown: paymentBreakdown || shift.paymentBreakdown,
       updatedAt: new Date().toISOString(),
+      // Preserve cashier and branch info for receipt display
+      cashierName: shift.cashierName || shift.cashier?.name,
+      cashierUsername: shift.cashierUsername || shift.cashier?.username,
+      branchName: shift.branchName || shift.branch?.branchName,
+      branchId: shift.branchId,
+      shiftNumber: shift.shiftNumber || shift.openingOrders || shiftOrders.length,
+      startTime: shift.startTime || new Date().toISOString(),
     };
 
     console.log('[Shift] Updated shift object:', updatedShift);
@@ -296,6 +309,10 @@ async function closeShiftOffline(
         notes: notes || shift.notes,
         paymentBreakdown: paymentBreakdown || shift.paymentBreakdown,
         endTime: updatedShift.endTime,
+        // Include cashier and branch info for database creation
+        cashierName: updatedShift.cashierName,
+        cashierUsername: updatedShift.cashierUsername,
+        branchName: updatedShift.branchName,
       },
       branchId: shift.branchId,
       retryCount: 0,
@@ -303,6 +320,9 @@ async function closeShiftOffline(
     console.log('[Shift] Close operation queued for sync');
 
     console.log('[Shift] Shift closed offline successfully:', updatedShift);
+
+    // Return the updated shift for receipt generation
+    return updatedShift;
   } catch (error) {
     console.error('[Shift] Failed to close shift offline, error:', error);
     throw error;
@@ -1668,14 +1688,13 @@ export default function ShiftManagement() {
           if (isNetworkError) {
             console.log('[Shift] Network error detected (API), trying offline mode to close shift');
             try {
-              await closeShiftOffline(
+              const closedShift = await closeShiftOffline(
                 selectedShift,
                 parseFloat(closingCash) || 0,
                 shiftNotes,
                 paymentBreakdown
               );
               // Set the shift for receipt and open the receipt dialog to auto-print
-              const closedShift = { ...selectedShift, isClosed: true };
               setShiftForReceipt(closedShift);
               setShiftClosingReceiptOpen(true);
 
@@ -1704,14 +1723,13 @@ export default function ShiftManagement() {
         // Offline mode - close shift locally
         console.log('[Shift] Offline mode detected, closing shift locally');
         try {
-          await closeShiftOffline(
+          const closedShift = await closeShiftOffline(
             selectedShift,
             parseFloat(closingCash) || 0,
             shiftNotes,
             paymentBreakdown
           );
           // Set the shift for receipt and open the receipt dialog to auto-print
-          const closedShift = { ...selectedShift, isClosed: true };
           setShiftForReceipt(closedShift);
           setShiftClosingReceiptOpen(true);
 
@@ -1754,14 +1772,13 @@ export default function ShiftManagement() {
       if (isNetworkError) {
         console.log('[Shift] Network error detected, trying to close shift locally');
         try {
-          await closeShiftOffline(
+          const closedShift = await closeShiftOffline(
             selectedShift,
             parseFloat(closingCash) || 0,
             shiftNotes,
             paymentBreakdown
           );
           // Set the shift for receipt and open the receipt dialog to auto-print
-          const closedShift = { ...selectedShift, isClosed: true };
           setShiftForReceipt(closedShift);
           setShiftClosingReceiptOpen(true);
 
@@ -3024,6 +3041,7 @@ export default function ShiftManagement() {
       {shiftForReceipt && (
         <ShiftClosingReceipt
           shiftId={shiftForReceipt.id}
+          shiftData={shiftForReceipt}
           open={shiftClosingReceiptOpen}
           onClose={() => {
             setShiftClosingReceiptOpen(false);

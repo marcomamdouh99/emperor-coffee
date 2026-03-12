@@ -156,6 +156,7 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
       conflictsDetected: 0,
       conflictsResolved: 0,
+      idMappings: {} as Record<string, string>, // Temp ID -> Real ID mappings
     };
 
     // Sort operations by priority (lower priority = higher priority)
@@ -203,6 +204,13 @@ export async function POST(request: NextRequest) {
     results.conflictsResolved = autoResolvedConflicts.length;
     results.conflictsDetected = conflictManager.getAllConflicts().length;
 
+    // Copy temp ID mappings from the in-memory map to results
+    // This allows the frontend to update its localStorage with the real IDs
+    tempIdToRealIdMap.forEach((realId, tempId) => {
+      results.idMappings[tempId] = realId;
+    });
+    console.log(`[BatchPush] Generated ${Object.keys(results.idMappings).length} ID mappings`);
+
     // Record sync history if any operations were processed
     if (results.processed > 0) {
       const syncHistoryId = await createSyncHistory(
@@ -233,6 +241,7 @@ export async function POST(request: NextRequest) {
       conflictsDetected: results.conflictsDetected,
       conflictsResolved: results.conflictsResolved,
       conflictStats: conflictManager.getConflictStats(),
+      idMappings: results.idMappings, // Return ID mappings for frontend to update localStorage
     });
   } catch (error) {
     console.error('[BatchPush] Error:', error);

@@ -576,6 +576,45 @@ class IndexedDBStorage {
     await this.clearStore('temp_id_mappings');
   }
 
+  /**
+   * Save a batch of temporary ID to real ID mappings
+   * Called after successful sync to store all mappings from the server
+   */
+  async saveIdMappings(mappings: Record<string, string>): Promise<void> {
+    for (const [tempId, realId] of Object.entries(mappings)) {
+      // Determine entity type from the temp ID or real ID pattern
+      const entityType = this.inferEntityType(tempId, realId);
+      await this.saveTempIdMapping(tempId, realId, entityType);
+    }
+  }
+
+  /**
+   * Infer entity type from ID patterns
+   */
+  private inferEntityType(tempId: string, realId: string): string {
+    // Check temp ID patterns
+    if (tempId.startsWith('temp-') || tempId.includes('shift')) {
+      return 'shift';
+    } else if (tempId.includes('order') || tempId.includes('Order')) {
+      return 'order';
+    } else if (tempId.includes('customer') || tempId.includes('Customer')) {
+      return 'customer';
+    }
+    return 'unknown';
+  }
+
+  /**
+   * Get all ID mappings as a record
+   */
+  async getAllIdMappings(): Promise<Record<string, string>> {
+    const mappings = await this.getAllTempIdMappings();
+    const result: Record<string, string> = {};
+    mappings.forEach(m => {
+      result[m.tempId] = m.realId;
+    });
+    return result;
+  }
+
   // ============================================
   // CLEAR ALL DATA
   // ============================================
