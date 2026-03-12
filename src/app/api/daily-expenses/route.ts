@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
  * Get or create "Daily Expenses" cost category for a branch
  */
 async function getDailyExpensesCostCategory(branchId: string) {
+  console.log('[Daily Expenses] Looking for Daily Expenses cost category for branch:', branchId);
+
   let costCategory = await db.costCategory.findFirst({
     where: {
       name: 'Daily Expenses',
@@ -13,6 +15,7 @@ async function getDailyExpensesCostCategory(branchId: string) {
   });
 
   if (!costCategory) {
+    console.log('[Daily Expenses] Daily Expenses category not found, creating new one for branch:', branchId);
     // Create the daily expenses category for this branch
     costCategory = await db.costCategory.create({
       data: {
@@ -24,6 +27,9 @@ async function getDailyExpensesCostCategory(branchId: string) {
         branchId, // Make it branch-specific
       },
     });
+    console.log('[Daily Expenses] Created Daily Expenses cost category:', costCategory.id);
+  } else {
+    console.log('[Daily Expenses] Found existing Daily Expenses cost category:', costCategory.id);
   }
 
   return costCategory;
@@ -282,7 +288,9 @@ export async function POST(request: NextRequest) {
 
     // Create corresponding BranchCost record for reporting in Branch Operation
     let branchCost = null;
+    let costCreationError = null;
     try {
+      console.log('[Daily Expenses] Attempting to create/update BranchCost for branch:', branchId);
       branchCost = await createOrUpdateDailyExpenseCost(branchId, parseFloat(amount), reason.trim(), shiftId, recordedBy);
 
       // Update the expense with the costId
@@ -292,8 +300,15 @@ export async function POST(request: NextRequest) {
       });
 
       expense.costId = branchCost.id;
-    } catch (costError) {
+      console.log('[Daily Expenses] Successfully created/updated BranchCost:', branchCost.id, 'Amount:', branchCost.amount);
+    } catch (costError: any) {
+      costCreationError = costError;
       console.error('[Daily Expenses] Failed to create/update cost record:', costError);
+      console.error('[Daily Expenses] Cost error details:', {
+        message: costError.message,
+        code: costError.code,
+        meta: costError.meta,
+      });
       // Don't fail the expense creation if cost creation fails
     }
 
@@ -302,12 +317,17 @@ export async function POST(request: NextRequest) {
       amount: expense.amount,
       reason: expense.reason,
       costId: expense.costId,
+      costCreationError: costCreationError ? costCreationError.message : null,
     });
 
+    // Return success with a warning if cost creation failed
     return NextResponse.json({
       success: true,
       expense,
-      message: 'Daily expense recorded successfully',
+      message: costCreationError
+        ? 'Daily expense recorded (but failed to create cost entry - check logs)'
+        : 'Daily expense recorded successfully',
+      costWarning: costCreationError ? costCreationError.message : null,
     });
   } catch (error: any) {
     console.error('[Daily Expenses] Create expense error:', error);

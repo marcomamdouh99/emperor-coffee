@@ -88,7 +88,15 @@ export default function CostManagement() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [costCategories, setCostCategories] = useState<CostCategory[]>([]);
   const [summary, setSummary] = useState<SummaryData | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  // Initialize selectedBranch based on user role - Branch Manager should see only their branch
+  const [selectedBranch, setSelectedBranch] = useState<string>(() => {
+    if (currentUser?.role === 'ADMIN') {
+      return 'all';
+    } else if (currentUser?.branchId) {
+      return currentUser.branchId;
+    }
+    return 'all';
+  });
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCost, setEditingCost] = useState<BranchCost | null>(null);
@@ -157,13 +165,6 @@ export default function CostManagement() {
     };
     fetchBranches();
   }, []);
-
-  // Set default branch filter based on user role
-  useEffect(() => {
-    if (currentUser?.role === 'BRANCH_MANAGER' && currentUser.branchId) {
-      setSelectedBranch(currentUser.branchId);
-    }
-  }, [currentUser]);
 
   // Fetch cost categories
   const fetchCostCategories = async () => {

@@ -120,7 +120,15 @@ export default function ReportsDashboard() {
   const { currency, t } = useI18n();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  // Initialize selectedBranch based on user role - Branch Manager should see only their branch
+  const [selectedBranch, setSelectedBranch] = useState<string>(() => {
+    if (user?.role === 'ADMIN') {
+      return 'all';
+    } else if (user?.branchId) {
+      return user.branchId;
+    }
+    return 'all';
+  });
   const [timeRange, setTimeRange] = useState('year'); // Changed from 'month' to 'year' to show more data
   const [comparePeriod, setComparePeriod] = useState(true);
   const [kpiData, setKPIData] = useState<KPIData | null>(null);

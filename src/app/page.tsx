@@ -385,8 +385,8 @@ export default function POSDashboard() {
   const canAccessCustomers = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
   const canAccessCosts = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
   const canAccessTransfers = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
-  const canAccessSuppliers = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
-  const canAccessPurchaseOrders = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
+  const canAccessSuppliers = user.role === 'ADMIN';
+  const canAccessPurchaseOrders = user.role === 'ADMIN';
   const canAccessTables = user.role === 'ADMIN';
   const canAccessAuditLogs = user.role === 'ADMIN' || user.role === 'BRANCH_MANAGER';
 
