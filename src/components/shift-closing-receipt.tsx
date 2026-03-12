@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Printer, FileText, Package, DollarSign, Loader2, AlertCircle } from 'lucide-react';
+import { Printer, FileText, Package, DollarSign, Loader2, AlertCircle, X, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { type ShiftClosingReportData } from '@/lib/escpos-encoder';
 
@@ -72,6 +72,27 @@ interface ApiResponse {
         totalPrice: number;
       }>;
     }>;
+    voidedItems: Array<{
+      id: string;
+      itemName: string;
+      voidedQuantity: number;
+      unitPrice: number;
+      voidedSubtotal: number;
+      reason: string;
+      voidedBy: string;
+      voidedAt: string;
+      orderNumber: number;
+      orderTimestamp: string;
+    }>;
+    refundedOrders: Array<{
+      id: string;
+      orderNumber: number;
+      orderTimestamp: string;
+      refundAmount: number;
+      refundReason: string;
+      refundedAt: string;
+      paymentMethod: string;
+    }>;
   };
   error?: string;
   details?: string;
@@ -90,11 +111,11 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     }
   }, [open, shiftId]);
 
-  // Auto-print both papers when data is loaded
+  // Auto-print all three papers when data is loaded
   useEffect(() => {
     if (data && open) {
       console.log('[Shift Closing] Auto-printing shift closing receipt...');
-      
+
       // Small delay to ensure the dialog is rendered
       const timer1 = setTimeout(() => {
         console.log('[Shift Closing] Printing Paper 1 (Payment Summary)...');
@@ -107,9 +128,16 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
         printThermalPaper2();
       }, 4000); // 4 second delay between prints
 
+      // Print Paper 3 (Voids and Refunds) after another delay
+      const timer3 = setTimeout(() => {
+        console.log('[Shift Closing] Printing Paper 3 (Voids and Refunds)...');
+        printThermalPaper3();
+      }, 7000); // 7 second delay between prints
+
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
+        clearTimeout(timer3);
       };
     }
   }, [data, open]);
@@ -676,6 +704,240 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
     setTimeout(() => printWindow.print(), 250);
   };
 
+  const printThermalPaper3 = () => {
+    if (!fullReportData) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const cashierName = fullReportData.shift.cashier.name || fullReportData.shift.cashier.username;
+    const dateStr = new Date(fullReportData.shift.startTime).toLocaleDateString();
+    const timeStr = `${new Date(fullReportData.shift.startTime).toLocaleTimeString()} - ${new Date(fullReportData.shift.endTime).toLocaleTimeString()}`;
+
+    const voidedItems = fullReportData.voidedItems || [];
+    const refundedOrders = fullReportData.refundedOrders || [];
+
+    let voidsHtml = '';
+    if (voidedItems.length > 0) {
+      voidsHtml = `
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: bold; margin-bottom: 5px; text-decoration: underline;">VOIDED ITEMS</div>
+      `;
+
+      voidedItems.forEach(item => {
+        const voidedDate = new Date(item.voidedAt).toLocaleString();
+        voidsHtml += `
+          <div style="margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 5px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <span style="font-weight: bold;">${item.itemName}</span>
+              <span style="font-weight: bold;">-${formatCurrency(item.voidedSubtotal)}</span>
+            </div>
+            <div style="font-size: 11px; margin-bottom: 1px;">Qty Voided: ${item.voidedQuantity} x ${formatCurrency(item.unitPrice)}</div>
+            <div style="font-size: 11px; margin-bottom: 1px;">Order #${item.orderNumber}</div>
+            <div style="font-size: 11px; margin-bottom: 1px;">Voided At: ${voidedDate}</div>
+            <div style="font-size: 11px; margin-bottom: 1px;">Reason: ${item.reason}</div>
+          </div>
+        `;
+      });
+
+      voidsHtml += '</div>';
+    }
+
+    let refundsHtml = '';
+    if (refundedOrders.length > 0) {
+      refundsHtml = `
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: bold; margin-bottom: 5px; text-decoration: underline;">REFUNDS</div>
+      `;
+
+      refundedOrders.forEach(refund => {
+        const refundedDate = new Date(refund.refundedAt).toLocaleString();
+        refundsHtml += `
+          <div style="margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 5px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <span style="font-weight: bold;">Order #${refund.orderNumber}</span>
+              <span style="font-weight: bold;">-${formatCurrency(refund.refundAmount)}</span>
+            </div>
+            <div style="font-size: 11px; margin-bottom: 1px;">Refunded At: ${refundedDate}</div>
+            <div style="font-size: 11px; margin-bottom: 1px;">Payment Method: ${refund.paymentMethod}</div>
+            <div style="font-size: 11px; margin-bottom: 1px;">Reason: ${refund.refundReason}</div>
+          </div>
+        `;
+      });
+
+      refundsHtml += '</div>';
+    }
+
+    const content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Shift Closing - Voids and Refunds</title>
+  <style>
+    @page {
+      size: 80mm auto;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      color: #000 !important;
+    }
+
+    @media print {
+      @page {
+        margin: 0;
+        padding: 0;
+        size: 80mm auto;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      html, body {
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: auto;
+      width: 80mm;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      max-width: 80mm;
+      margin: 0 auto;
+      padding: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      background: white;
+      color: #000;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px dashed #000;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 0;
+      color: #000;
+    }
+
+    .header div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
+    .info {
+      margin-bottom: 10px;
+      font-size: 12px;
+      padding: 0;
+    }
+
+    .info div {
+      margin: 2px 0;
+      padding: 0;
+      color: #000;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0;
+      padding: 0;
+    }
+
+    .total-row.grand-total {
+      font-weight: bold;
+      font-size: 14px;
+      margin-top: 8px;
+      padding-top: 5px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 2px dashed #000;
+      font-size: 10px;
+      padding-bottom: 0;
+      color: #000;
+    }
+
+    .section-divider {
+      border-top: 2px dashed #000;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Emperor Coffee</h1>
+    <div>${fullReportData.shift.branch.branchName}</div>
+    <div>Shift Closing #${fullReportData.shift.shiftNumber}</div>
+    <div>Voids & Refunds</div>
+  </div>
+
+  <div class="info">
+    <div>Date: ${dateStr}</div>
+    <div>Time: ${timeStr}</div>
+    <div>Cashier: ${cashierName}</div>
+  </div>
+
+  <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+
+  ${voidsHtml}
+
+  ${voidsHtml && refundsHtml ? '<div class="section-divider"></div>' : ''}
+
+  ${refundsHtml}
+
+  <div style="border-top: 2px dashed #000; margin: 10px 0;"></div>
+
+  <div>
+    <div class="total-row">
+      <span>Total Voided Items:</span>
+      <span>-${formatCurrency(fullReportData.totals.voidedItems || 0)}</span>
+    </div>
+    <div class="total-row">
+      <span>Total Refunds:</span>
+      <span>-${formatCurrency(fullReportData.totals.refunds || 0)}</span>
+    </div>
+    <div class="total-row grand-total">
+      <span>Total Deductions:</span>
+      <span>-${formatCurrency((fullReportData.totals.voidedItems || 0) + (fullReportData.totals.refunds || 0))}</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>Emperor Coffee Franchise</div>
+  </div>
+</body>
+</html>`;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 250);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl p-0 flex flex-col" style={{ height: '85vh' }}>
@@ -862,6 +1124,135 @@ export function ShiftClosingReceipt({ shiftId, open, onClose }: ShiftClosingRece
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Paper 3: Voids and Refunds */}
+                {fullReportData && (fullReportData.voidedItems?.length > 0 || fullReportData.refundedOrders?.length > 0) && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            <AlertCircle className="h-5 w-5" />
+                            Paper 3: Voids & Refunds
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            Voided items and refunds during shift #{data.shift.shiftNumber}
+                          </CardDescription>
+                        </div>
+                        <Button
+                          onClick={printThermalPaper3}
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <Printer className="h-4 w-4" />
+                          Print
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <Separator />
+                    <CardContent className="pt-4">
+                      <div className="space-y-6">
+                        {/* Voided Items Section */}
+                        {fullReportData.voidedItems && fullReportData.voidedItems.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <X className="h-4 w-4 text-red-600" />
+                              <span className="font-semibold text-sm text-red-600">
+                                Voided Items ({fullReportData.voidedItems.length})
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {fullReportData.voidedItems.map((item, idx) => (
+                                <div key={idx} className="p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-sm">{item.itemName}</div>
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        Order #{item.orderNumber}
+                                      </div>
+                                    </div>
+                                    <div className="font-bold text-red-600 dark:text-red-400">
+                                      -{formatCurrency(item.voidedSubtotal)}
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                                    <span>Qty: {item.voidedQuantity} × {formatCurrency(item.unitPrice)}</span>
+                                    <span>{new Date(item.voidedAt).toLocaleString()}</span>
+                                  </div>
+                                  {item.reason && (
+                                    <div className="mt-2 text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">
+                                      Reason: {item.reason}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Refunded Orders Section */}
+                        {fullReportData.refundedOrders && fullReportData.refundedOrders.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <RefreshCw className="h-4 w-4 text-orange-600" />
+                              <span className="font-semibold text-sm text-orange-600">
+                                Refunded Orders ({fullReportData.refundedOrders.length})
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {fullReportData.refundedOrders.map((refund, idx) => (
+                                <div key={idx} className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-900">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-sm">Order #{refund.orderNumber}</div>
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        Payment: {refund.paymentMethod}
+                                      </div>
+                                    </div>
+                                    <div className="font-bold text-orange-600 dark:text-orange-400">
+                                      -{formatCurrency(refund.refundAmount)}
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                                    <span>Refunded: {new Date(refund.refundedAt).toLocaleString()}</span>
+                                  </div>
+                                  {refund.refundReason && (
+                                    <div className="mt-2 text-xs bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded">
+                                      Reason: {refund.refundReason}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Totals Summary */}
+                        <div className="mt-4 pt-4 border-t">
+                          <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                            <span className="font-semibold text-sm">Total Voided Items:</span>
+                            <span className="font-bold text-red-600">
+                              -{formatCurrency(fullReportData.totals.voidedItems || 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                            <span className="font-semibold text-sm">Total Refunds:</span>
+                            <span className="font-bold text-orange-600">
+                              -{formatCurrency(fullReportData.totals.refunds || 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900 mt-2">
+                            <span className="font-semibold text-sm">Total Deductions:</span>
+                            <span className="font-bold text-red-600">
+                              -{formatCurrency((fullReportData.totals.voidedItems || 0) + (fullReportData.totals.refunds || 0))}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
 
