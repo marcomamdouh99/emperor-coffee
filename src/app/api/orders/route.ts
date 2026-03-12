@@ -896,6 +896,13 @@ export async function GET(request: NextRequest) {
         customer: true,
         table: true,
         deliveryArea: true,
+        cashier: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+          }
+        },
       },
     });
 
