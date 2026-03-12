@@ -540,11 +540,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get branch for response
-    const branch = await db.branch.findUnique({
-      where: { id: branchId },
-    });
-
     // Log promo code usage if applicable
     if (promoCodeId && promoDiscount && promoDiscount > 0) {
       console.log('[Order] Processing promo code:', { promoCodeId, promoDiscount });
